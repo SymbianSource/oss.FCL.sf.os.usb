@@ -1,0 +1,50 @@
+/*
+* Copyright (c) 2004-2009 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+* @file
+* Resource file for testing and example mass storage application
+* localized strings for UK English. A place holder only. The actual
+* strings however may not be UK English at all.
+*
+*/
+
+// personality one
+rls_string per_manufacturer1 	"Symbian"
+rls_string per_product1		"Symbian OS ACM"
+rls_string per_description1 	"Serial Emulation"
+rls_string per_detailedDescription1    	"Serial Emulation(detail)"
+
+// personality two
+rls_string per_manufacturer2 	"Symbian"
+rls_string per_product2		"Symbian OS WHCM"
+rls_string per_description2 	"Obex over USB"
+rls_string per_detailedDescription2    	"Obex over USB(detail)"
+
+// personality three
+rls_string per_manufacturer3 	"Symbian"
+rls_string per_product3		"Symbian OS MSCC"
+rls_string per_description3 	"USB Mass Storage"
+rls_string per_detailedDescription3    	"USB Mass Storage(detail)"
+
+// personality four
+rls_string per_manufacturer4 	"Symbian"
+rls_string per_product4		"Symbian OS MTP"
+rls_string per_description4 	"MTP over USB"
+rls_string per_detailedDescription4    	"MTP over USB(detail)"
+
+// personality five
+rls_string per_manufacturer5 	"Symbian"
+rls_string per_product5		"Symbian OS RNDIS"
+rls_string per_description5 	"IP over USB - RNDIS"
+rls_string per_detailedDescription5    	"IP over USB - RNDIS(detail)"

@@ -1,0 +1,30 @@
+/*
+* Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+*
+*/
+
+LOAD_SERVER TestServerSymbianExcludeUsb
+
+START_TESTCASE USB-ROMCONFIG-002
+//! @SYMTestCaseID USB-ROMCONFIG-002
+//! @SYMTestCaseDesc User::LoadLogicalDevice("EUSBC") should fail on a SYMBIAN_EXCLUDE_USB ROM
+//! @SYMREQ 5414
+//! @SYMTestType CIT
+//! @SYMTestPriority 1
+//! @SYMTestStatus Implemented
+//! @SYMTestActions Call User::LoadLogicalDevice("EUSBC")
+//! @SYMTestExpectedResults Returns KErrNotFound, as usb.ldd has been removed from ROM
+RUN_TEST_STEP 10 TestServerSymbianExcludeUsb USB_ROMCONFIG_002 c:\testdata\usbromconfig\UsbRomConfig.ini UsbExcluded
+END_TESTCASE USB-ROMCONFIG-002

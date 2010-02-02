@@ -1,0 +1,32 @@
+/*
+* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+* Universal Serial Bus Interface Manager
+*
+*/
+
+#ifndef __USBMAN_IBY__
+#define __USBMAN_IBY__
+
+REM *** The following iby files are always included, whether usb is supported
+REM *** by the device or not.
+
+#include <c32.iby>
+#include <ecom.iby>
+
+// Resources are in a separate file, for easier customisation
+#include <usbmanrsc.iby>
+#include <usbmanbin.iby>
+
+#endif // __USBMAN_IBY__

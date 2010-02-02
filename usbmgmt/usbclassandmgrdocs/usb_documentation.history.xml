@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<relnotes name="DEVELOPERLIBRARY">
+  <purpose>
+    Documentation for USB.
+  </purpose>
+
+  <defect number="DEF125990" title="USB Documentation directory includes project review documents" revision="003">
+    Project mgt documents removed
+  </defect>
+
+  <preq number="1782" title="USB Host and on-the-go for pre-installed drivers" revision="002"/>
+  <preq number="1576" title="State change plug-in interface to USB Manager (for charging)" revision="001"/>
+</relnotes>

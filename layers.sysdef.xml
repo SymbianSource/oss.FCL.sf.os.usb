@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE SystemDefinition SYSTEM "sysdef_1_4_0.dtd" [
+  <!ENTITY layer_real_source_path "sf/os/usb" >
+]>
+
+<SystemDefinition name="usb" schema="1.4.0">
+  <systemModel>
+    <layer name="os_layer">
+      <module name="usb">
+        <unit unitID="lcdo.usb" mrp="" bldFile="&layer_real_source_path;/group" name="usb" />
+      </module>
+    </layer>
+  </systemModel>
+</SystemDefinition>
