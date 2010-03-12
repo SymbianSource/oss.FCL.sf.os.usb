@@ -28,6 +28,7 @@ CAPABILITY		ProtServ TrustedUI
 
 
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+APP_LAYER_SYSTEMINCLUDE_SYMBIAN
 
 SOURCEPATH	  ../src
 SOURCE  refppnotifier.cpp refppdialog.cpp

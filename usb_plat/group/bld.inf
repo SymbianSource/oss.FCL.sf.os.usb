@@ -19,8 +19,6 @@
 PRJ_PLATFORMS
 DEFAULT
 
-#include "../usb_audio_stream_plugin_api/group/bld.inf"
-
 PRJ_EXPORTS
 
 PRJ_MMPFILES
