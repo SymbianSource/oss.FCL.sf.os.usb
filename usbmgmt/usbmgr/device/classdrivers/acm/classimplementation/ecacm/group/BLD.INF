@@ -23,9 +23,10 @@
 
 PRJ_EXPORTS
 ../public/AcmInterface.h 		SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(acminterface.h)
-ecacm.ini						/epoc32/data/z/system/data/ecacm.ini
 ../public/AcmConfig.h				SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/acmconfig.h)
 
+usbecacmconfiguration.hby	/epoc32/rom/include/usbecacmconfiguration.hby
+t_usbecacmconfiguration.hby	/epoc32/rom/include/t_usbecacmconfiguration.hby
 PRJ_MMPFILES
 ECACM.MMP
 

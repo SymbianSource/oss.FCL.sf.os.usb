@@ -25,12 +25,10 @@ VENDORID 0x70000001
 SOURCEPATH		../SRC
 SOURCE			CUsbAcmClassImpCollection.cpp
 SOURCE			CUsbACMClassController.cpp
+SOURCE          acmpatchedconsts.cpp
 
-SOURCEPATH		../../../../../inifile/src
-SOURCE			inifile.cpp
 
 USERINCLUDE		../INC
-USERINCLUDE		../../../../../inifile/inc
 USERINCLUDE		../../classimplementation/ecacm/public
 USERINCLUDE		../../../../../usbman/server/public
 

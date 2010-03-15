@@ -25,7 +25,7 @@
 #include "linkstatenotifier.h"
 #include "NotifyDataAvailableObserver.h"
 
-
+extern const TInt32 KUsbAcmHostCanHandleZLPs;
 
 class CActiveReadOneOrMoreReader;
 class CActiveReader;
@@ -81,8 +81,6 @@ private: // from MLinkStateObserver
 private: // from MNotifyDataAvailableObserver
 	void NotifyDataAvailableCompleted(TInt aError);
 
-private: 
-	void GetHostZLPHandlingFromFile();
 
 private: // owned
 	CActiveReadOneOrMoreReader* iReadOneOrMoreReader;

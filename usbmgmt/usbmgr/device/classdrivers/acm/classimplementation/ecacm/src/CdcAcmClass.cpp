@@ -28,6 +28,8 @@
 _LIT8(KLogComponent, "ECACM");
 #endif
 
+extern const TInt32 KUsbAcmHostCanHandleZLPs = 0;
+
 CCdcAcmClass::CCdcAcmClass()
 /**
  * Constructor.
