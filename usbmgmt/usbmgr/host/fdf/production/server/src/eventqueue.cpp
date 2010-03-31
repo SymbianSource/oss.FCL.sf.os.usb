@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -291,12 +291,7 @@ TBool CEventQueue::GetDevmonEvent(TInt& aEvent)
 			case KUsbEventOverflow:
 				aEvent = KErrUsbEventOverflow;
 				break;
-			case KUsbBadDeviceAttached:
-			    aEvent = KErrUsbBadDeviceAttached;
-			    break;
-			case KUsbBadDeviceDetached:
-			    aEvent = KEventUsbBadDeviceDetached;
-			    break;
+			
 			case KNumberOfDevmonEventTypes:
 			default:
 				LOGTEXT2(_L8("\tUnexpected devmon error, not handled properly %d"), ii);
@@ -343,13 +338,7 @@ void CEventQueue::AddDevmonEvent(TInt aEvent)
 			break;
 		case KErrUsbEventOverflow:
 			index = KUsbEventOverflow;
-			break;
-        case KErrUsbBadDeviceAttached:
-            index = KUsbBadDeviceAttached;
-            break;
-        case KEventUsbBadDeviceDetached:
-            index = KUsbBadDeviceDetached;
-            break;			
+			break;			
 
 		default:
 			LOGTEXT2(_L8("\tUnexpected devmon error, not handled properly %d"), aEvent);
