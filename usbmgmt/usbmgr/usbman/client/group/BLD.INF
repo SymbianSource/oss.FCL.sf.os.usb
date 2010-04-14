@@ -22,7 +22,11 @@ PRJ_EXPORTS
 PRJ_MMPFILES
 Usbman.mmp
 
-#if defined(WINS)
+/*
+* Previously, it only supports WINSCW.
+* But the NSE(None Silent Error) unit test depends on this library and the NSE test
+* will be run on the hardware. So we need it to support armv5.
+*/
 PRJ_TESTMMPFILES
 Usbman_over_dummyusbdi.mmp
-#endif
+
