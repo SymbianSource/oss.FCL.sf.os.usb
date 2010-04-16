@@ -1,5 +1,3 @@
-
-
 /*
 * Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
@@ -31,6 +29,7 @@ define USB_DIR BUILD_DIR
 #define USB_PLUGIN ECOM_PLUGIN
 #endif
 
+
 // *** Check we have been given a sensible set of buildrom options
 #if defined (__OBEX_OVER_USB__) && (defined (__TEST_USB_ZLP__) || defined (__USBMAN_DUMMYCC__))
 #error Defining both OBEX over USB _and_ Zero Length Packet testing or dummy class controllers does not make sense.
@@ -59,6 +58,8 @@ file=ABI_DIR\USB_DIR\usblogger.dll		usblogger.dll
 #if defined(SYMBIAN_EXCLUDE_USB) || !defined(EUSBC)
 REM Feature USB is not included in this ROM (usbman.iby)
 #else
+
+#include <usbacm.iby>
 
 #ifndef __OBEX_OVER_USB__
   #ifndef __TEST_USB_ZLP__
@@ -113,13 +114,6 @@ file=ABI_DIR\USB_DIR\t_usbman_dummycc.exe		usbsvr.exe
 file=ABI_DIR\USB_DIR\usbclasscontroller.dll		usbclasscontroller.dll
 file=ABI_DIR\USB_DIR\usbmanextensionplugin.dll		usbmanextensionplugin.dll
 
-// *** Abstract Control Model (serial emulation) Class Controller.
-#ifdef __ACM_REGPORT__
-USB_PLUGIN(t_regport_acmclasscontroller.dll,101fbf20.rsc)
-#else
-USB_PLUGIN(acmclasscontroller.dll,101fbf20.rsc)
-#endif
-
 #ifdef WITH_REFERENCE_USB_CHARGING_PLUGIN
 // *** Reference battery charging plug-in
 #if defined(SYMBIAN_ENABLE_USB_OTG_HOST) && defined (SYMBIAN_INCLUDE_USB_OTG_HOST)
@@ -128,8 +122,6 @@ USB_PLUGIN(usbbatterychargingpluginotg.dll,usbbatterychargingpluginotg.rsc)
 USB_PLUGIN(usbbatterychargingplugin.dll,usbbatterychargingplugin.rsc)
 #endif
 #endif
-
-file=ABI_DIR\USB_DIR\acmserver.dll		acmserver.dll
 
 // *** WHCM Class Controller - used for OBEX over USB.
 USB_PLUGIN(whcmclasscontroller.dll,101fbf23.rsc)
@@ -144,10 +136,6 @@ file=ABI_DIR\USB_DIR\usbmsexampleapp.exe		usbmsexampleapp.exe
 // *** OBEX Class Controller. This is test code, used for descriptor checking
 // *** only.
 // USB_PLUGIN(Obexclasscontroller.dll,101fbf27.rsc)
-
-// *** Uncomment the following file and modify if the number or type of ACM 
-// *** Functions required is different from the default
-// data=ZPRIVATE\101fe1db\NumberOfAcmFunctions.ini	private\101fe1db\NumberOfAcmFunctions.ini
 
 #ifdef SYMBIAN_INCLUDE_USB_RNDIS
 // *** RNDIS Class Controller.

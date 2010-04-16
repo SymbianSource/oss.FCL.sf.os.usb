@@ -16,8 +16,8 @@
 */
 
 PRJ_EXPORTS
-NumberOfAcmFunctions.ini	/epoc32/data/z/private/101fe1db/numberofacmfunctions.ini
-
+usbacmconfiguration.hby		/epoc32/rom/include/usbacmconfiguration.hby
+usbacm.iby 		/epoc32/rom/include/usbacm.iby
 PRJ_MMPFILES
 
 //
@@ -26,7 +26,7 @@ PRJ_MMPFILES
 //
 
 // ACM Class Controller plugin support ACM::1 functions by default.  The number of 
-// ACM functions can be changed by editing NumberOfAcmFunctions.ini file
+// ACM functions can be changed by editing usbacmconfiguration.hby file
 AcmClassController.mmp		
 
 PRJ_TESTMMPFILES

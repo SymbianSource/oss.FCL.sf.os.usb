@@ -18,7 +18,7 @@
 PRJ_TESTEXPORTS
 t_acm_pub_sub.iby             		/epoc32/rom/include/t_acm_pub_sub.iby
 
-../data/NumberofAcmFunctions.ini 	z:/private/101fe1db/NumberOfAcmFunctions.ini
+usbacmconfiguration.hby			/epoc32/rom/include/usbacmconfiguration.hby
 
 
 PRJ_TESTMMPFILES

@@ -58,12 +58,9 @@ SOURCE			acmserver.cpp
 SOURCE			acmsession.cpp
 SOURCE			ActiveDataAvailableNotifier.cpp
 
-SOURCEPATH		../../../../../../inifile/src
-SOURCE			inifile.cpp
-
 USERINCLUDE 	../inc
 USERINCLUDE 	../public
-USERINCLUDE		../../../../../../inifile/inc
+
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
 LIBRARY 		euser.lib 

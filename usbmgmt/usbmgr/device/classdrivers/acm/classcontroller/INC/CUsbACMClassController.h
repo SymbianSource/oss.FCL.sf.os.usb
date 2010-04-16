@@ -1,4 +1,4 @@
-/**
+/*
 * Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
@@ -36,22 +36,24 @@
 #include <usb/acmserver.h>
 #endif
 class MUsbClassControllerNotify;
-class CIniFile;
 
 const TInt KAcmStartupPriority = 3;
 const TUint KDefaultNumberOfAcmFunctions = 1;
-const TInt KMaximumAcmFunctions = 15;
+
+// The maximum ACM function has been decreased from 15 to 5.
+const TInt KMaximumAcmFunctions = 5;
+
+
+extern const TUint32 KUsbAcmNumberOfAcmFunctions;
+
+extern const TInt32 KUsbAcmProtocolNumAcm1;
+extern const TInt32 KUsbAcmProtocolNumAcm2;
+extern const TInt32 KUsbAcmProtocolNumAcm3;
+extern const TInt32 KUsbAcmProtocolNumAcm4;
+extern const TInt32 KUsbAcmProtocolNumAcm5;
+
 
 const TInt KAcmNumberOfInterfacesPerAcmFunction = 2; // data and control interfaces
-// The name of the ini file specifying the number of ACM functions required and optionally their interface names
-_LIT(KAcmFunctionsIniFileName, "NumberOfAcmFunctions.ini");
-_LIT(KAcmConfigSection,"ACM_CONF");
-_LIT(KNumberOfAcmFunctionsKeyWord,"NumberOfAcmFunctions");
-
-_LIT(KAcmSettingsSection,"ACM %d");
-_LIT(KAcmProtocolNum,"ProtocolNum");
-_LIT(KAcmControlIfcName,"ControlInterfaceName");
-_LIT(KAcmDataIfcName,"DataInterfaceName");
 
 // Lengths of the various bits of the ACM descriptor. Taken from the USB
 // WMCDC specification, v1.0.
@@ -107,9 +109,7 @@ protected:
 
 private:
 	void DoStartL();
-	void ReadAcmConfigurationL();
 	void DoStop();
-	void ReadAcmIniDataL(CIniFile* aIniFile, TUint aCount, RBuf& aAcmControlIfcName, RBuf& aAcmDataIfcName);
 
 private:
 #ifdef USE_ACM_REGISTRATION_PORT
@@ -120,8 +120,6 @@ private:
 #endif
 	TInt iNumberOfAcmFunctions; 
 	TFixedArray<TUint8, KMaximumAcmFunctions> iAcmProtocolNum;
-	TFixedArray<RBuf, KMaximumAcmFunctions> iAcmControlIfcName;
-	TFixedArray<RBuf, KMaximumAcmFunctions> iAcmDataIfcName;
 	};
 
 #endif //__CUSBACMCLASSCONTROLLER_H__

@@ -31,17 +31,7 @@ REM *** supports USB, to save ROM space...
 #if defined(SYMBIAN_EXCLUDE_USB) || !defined(EUSBC)
 REM Feature USB is not included in this ROM (usb.iby)
 #else
-
-file=ABI_DIR\USB_DIR\ecacm.csy	Ecacm.csy
-
-REM *** 'buildrom -D__TEST_USB_ZLP__' will use the ZLP version of the ini file.
-REM *** Note that this is a test configuration only.
-#ifndef __TEST_USB_ZLP__
-	data=ZSYSTEM\data\ecacm.ini	System\Data\ecacm.ini
-#else //__TEST_USB_ZLP__
-	data=ZSYSTEM\data\ecacm_for_usb_zlp_testing.ini	System\Data\ecacm.ini
-#endif //__TEST_USB_ZLP__
-
+REM USB component can be added here.
 #endif // SYMBIAN_EXCLUDE_USB
 
 #endif

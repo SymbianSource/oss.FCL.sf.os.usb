@@ -19,6 +19,9 @@
       <component id="usb_metadata" name="USB Metadata" class="config" introduced="^3" purpose="development" target="desktop">
         <unit mrp="usb_info/usb_metadata/usb_metadata.mrp"/>
       </component>
+      <component id="usb_plat" name="USB Platform Interfaces" class="api" filter="s60">
+        <!--unit bldFile="usb_plat/group"/-->
+      </component>
     </collection>
   </package>
 </SystemDefinition>

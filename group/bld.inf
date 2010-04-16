@@ -21,4 +21,3 @@ PRJ_PLATFORMS
 
 /* include subsystems build info */
 #include "../usb_plat/group/bld.inf"
-#include "../usbextension/group/bld.inf"

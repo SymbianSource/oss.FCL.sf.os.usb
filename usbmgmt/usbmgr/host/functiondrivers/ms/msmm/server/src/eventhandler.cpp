@@ -263,11 +263,12 @@ TInt CDeviceEventHandler::RunError(TInt aError)
         CompleteClient(aError);
         }
 
-    //    CompleteClient(aError);
-    if (IsActive())
+    //Restart the handler after error handling;
+    if (!IsActive())
         {
-        Complete(aError);
+        Start();
         }
+    Complete(aError);
     
     if (iSubCommandQueue.Count())
         {

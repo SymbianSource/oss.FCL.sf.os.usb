@@ -1862,18 +1862,27 @@ TInt CUsbSession::DeRegisterHostObserver()
 	LOG_FUNC
 
 
-	if (!iHostEventObserverOutstanding)
+	if (!iHostEventObserverQueueEvents)
 		{
+		//Never register
+		LOGTEXT(_L8("iHostEventObserverQueueEvents is FALSE!"));
 		return KErrNone;
 		}
 
-	iHostEventObserverOutstanding = EFalse;
-	iHostEventObserverMessage.Complete(KErrCancel);
+	if (iHostEventObserverOutstanding)
+		{
+		iHostEventObserverOutstanding = EFalse;
+		iHostEventObserverMessage.Complete(KErrCancel);
+		LOGTEXT(_L8("iHostEventObserverMessage.Complete(KErrCancel);"));
+		}
 
 	// client doesn't need events queuing any more
  	iHostEventObserverQueueEvents = EFalse;
+	//Reset OTG Host State Queue
+	iHostEventQueueHead = 0;
+	iHostEventQueueTail = 0;
 
-	return KErrNone;
+	return KErrNone;	
 	}
 
 /**

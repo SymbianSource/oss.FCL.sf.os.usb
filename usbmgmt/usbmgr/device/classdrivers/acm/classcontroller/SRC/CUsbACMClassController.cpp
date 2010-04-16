@@ -26,18 +26,18 @@
 #include <usb_std.h>
 #include <acminterface.h>
 #include <usb/acmserver.h>		
-#include "inifile.h"
 #include "UsbmanInternalConstants.h"
 #include <usb/usblogger.h>
 #include "acmserverconsts.h"
 
 #ifdef __FLOG_ACTIVE
 _LIT8(KLogComponent, "ACMCC");
-#endif
-
 
 // Panic category 
 _LIT( KAcmCcPanicCategory, "UsbAcmCc" );
+
+#endif
+
 
 
 /**
@@ -49,10 +49,10 @@ enum TAcmCcPanic
 	EBadApiCallStart = 0,
 	/** Asynchronous function called (not needed, as all requests complete synchronously) */
 	EUnusedFunction = 1,
-	/** Error reading ini file. */
-	EPanicBadIniFile = 2,		
-	/** Bad value for the iNumberOfAcmFunctions member.*/
-	EPanicBadNumberOfAcmFunctions = 3,
+	/** Value reserved */
+	EPanicReserved2 = 2,		
+	/** Value reserved */
+	EPanicReserved3 = 3,
 	/** Stop called while in an illegal state */
 	EBadApiCallStop = 4,
 	};
@@ -87,13 +87,7 @@ CUsbACMClassController::~CUsbACMClassController()
 	iComm.Close();
 	iCommServer.Close();
 #else
-	// Clean up any interface name strings
-	for ( TUint i = 0 ; i < KMaximumAcmFunctions ; i++ )
-		{
-		iAcmControlIfcName[i].Close();
-		iAcmDataIfcName[i].Close();
-		}
-	iAcmServer.Close();
+    iAcmServer.Close();
 #endif // USE_ACM_REGISTRATION_PORT
 	}
 
@@ -103,25 +97,24 @@ CUsbACMClassController::~CUsbACMClassController()
  * @param	aOwner	USB Device that owns and manages the class
  */
 CUsbACMClassController::CUsbACMClassController(
-	MUsbClassControllerNotify& aOwner)
-	: CUsbClassControllerPlugIn(aOwner, KAcmStartupPriority),	
-	iNumberOfAcmFunctions(KDefaultNumberOfAcmFunctions)
-	{
-	// Initialise all elements to KDefaultAcmProtocolNum.
-	for ( TUint ii = 0 ; ii < KMaximumAcmFunctions ; ii++ )
-		{
-		iAcmProtocolNum[ii] = KDefaultAcmProtocolNum;
-		// iAcmControlIfcName[ii] and iAcmDataIfcName[ii] are already set to empty strings (RBuf);
-		}
-	}
+    MUsbClassControllerNotify& aOwner) 
+    : CUsbClassControllerPlugIn(aOwner, KAcmStartupPriority),
+    iNumberOfAcmFunctions(KDefaultNumberOfAcmFunctions)
+    {
+    }
 
 /**
  * 2nd Phase Construction.
  */
 void CUsbACMClassController::ConstructL()
-	{
-	//open ini file to find out how many acm functions are needed and read in their configuration data
-	ReadAcmConfigurationL();
+    {
+    iNumberOfAcmFunctions = KUsbAcmNumberOfAcmFunctions;
+
+    iAcmProtocolNum[0] = KUsbAcmProtocolNumAcm1;
+    iAcmProtocolNum[1] = KUsbAcmProtocolNumAcm2;
+    iAcmProtocolNum[2] = KUsbAcmProtocolNumAcm3;
+    iAcmProtocolNum[3] = KUsbAcmProtocolNumAcm4;
+    iAcmProtocolNum[4] = KUsbAcmProtocolNumAcm5;
 
 	// Prepare to use whichever mechanism is enabled to control bringing ACM 
 	// functions up and down.
@@ -137,137 +130,11 @@ void CUsbACMClassController::ConstructL()
 
 #else
 
-	LEAVEIFERRORL(iAcmServer.Connect());
+    LEAVEIFERRORL(iAcmServer.Connect());
 
 #endif // USE_ACM_REGISTRATION_PORT
-	}
+    }
 
-/**
-* Searches numberofacmfunctions.ini file for protocol number and for control and data
-* interface names, leaving if any is not found.
-*/
-void CUsbACMClassController::ReadAcmIniDataL(CIniFile* aIniFile, TUint aCount, RBuf& aAcmControlIfcName, RBuf& aAcmDataIfcName)
-	{
-	LOG_FUNC
-	
-	TName sectionName;
-	TInt  protocolNum;
-
-#ifdef __FLOG_ACTIVE
-	TName acmProtocolNum(KAcmProtocolNum);
-	TBuf8<KMaxName> narrowAcmProtocolNum;
-	narrowAcmProtocolNum.Copy(acmProtocolNum);
-#endif
-	LOGTEXT3(_L8("\tLooking for ACM Section %d, keyword \"%S\""), aCount+1, &narrowAcmProtocolNum);
-
-	sectionName.Format(KAcmSettingsSection,(aCount+1));
-	
-#ifdef __FLOG_ACTIVE
-	// Set up useful narrow logging strings.
-	TBuf8<KMaxName> narrowSectionName;
-	narrowSectionName.Copy(sectionName);
-#endif
-	LOGTEXT2(_L8("\t  Section Name %S"), &narrowSectionName);
-
-	if (aIniFile->FindVar(sectionName, KAcmProtocolNum(), protocolNum))
-		{
-		LOGTEXT3(_L8("\tACM Section %d: Protocol No %d"),aCount+1, protocolNum);
-		iAcmProtocolNum[aCount] = static_cast<TUint8>(protocolNum);
-		}
-
-	// Search ini file for interface names. If either of the interface names does not exist then the
-	// descriptors remain at zero length. This is caught in DoStartL and the descriptors defaulted.
-	// Using this method saves memory on storing copies of the default interface names.
-	TPtrC ptrControlIfcName;
-	if (aIniFile->FindVar(sectionName, KAcmControlIfcName(), ptrControlIfcName))
-		{
-		TPtrC ptrDataIfcName;
-		if (aIniFile->FindVar(sectionName, KAcmDataIfcName(), ptrDataIfcName))
-			{
-			// Only copy the data if both interface names are valid
-			aAcmControlIfcName.CreateL(ptrControlIfcName);
-			aAcmControlIfcName.CleanupClosePushL();
-			aAcmDataIfcName.CreateL(ptrDataIfcName);
-			CleanupStack::Pop(&aAcmControlIfcName);
-			}
-		}
-	
-#ifdef __FLOG_ACTIVE
-	// Set up useful narrow logging strings.
-	TName dbgControlIfcName(aAcmControlIfcName);
-	TBuf8<KMaxName> narrowControlIfcName;
-	narrowControlIfcName.Copy(dbgControlIfcName);
-
-	TName dbgDataIfcName(aAcmDataIfcName);
-	TBuf8<KMaxName> narrowDataIfcName;
-	narrowDataIfcName.Copy(dbgDataIfcName);
-#endif
-	LOGTEXT2(_L8("\t  Control Interface Name %S"), &narrowControlIfcName);
-	LOGTEXT2(_L8("\t  Data Interface Name %S"), &narrowDataIfcName);
-	}
-	
-/**
-Called when class Controller constructed 
-It opens a numberofacmfunctions.ini file and gets the info from there
-Error behaviour: 
-If the ini file is not found the number of ACM functions, their protocol 
-settings and interface names will be the default values.
-If a memory error occurs then leaves with KErrNoMemory.
-If the ini file is created but the file contains invalid configuration then panic.
-*/
-void CUsbACMClassController::ReadAcmConfigurationL()
-	{
-	LOG_FUNC
-	
-	// The number of ACM functions should at this point be as set in the 
-	// constructor.
-	__ASSERT_DEBUG(static_cast<TUint>(iNumberOfAcmFunctions) == KDefaultNumberOfAcmFunctions, 
-		_USB_PANIC(KAcmCcPanicCategory, EPanicBadNumberOfAcmFunctions));
-	
-	LOGTEXT3(_L("\ttrying to open file \"%S\" in directory \"%S\""), 
-		&KAcmFunctionsIniFileName, &KUsbManPrivatePath);
-	
-	// First find the file
-	CIniFile* iniFile = NULL;
-	TRAPD (error, iniFile = CIniFile::NewL(KAcmFunctionsIniFileName, KUsbManPrivatePath));
-	
-	if (error == KErrNotFound)
-		{	
-		LOGTEXT(_L8("\tfile not found"));
-		}
-	else if (error != KErrNone)
-		{
-		LOGTEXT(_L8("\tini file was found, but couldn't be opened"));
-		LEAVEL(error);	
-		}
-	else 
-		{
-		LOGTEXT(_L8("\tOpened ini file"));
-		LOGTEXT3(_L("\tLooking for Section \"%S\", keyword \"%S\""), 
-			&KAcmConfigSection, &KNumberOfAcmFunctionsKeyWord);
-
-		CleanupStack::PushL(iniFile);
-		if ( !iniFile->FindVar(KAcmConfigSection(), KNumberOfAcmFunctionsKeyWord(), iNumberOfAcmFunctions) )
-			{
-			// PANIC since this should only happen in development environment. 
-			// The file is incorrectly written.
-			LOGTEXT(_L8("\tCan't find item"));
-			_USB_PANIC(KAcmCcPanicCategory, EPanicBadNumberOfAcmFunctions);
-			}
-					
-		LOGTEXT2(_L8("\tini file specifies %d ACM function(s)"), iNumberOfAcmFunctions);
-		
-		for ( TUint i = 0 ; i < iNumberOfAcmFunctions ; i++ )
-			{
-	 		 // Search ini file for the protocol number and interface names for 
-	 		 // the function, using defaults if any are not found.
-	 		 // May leave with KErrNoMemory.
-	 		 ReadAcmIniDataL(iniFile, i, iAcmControlIfcName[i], iAcmDataIfcName[i]);
-	 		 }
-		CleanupStack::PopAndDestroy(iniFile);
-		}
-	}
-	
 /**
  * Called by UsbMan when it wants to start the USB ACM class. This always
  * completes immediately.
@@ -293,57 +160,54 @@ void CUsbACMClassController::DoStartL()
 	LOG_FUNC
 
 	iState = EUsbServiceStarting;
+	LOGTEXT2(_L8("    iNumberOfAcmFunctions = %d"), iNumberOfAcmFunctions);
 
 #ifdef USE_ACM_REGISTRATION_PORT
 
-	// Create ACM functions.
-	TUint acmSetting;
-	for ( TUint i = 0 ; i < iNumberOfAcmFunctions ; i++ )
-		{
-		// indicate the number of ACMs to create, and its protocol number (in the 3rd-lowest byte)
-		acmSetting = 1 | (static_cast<TUint>(iAcmProtocolNum[i])<< 16); 
-		TInt err = iComm.SetSignalsToMark(acmSetting);
-		if ( err != KErrNone )
-			{
-			LOGTEXT2(_L8("    SetSignalsToMark error = %d"), err);
-			if (i != 0)
-				{
-				// Must clear any ACMs that have completed.
-				// only other than KErrNone if C32 Server fails
-				(void)iComm.SetSignalsToSpace(i);
-				}
-			LEAVEL(err);
-			}
-		}
+    // Create ACM functions.
+    TUint acmSetting;
+    for (TUint i = 0; i < iNumberOfAcmFunctions; i++)
+        {
+        LOGTEXT2(_L8("    iAcmProtocolNum[i] = %d"), iAcmProtocolNum[i]);
+
+        // indicate the number of ACMs to create, and its protocol number (in the 3rd-lowest byte)
+        acmSetting = 1 | (static_cast<TUint> (iAcmProtocolNum[i]) << 16);
+        TInt err = iComm.SetSignalsToMark(acmSetting);
+        if (err != KErrNone)
+            {
+            LOGTEXT2(_L8("    SetSignalsToMark error = %d"), err);
+            if (i != 0)
+                {
+                // Must clear any ACMs that have completed.
+                // only other than KErrNone if C32 Server fails
+                (void) iComm.SetSignalsToSpace(i);
+                }
+            LEAVEL(err);
+            }
+        }
 
 #else // use ACM server
+    // Create ACM functions
+    for ( TInt i = 0; i < iNumberOfAcmFunctions; i++ )
+        {
+        TInt err;
+        //Use default control interface name and data interface name
+        //For improving performance, control interface name and data interface name configurable 
+        //is not supported now.
+        err = iAcmServer.CreateFunctions(1, iAcmProtocolNum[i], KControlIfcName, KDataIfcName);
 
-	// Create ACM functions
-	for ( TInt i = 0 ; i < iNumberOfAcmFunctions ; i++ )
-		{
-		TInt err;
-		// Check for zero length descriptor and default it if so
-		if (iAcmControlIfcName[i].Length())
-			{
-			err = iAcmServer.CreateFunctions(1, iAcmProtocolNum[i], iAcmControlIfcName[i], iAcmDataIfcName[i]);
-			}
-		else
-			{
-			err = iAcmServer.CreateFunctions(1, iAcmProtocolNum[i], KControlIfcName, KDataIfcName);
-			}
-
-		if ( err != KErrNone )
-			{
-			LOGTEXT2(_L8("\tFailed to create ACM function. Error: %d"), err);
-			if (i != 0)
-				{
-				//Must clear any ACMs that have been completed
-				iAcmServer.DestroyFunctions(i);
-				LOGTEXT2(_L8("\tDestroyed %d Interfaces"), i);
-				}
-			LEAVEL(err);
-			}
-		}
+        if ( err != KErrNone )
+            {
+            LOGTEXT2(_L8("\tFailed to create ACM function. Error: %d"), err);
+            if (i != 0)
+                {
+                //Must clear any ACMs that have been completed
+                iAcmServer.DestroyFunctions(i);
+                LOGTEXT2(_L8("\tDestroyed %d Interfaces"), i);
+                }
+            LEAVEL(err);
+            }
+        }
 
 #endif // USE_ACM_REGISTRATION_PORT
 	

@@ -23,7 +23,6 @@
 #include "AcmUtils.h"
 #include "ActiveReadOneOrMoreReader.h"
 #include "ActiveDataAvailableNotifier.h"
-#include "inifile.h"
 #include <usb/usblogger.h>
 
 #ifdef __FLOG_ACTIVE
@@ -83,10 +82,8 @@ void CCdcDataInterface::ConstructL()
 	
 	iLinkState->Start();
 
-	LOGTEXT(_L8("\tchecking ecacm.ini"));
-	iHostCanHandleZLPs = EFalse;
-	GetHostZLPHandlingFromFile();
-	LOGTEXT(_L8("\tfinished checking ecacm.ini"));
+	iHostCanHandleZLPs = (KUsbAcmHostCanHandleZLPs != 0);
+	
 	}
 
 TInt CCdcDataInterface::SetUpInterface()
@@ -493,41 +490,6 @@ void CCdcDataInterface::CancelRead()
 	iReadOneOrMoreObserver = NULL;
 	}
 
-
-void CCdcDataInterface::GetHostZLPHandlingFromFile()
-/**
- * Opens the ECACM.ini file to check on the capabilities of the host device.
- * If the ini file cannot be found or read successfully, the default setting i.e. the
- * host device CANNOT handle Zero Length Packets (set in CCdcAcmClass::ConstructL()),
- * is kept.		
- */
-	{
-	LOG_FUNC
-	
-	CIniFile* iniFile = NULL;
-
-	_LIT(KEcacmIniFilename, "ecacm.ini" );
-	_LIT(KEcacmIniFilePath, "\\system\\data\\" );
-	
-	TRAPD(error, iniFile = CIniFile::NewL(KEcacmIniFilename, KEcacmIniFilePath));
-
-	if (error == KErrNone)
-		{
-		TInt hostHandlesZLPs = 1;
-	
-		_LIT(KHostUSBDeviceDriver, "HostUSBDeviceDriver");
-		_LIT(KCanHandleZLP, "CanHandleZLP");
-	
-		if ( iniFile->FindVar(KHostUSBDeviceDriver, KCanHandleZLP(), hostHandlesZLPs))
-			{			
-			iHostCanHandleZLPs = (( hostHandlesZLPs == 1 ) ? ETrue : EFalse ); 
-		
-			LOGTEXT2(_L8("\tecacm.ini: CanHandleZLP=%d"), hostHandlesZLPs);
-			}
-			
-		delete iniFile;	
-		}
-	}
 	
 void CCdcDataInterface::NotifyDataAvailableCompleted(TInt aError)
 /**

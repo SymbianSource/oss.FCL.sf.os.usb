@@ -198,7 +198,10 @@ void CUsbServer::ConstructL()
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	iUsbHost = CUsbHost::NewL();
-	//moved to CUsbSession:StartDeviceL() and similar: iUsbHost->StartL();
+	//previously this was moved to CUsbSession:StartDeviceL() and similar
+	//But it will cause the loading of personality longer.
+	//So it is moved back here.
+	iUsbHost->StartL();
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
 	LOGTEXT(_L8("CUsbServer constructed"));
