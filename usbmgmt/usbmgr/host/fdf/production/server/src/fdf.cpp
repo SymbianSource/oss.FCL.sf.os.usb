@@ -777,6 +777,8 @@ void CFdf::FindDriversForInterfacesUsingSpecificKeyL(CDeviceProxy& aDevice,
 			(aKey == EInterfaceclassInterfacesubclassInterfaceprotocol && ifInfo->iClass == KVendorSpecificInterfaceClassValue) ||
 			(aKey == EInterfaceclassInterfacesubclass && ifInfo->iClass == KVendorSpecificInterfaceClassValue))
 			{
+			// Putting ii+1 as the starting offset is to remove the interface on which the searching have been done.
+			RebuildUnClaimedInterfacesArrayL(aDevice, aInterfacesNumberArray, ii+1);
 			continue;
 			}
 		

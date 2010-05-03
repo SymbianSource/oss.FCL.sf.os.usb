@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -104,9 +104,7 @@ private: // owned
 		KUsbBadHubPosition			= 3,
 		KUsbBadHub					= 4,
 		KUsbEventOverflow			= 5,
-		KUsbBadDeviceAttached       = 6,
-		KUsbBadDeviceDetached       = 7,
-		KNumberOfDevmonEventTypes	= 8,
+		KNumberOfDevmonEventTypes	= 6
 		};
 	TFixedArray<TUint, KNumberOfDevmonEventTypes> iDevmonEventCount;
 	};
