@@ -969,7 +969,7 @@ void CUsbTestConsole::Draw()
 	
 
 CUsbTestConsoleTextEntryBase::CUsbTestConsoleTextEntryBase()
-	: CActive(EPriorityNormal)
+	: CActive(CActive::EPriorityStandard)
 	{
 	CActiveScheduler::Add(this);
 	}
