@@ -55,9 +55,9 @@ file=ABI_DIR\USB_DIR\usblogger.dll		usblogger.dll
 
 // *** Now for things which should only be included if the device supports
 // *** USB, to save ROM space...
-#if defined(SYMBIAN_EXCLUDE_USB) || !defined(EUSBC)
+#if !defined(__USB) || !defined(EUSBC)
 REM Feature USB is not included in this ROM (usbman.iby)
-#else
+#else //defined(__USB) && defined(EUSBC)
 
 #include <usbacm.iby>
 
@@ -153,6 +153,6 @@ file=ABI_DIR\USB_DIR\rndismessages.dll	 System\Libs\rndismessages.dll
 file=ABI_DIR\USB_DIR\rndisagt.agt	 System\Libs\rndisagt.agt
 #endif  // SYMBIAN_INCLUDE_USB_RNDIS
 
-#endif // SYMBIAN_EXCLUDE_USB
+#endif // !defined(__USB) || !defined(EUSBC)
 
 #endif // __USBMANBIN_IBY__

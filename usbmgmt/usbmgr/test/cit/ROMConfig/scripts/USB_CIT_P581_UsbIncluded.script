@@ -16,7 +16,7 @@
 */
 
 // Run all the USB_INC_ROMCONFIG_* tests
-// Expects a standard ROM to be built i.e. SYMBIAN_EXCLUDE_USB has NOT been specified
+// Expects a standard ROM to be built i.e. __USB has been specified
 
 RUN_SCRIPT c:\scripts\usbromconfig\USB_INC_ROMCONFIG_001.script
 

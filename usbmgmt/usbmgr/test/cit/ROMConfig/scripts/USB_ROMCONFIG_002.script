@@ -19,7 +19,7 @@ LOAD_SERVER TestServerSymbianExcludeUsb
 
 START_TESTCASE USB-ROMCONFIG-002
 //! @SYMTestCaseID USB-ROMCONFIG-002
-//! @SYMTestCaseDesc User::LoadLogicalDevice("EUSBC") should fail on a SYMBIAN_EXCLUDE_USB ROM
+//! @SYMTestCaseDesc User::LoadLogicalDevice("EUSBC") should fail on a a ROM built without __USB specified
 //! @SYMREQ 5414
 //! @SYMTestType CIT
 //! @SYMTestPriority 1

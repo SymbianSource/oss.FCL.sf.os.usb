@@ -22,9 +22,9 @@
 
 
 // *** Only include resource files if device supports USB
-#if defined(SYMBIAN_EXCLUDE_USB) || !defined(EUSBC)
+#if !defined(__USB) || !defined(EUSBC)
 REM Feature USB is not included in this ROM (usbman.iby)
-#else
+#else  // defined(__USB) && defined(EUSBC)
 
 DEFINE __USBMAN_RSC_ZPATH__ ZPRIVATE\101fe1db
 DEFINE __USBMAN_RSC_PATH__  PRIVATE\101fe1db
@@ -42,7 +42,7 @@ DEFINE __USBMAN_RSC_PATH__  PRIVATE\101fe1db
 	#else //__EXAMPLE_OBEX_CC__
 		// *** This is the normal resource file..
 		#ifndef USB_EXCLUDE_DEFAULT_PERSONALITIES
-		  	#ifdef SYMBIAN_EXCLUDE_MTP
+		  	#ifndef __MTP_PROTOCOL_SUPPORT
 		  		#ifdef SYMBIAN_INCLUDE_USB_RNDIS
 		  			// *** Normal resource file including RNDIS support but excluding MTP
 		  			data=__USBMAN_RSC_ZPATH__\usbmanrndis.rsc		__USBMAN_RSC_PATH__\usbman.rsc
@@ -50,7 +50,7 @@ DEFINE __USBMAN_RSC_PATH__  PRIVATE\101fe1db
 		  			//	*** Normal resource file excluding MTP and RNDIS support
 		  			data=__USBMAN_RSC_ZPATH__\usbman.rsc		__USBMAN_RSC_PATH__\usbman.rsc
 		  		#endif // SYMBIAN_INCLUDE_USB_RNDIS
-			#else // SYMBIAN_EXCLUDE_MTP
+			#else // defined(__MTP_PROTOCOL_SUPPORT)
 				#ifdef SYMBIAN_INCLUDE_USB_RNDIS
 					// *** Normal resource file including RNDIS and MTP support
 					data=__USBMAN_RSC_ZPATH__\usbmanmtprndis.rsc		__USBMAN_RSC_PATH__\usbman.rsc
@@ -58,11 +58,11 @@ DEFINE __USBMAN_RSC_PATH__  PRIVATE\101fe1db
 					//	*** Normal resource file including MTP support but excluding RNDIS
 					data=__USBMAN_RSC_ZPATH__\usbmanmtp.rsc		__USBMAN_RSC_PATH__\usbman.rsc
 				#endif // SYMBIAN_INCLUDE_USB_RNDIS
-			#endif // SYMBIAN_EXCLUDE_MTP
+			#endif // __MTP_PROTOCOL_SUPPORT
 		#endif // USB_EXCLUDE_DEFAULT_PERSONALITIES
 	#endif //__EXAMPLE_OBEX_CC__	
 #endif //__TEST_USB_ZLP__
 
-#endif // SYMBIAN_EXCLUDE_USB
+#endif // !defined(__USB) || !defined(EUSBC)
 
 #endif // __USBMANRSC_IBY__

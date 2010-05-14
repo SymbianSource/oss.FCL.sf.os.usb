@@ -24,7 +24,7 @@
 #include <centralrepository.h>
 
 CUsbChargingRepositoryNotifier::CUsbChargingRepositoryNotifier(MUsbChargingRepositoryObserver& aObserver,const TUid& aRepository, TUint aId)
-: CActive(EPriorityNormal), iObserver(aObserver), iRepositoryUid(aRepository), iId(aId)
+: CActive(CActive::EPriorityStandard), iObserver(aObserver), iRepositoryUid(aRepository), iId(aId)
 	{
 	CActiveScheduler::Add(this);
 	}
