@@ -23,9 +23,9 @@
 #include "refppnotifier.h"
 #include <ecom/implementationproxy.h>
 #include "refppnotifier.hrh"
-#include <techview/eikinfo.h>
+#include <eikinfo.h>
 #include <dialog.rsg>
-#include <techview/eiklabel.h>
+#include <eiklabel.h>
 #include <usb/hostms/srverr.h>
 #include <usb/hostms/policypluginnotifier.hrh>
 const TUid KMsmmRefNotifierChannel = {0x10009D48}; //0x10208C14

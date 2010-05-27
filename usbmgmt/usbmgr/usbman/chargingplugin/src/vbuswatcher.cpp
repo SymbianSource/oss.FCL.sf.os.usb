@@ -48,7 +48,13 @@ CVBusWatcher::CVBusWatcher(MOtgPropertiesObserver* aObserver)
 
 void CVBusWatcher::ConstructL()
 	{
-	User::LeaveIfError(iVBusProp.Attach(KUidUsbManCategory, KUsbOtgVBusPoweredProperty));
+#ifdef __CHARGING_PLUGIN_TEST_CODE__
+    const TInt8 KPropertyOffsetForChargingTest = 100;
+    User::LeaveIfError(iVBusProp.Attach(KUidUsbManCategory, KUsbOtgVBusPoweredProperty + KPropertyOffsetForChargingTest));
+#else
+    User::LeaveIfError(iVBusProp.Attach(KUidUsbManCategory, KUsbOtgVBusPoweredProperty));
+#endif
+
 	iVBusProp.Subscribe(iStatus);
 	SetActive();
 

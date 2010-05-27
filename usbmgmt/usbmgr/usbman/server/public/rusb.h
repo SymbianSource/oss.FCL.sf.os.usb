@@ -35,7 +35,11 @@ const TInt KUsbMaxSupportedClasses = 64;		// Max number of supported USB classes
 
 const TInt KUsbMaxSupportedPersonalities = 64;	// Max number of supported personalities
 
+#ifndef __OVER_DUMMYUSBDI__
 _LIT(KUsbServerName, "!usbman");
+#else
+_LIT(KUsbServerName, "!usbman_over_dummyusbdi");
+#endif
 
 enum TUsbMessages
 	{
