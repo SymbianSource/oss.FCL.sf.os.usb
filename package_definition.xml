@@ -20,7 +20,7 @@
         <unit mrp="usb_info/usb_metadata/usb_metadata.mrp"/>
       </component>
       <component id="usb_plat" name="USB Platform Interfaces" class="api" filter="s60">
-        <!--unit bldFile="usb_plat/group"/-->
+        <unit bldFile="usb_plat/group" mrp="usb_plat/group/usb_plat.mrp" />
       </component>
     </collection>
   </package>
