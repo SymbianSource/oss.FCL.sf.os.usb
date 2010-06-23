@@ -18,16 +18,13 @@
 /**
  @file
  @internalComponent
- @test
 */
 
 
-TARGET		  msmmsession_over_dummycomponent.dll
-TARGETTYPE	  dll
-UID 0x1000008d 0x0F15665A
+TARGET	msmmindicatorsession.dll
+TARGETTYPE	dll
+UID 0x1000008d 0x20031571
 
-#include "msmmclient_base.mmp"
+CAPABILITY All -TCB
 
-CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl TrustedUI
-
-MACRO	__OVER_DUMMYCOMPONENT__
+#include "msmmindicatorclient_base.mmp" 

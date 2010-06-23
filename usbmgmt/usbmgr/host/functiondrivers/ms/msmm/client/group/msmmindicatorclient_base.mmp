@@ -18,16 +18,20 @@
 /**
  @file
  @internalComponent
- @test
 */
 
+#include <usb/usblogger.mmh>
 
-TARGET		  msmmsession_over_dummycomponent.dll
-TARGETTYPE	  dll
-UID 0x1000008d 0x0F15665A
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
-#include "msmmclient_base.mmp"
+LIBRARY	euser.lib
 
-CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl TrustedUI
+SOURCEPATH ../src
 
-MACRO	__OVER_DUMMYCOMPONENT__
+SOURCE msmmindicatorclient.cpp
+
+USERINCLUDE ../../inc
+USERINCLUDE ../public
+USERINCLUDE ../../server/public
+
+VENDORID 0x70000001 

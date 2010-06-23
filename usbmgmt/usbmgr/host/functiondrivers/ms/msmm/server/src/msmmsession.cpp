@@ -24,9 +24,9 @@
 #include "msmmserver.h"
 #include "msmmengine.h"
 #include "eventqueue.h"
+#include "msmmnodebase.h"
 #include <usb/hostms/srverr.h>
 #include <usb/hostms/msmmpolicypluginbase.h>
-#include "msmmnodebase.h"
 #include <usb/usblogger.h>
 
 #ifdef __FLOG_ACTIVE
@@ -92,7 +92,10 @@ void CMsmmSession::ServiceL(const RMessage2& aMessage)
         delete heapObj;
 #endif // _DEBUG
         break;
-
+        
+    case EHostMsmmServerEjectUsbDrives:
+        iServer.DismountUsbDrivesL(iDevicePkg());
+        break;
     default:
         // Unsupported function number - panic the client
         PanicClient(aMessage, EBadRequest);

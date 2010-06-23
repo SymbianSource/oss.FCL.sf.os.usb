@@ -22,11 +22,11 @@
 */
 
 
-TARGET		  msmmsession_over_dummycomponent.dll
+TARGET		  msmmicsession_over_dummycomponent.dll
 TARGETTYPE	  dll
-UID 0x1000008d 0x0F15665A
+UID 0x1000008d 0x0F15655A
 
-#include "msmmclient_base.mmp"
+#include "msmmindicatorclient_base.mmp"
 
 CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl TrustedUI
 

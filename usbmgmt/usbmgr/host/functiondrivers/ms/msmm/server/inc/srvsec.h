@@ -26,6 +26,7 @@
 const TInt KMsmmServerRanges[] = 
     {
     EHostMsmmServerAddFunction,
+    EHostMsmmServerEjectUsbDrives, //separate policy check for Eject usb drives client
     EHostMsmmServerEndMarker
     };
 const TUint KMsmmServerRangeCount = 
@@ -34,18 +35,21 @@ const TUint KMsmmServerRangeCount =
 const TUint8 KMsmmServerElementsIndex[KMsmmServerRangeCount] = 
     {
     0,
+    1,
     CPolicyServer::ENotSupported
     };
 
 const CPolicyServer::TPolicyElement KMsmmServerElements[] = 
     {
         {_INIT_SECURITY_POLICY_S1( KFDFWSecureId, ECapabilityCommDD ), 
+            CPolicyServer::EFailClient},
+        {_INIT_SECURITY_POLICY_S1( KSidHbDeviceDialogAppServer, ECapabilityTrustedUI ), 
             CPolicyServer::EFailClient}
     };
 
 const CPolicyServer::TPolicy KMsmmServerSecurityPolicy =
     {
-    0,
+    CPolicyServer::ECustomCheck,
     KMsmmServerRangeCount,
     KMsmmServerRanges,
     KMsmmServerElementsIndex,
