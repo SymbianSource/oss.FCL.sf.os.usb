@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -517,9 +517,6 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 		break;
 	case EUsbGetDescription:
 		ret = GetDescription(aMessage);
-		break;
-	case EUsbGetDetailedDescription:
-		ret = GetDetailedDescription(aMessage);
 		break;
 	case EUsbGetPersonalityProperty:
 		ret = GetPersonalityProperty(aMessage);
@@ -1274,7 +1271,7 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 				{
 				if (j < KUsbMaxSupportedClasses + 1)
 					{
-					classUids[j] = personalities[i]->SupportedClasses()[j - 1].iUid;
+					classUids[j] = personalities[i]->SupportedClasses()[j - 1].iClassUid.iUid;
 					LOGTEXT3(_L8("\tclassUids[%d] = %d"), j, classUids[j]);
 					}
 				else
@@ -1375,36 +1372,6 @@ TInt CUsbSession::GetDescription(const RMessage2& aMessage)
 	return KErrNotSupported;
 	}
 
-/**
- * Gets personality detailed description
- *
- * @internalComponent
- * @param   aMessage    Message received from the client
- * @return  Any error that occurred or KErrNone
- */
-TInt CUsbSession::GetDetailedDescription(const RMessage2& aMessage)
-	{
-	LOG_FUNC
-
- 	if (!iPersonalityCfged)
-		{
-		return KErrNotSupported;
-		}
-
-	TInt personalityId = aMessage.Int0();
-	const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
-    	if (personality)
-        	{
-        	if(personality->Version() < EUsbManagerResourceVersionTwo)
-            		{
-            		return KErrNotFound;
-            		}
-		return aMessage.Write(1, *(personality->DetailedDescription()));
-		}
-
-	// We should never reach here
-	return KErrNotSupported;
-	}
 
 /**
  * Gets personality property
@@ -1426,10 +1393,6 @@ TInt CUsbSession::GetPersonalityProperty(const RMessage2& aMessage)
 		const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
 		if (personality)
 			{
-			if(personality->Version() < EUsbManagerResourceVersionThree)
-				{
-				return KErrNotFound;
-				}
 			TPckg<TUint32> pckg(personality->Property());
 			return aMessage.Write(1, pckg);
 			}
@@ -1459,7 +1422,7 @@ TInt CUsbSession::ClassSupported(const RMessage2& aMessage)
 	const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
 	if (personality)
 		{
-		isSupported = (personality->ClassSupported(classUid) != KErrNotFound);
+		isSupported = personality->ClassSupported(classUid);
 		TPckg<TBool> pkg2(isSupported);
 		return aMessage.Write(2, pkg2);
 		}

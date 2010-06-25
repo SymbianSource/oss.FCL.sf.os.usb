@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,33 +21,32 @@
  @file
 */
 
-#include "CUsbDevice.h"
-#include "CUsbDeviceStateWatcher.h"
 #include <cusbclasscontrolleriterator.h>
-#include "MUsbDeviceNotify.h"
-#include "UsbSettings.h"
-#include "CUsbServer.h"
 #include <cusbclasscontrollerbase.h>
 #include <cusbclasscontrollerplugin.h>
-#include "UsbUtils.h"
 #include <cusbmanextensionplugin.h>
-
-#ifdef USE_DUMMY_CLASS_CONTROLLER
-#include "CUsbDummyClassController.h"
-#endif
-
 #include <bafl/sysutil.h>
 #include <usb/usblogger.h>
 #include <e32svr.h>
 #include <e32base.h>
 #include <e32std.h>
-#include <usbman.rsg>
 #include <f32file.h>
 #include <barsc.h>
 #include <barsread.h>
 #include <bautils.h>
 #include <e32property.h> //Publish & Subscribe header
+#ifdef USE_DUMMY_CLASS_CONTROLLER
+#include "CUsbDummyClassController.h"
+#endif
+#include "MUsbDeviceNotify.h"
+#include "UsbSettings.h"
+#include "CUsbServer.h"
+#include "UsbUtils.h"
+#include "CUsbDevice.h"
+#include "CUsbDeviceStateWatcher.h"
 #include "CPersonality.h"
+#include "usbmancenrepmanager.h"
+#include "usbmanprivatecrkeys.h"
 
 _LIT(KUsbLDDName, "eusbc"); //Name used in call to User::LoadLogicalDevice
 _LIT(KUsbLDDFreeName, "Usbc"); //Name used in call to User::FreeLogicalDevice
@@ -108,6 +107,11 @@ CUsbDevice::~CUsbDevice()
 	iSupportedClassUids.Close();
 
 	iExtensionPlugins.ResetAndDestroy();
+	
+	delete iCenRepManager;
+	
+	delete  iDeviceConfiguration.iManufacturerName;
+	delete  iDeviceConfiguration.iProductName;  
 
 	if(iEcom)
 		iEcom->Close();
@@ -165,8 +169,11 @@ void CUsbDevice::ConstructL()
 	iEcom = &(REComSession::OpenL());
 
 	iUsbClassControllerIterator = new(ELeave) CUsbClassControllerIterator(iSupportedClasses);
+	iCenRepManager = CUsbManCenRepManager::NewL(*this);
 
-#ifndef __OVER_DUMMYUSBDI__
+	iDeviceConfiguration.iManufacturerName   = HBufC::NewL(KUsbStringDescStringMaxSize);
+	iDeviceConfiguration.iProductName        = HBufC::NewL(KUsbStringDescStringMaxSize);
+#ifndef __OVER_DUMMYUSBDI__	
 #ifndef __WINS__
 	LOGTEXT(_L8("About to load LDD"));
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
@@ -787,7 +794,7 @@ void CUsbDevice::PrintDescriptor(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescri
 	LOGTEXT2(_L8("\tiMaxPacketSize is: 0x%02x"), aDeviceDescriptor.iMaxPacketSize);
 	
 	LOGTEXT2(_L8("\tVendorId is: 0x%04x"), aDeviceDescriptor.iIdVendor);
-	LOGTEXT2(_L8("\tProductId is: 0x%04x"), aDeviceDescriptor.iIdProduct);
+	LOGTEXT2(_L8("\tProductId is: 0x%04x"), aDeviceDescriptor.iProductId);
 	LOGTEXT2(_L8("\tBcdDevice is: 0x%04x"), aDeviceDescriptor.iBcdDevice);
 
 	LOGTEXT2(_L8("\tiManufacturer is: 0x%04x"), aDeviceDescriptor.iManufacturer);
@@ -839,7 +846,8 @@ void CUsbDevice::SetDeviceDescriptorL()
 		}
 	else
 		{
-	SetUsbDeviceSettingsL(*deviceDescriptor);
+        LOGTEXT(_L8("USB configuration is not read"));
+        LEAVEL(KErrNotFound);
 		}
 	
 #ifndef __OVER_DUMMYUSBDI__
@@ -870,140 +878,7 @@ void CUsbDevice::SetUsbDeviceSettingsDefaultsL(CUsbDevice::TUsbDeviceDescriptor&
 	aDeviceDescriptor.iDeviceSubClass	= KUsbDefaultDeviceSubClass;
 	aDeviceDescriptor.iDeviceProtocol	= KUsbDefaultDeviceProtocol;
 	aDeviceDescriptor.iIdVendor			= KUsbDefaultVendorId;
-	aDeviceDescriptor.iIdProduct		= KUsbDefaultProductId;
-	}
-
-void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
-/**
- * Configure the USB device, reading in the settings from a
- * resource file where possible.
- *
- * @param aDeviceDescriptor The device descriptor for the USB device
- */
-	{
-	LOG_FUNC
-
-	// First, use the default values
-	LOGTEXT(_L8("Setting default values for the configuration"));
-	SetUsbDeviceSettingsDefaultsL(aDeviceDescriptor);
-
-	// Now try to get the configuration from the resource file
-	RFs fs;
-	LEAVEIFERRORL(fs.Connect());
-	CleanupClosePushL(fs);
-
-	RResourceFile resource;
-	TRAPD(err, resource.OpenL(fs, KUsbManagerResource));
-	LOGTEXT2(_L8("Opened resource file with error %d"), err);
-
-	if (err != KErrNone)
-		{
-		LOGTEXT(_L8("Unable to open resource file: using default settings"));
-		CleanupStack::PopAndDestroy(&fs);
-		return;
-		}
-
-	CleanupClosePushL(resource);
-
-	resource.ConfirmSignatureL(KUsbManagerResourceVersion);
-
-	HBufC8* id = resource.AllocReadLC(USB_CONFIG);
-
-	// The format of the USB resource structure is:
-	//
-	//	STRUCT usb_configuration
-	//		{
-	//		WORD	vendorId		= 0x0e22;
-	//		WORD	productId		= 0x000b;
-	//		WORD	bcdDevice		= 0x0000;
-	//		LTEXT	manufacturer	= "Symbian Ltd.";
-	//		LTEXT	product			= "Symbian OS";
-	//		}
-	//
-	// Note that the resource must be read in this order!
-	
-	TResourceReader reader;
-	reader.SetBuffer(id);
-
-	aDeviceDescriptor.iIdVendor = static_cast<TUint16>(reader.ReadUint16());
-	aDeviceDescriptor.iIdProduct = static_cast<TUint16>(reader.ReadUint16());
-	aDeviceDescriptor.iBcdDevice = static_cast<TUint16>(reader.ReadUint16());
-
-	// Try to read device and manufacturer name from new SysUtil API
-	TPtrC16 sysUtilModelName;
-	TPtrC16 sysUtilManuName;
-	
-	// This method returns ownership.
-	CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
-	CleanupStack::PushL(deviceInfo);
-	TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
-	TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
-	
-	TPtrC manufacturerString = reader.ReadTPtrC();
-	TPtrC productString = reader.ReadTPtrC();
-	
-	// If we succesfully read the manufacturer or device name from SysUtil API
-	// then set these results, otherwise use the values defined in resource file
-#ifndef __OVER_DUMMYUSBDI__
-#ifndef __WINS__
-	if (gotSysUtilManuName == KErrNone)
-		{
-		LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(sysUtilManuName));
-		}
-	else
-		{
-		LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(manufacturerString));
-		}
-
-	if (gotSysUtilModelName == KErrNone)
-		{
-		LEAVEIFERRORL(iLdd.SetProductStringDescriptor(sysUtilModelName));
-		}
-	else
-		{
-		LEAVEIFERRORL(iLdd.SetProductStringDescriptor(productString));
-		}
-		
-#endif
-#endif // __OVER_DUMMYUSBDI__
-
-#ifdef __FLOG_ACTIVE
-	PrintDescriptor(aDeviceDescriptor);	
-	TBuf8<KUsbStringDescStringMaxSize> narrowString;
-	narrowString.Copy(manufacturerString);
-	LOGTEXT2(_L8("Manufacturer is: '%S'"), &narrowString);
-	narrowString.Copy(productString);
-	LOGTEXT2(_L8("Product is: '%S'"), &narrowString);
-#endif // __FLOG_ACTIVE
-
-#ifndef __OVER_DUMMYUSBDI__
-#ifndef __WINS__	
-	//Read the published serial number. The key is the UID KUidUsbmanServer = 0x101FE1DB
-	TBuf16<KUsbStringDescStringMaxSize> serNum;
-	TInt r = RProperty::Get(KUidSystemCategory,0x101FE1DB,serNum);
-	if(r==KErrNone)
-		{
-#ifdef __FLOG_ACTIVE
-		TBuf8<KUsbStringDescStringMaxSize> narrowString;
-		narrowString.Copy(serNum);
-		LOGTEXT2(_L8("Setting published SerialNumber: %S"), &narrowString);
-#endif // __FLOG_ACTIVE
-		//USB spec doesn't give any constraints on what constitutes a valid serial number.
-		//As long as it is a string descriptor it is valid.
-		LEAVEIFERRORL(iLdd.SetSerialNumberStringDescriptor(serNum));	
-		}
-#ifdef __FLOG_ACTIVE
-	else
-		{
-		LOGTEXT(_L8("SerialNumber has not been published"));	
-		}
-#endif // __FLOG_ACTIVE
-
-#endif
-#endif // __OVER_DUMMYUSBDI__
-
-
-	CleanupStack::PopAndDestroy(4, &fs); //  deviceInfo, id, resource, fs
+	aDeviceDescriptor.iProductId		= KUsbDefaultProductId;
 	}
 
 void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
@@ -1020,20 +895,19 @@ void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDesc
 	SetUsbDeviceSettingsDefaultsL(aDeviceDescriptor);
 
 	// Now try to get the configuration from the current personality
-	const CUsbDevice::TUsbDeviceDescriptor& deviceDes = iCurrentPersonality->DeviceDescriptor();
-	aDeviceDescriptor.iDeviceClass			= deviceDes.iDeviceClass;
-	aDeviceDescriptor.iDeviceSubClass		= deviceDes.iDeviceSubClass;
-	aDeviceDescriptor.iDeviceProtocol		= deviceDes.iDeviceProtocol;
-	aDeviceDescriptor.iIdVendor				= deviceDes.iIdVendor;
-	aDeviceDescriptor.iIdProduct			= deviceDes.iIdProduct;
-	aDeviceDescriptor.iBcdDevice			= deviceDes.iBcdDevice;
-	aDeviceDescriptor.iSerialNumber			= deviceDes.iSerialNumber;
-	aDeviceDescriptor.iNumConfigurations	= deviceDes.iNumConfigurations;
+    aDeviceDescriptor.iDeviceClass          = iCurrentPersonality->DeviceClass();
+    aDeviceDescriptor.iDeviceSubClass       = iCurrentPersonality->DeviceSubClass();
+    aDeviceDescriptor.iDeviceProtocol       = iCurrentPersonality->DeviceProtocol();
+    aDeviceDescriptor.iIdVendor             = iDeviceConfiguration.iVendorId;
+    aDeviceDescriptor.iProductId            = iCurrentPersonality->ProductId();
+    aDeviceDescriptor.iBcdDevice            = iCurrentPersonality->BcdDevice();
+    aDeviceDescriptor.iNumConfigurations    = iCurrentPersonality->NumConfigurations();	
+	
 
 #ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
-	LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(*(iCurrentPersonality->Manufacturer())));
-	LEAVEIFERRORL(iLdd.SetProductStringDescriptor(*(iCurrentPersonality->Product())));
+	LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(*(iDeviceConfiguration.iManufacturerName)));
+	LEAVEIFERRORL(iLdd.SetProductStringDescriptor(*(iDeviceConfiguration.iProductName)));
 
 	//Read the published serial number. The key is the UID KUidUsbmanServer = 0x101FE1DB
 	TBuf16<KUsbStringDescStringMaxSize> serNum;
@@ -1171,15 +1045,17 @@ void CUsbDevice::ValidatePersonalitiesL()
 	TInt personalityCount = iSupportedPersonalities.Count();
 	for (TInt i = 0; i < personalityCount; i++)
 		{
-		const RArray<TUid>& classUids = iSupportedPersonalities[i]->SupportedClasses();
-		TInt uidCount = classUids.Count();
+		const RArray<CPersonalityConfigurations::TUsbClasses>& classes = iSupportedPersonalities[i]->SupportedClasses();
+		TInt uidCount = classes.Count();
 		for (TInt j = 0; j < uidCount; j++)	
 			{
 			TInt ccCount = iSupportedClassUids.Count();
 			TInt k;
+		    LOGTEXT2(_L8("iSupportedClassUids Count = %d"),ccCount);
 			for (k = 0; k < ccCount; k++)
 				{
-				if (iSupportedClassUids[k] == classUids[j])
+                LOGTEXT5(_L8("iSupportedClassUids %d %x classes %d %x"), k, iSupportedClassUids[k].iUid, j, classes[j].iClassUid.iUid);
+				if (iSupportedClassUids[k] == classes[j].iClassUid)
 					{
 					break;
 					}
@@ -1204,6 +1080,7 @@ so there may still be UIDs allocated in the RArray.
 */
 void CUsbDevice::ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray)	
 	{
+    LOG_FUNC
 	// Function assumes that aUIDs is empty
 	__ASSERT_DEBUG( aUidArray.Count() == 0, _USB_PANIC(KUsbDevicePanicCategory, EUidArrayNotEmpty) );
 
@@ -1228,214 +1105,36 @@ void CUsbDevice::ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray)
 	}
 
 void CUsbDevice::ReadPersonalitiesL()
-/**
- * Reads configured personalities from the resource file
- */
-	{
-	LOG_FUNC
-	iPersonalityCfged = EFalse;
-	// Now try to connect to file server
-	RFs fs;
-	LEAVEIFERRORL(fs.Connect());
-	CleanupClosePushL(fs);
-
-	TFileName resourceFileName;
-	ResourceFileNameL(resourceFileName);
-	RResourceFile resource;
-	TRAPD(err, resource.OpenL(fs, resourceFileName));
-	LOGTEXT2(_L8("Opened resource file with error %d"), err);
-
-	if (err != KErrNone)
-		{
-		LOGTEXT(_L8("Unable to open resource file"));
-		CleanupStack::PopAndDestroy(&fs);
-		return;
-		}
-
-	CleanupClosePushL(resource);
-
-	TInt resourceVersion = resource.SignatureL();
-	LOGTEXT2(_L8("Resource file signature is %d"), resourceVersion);
-	// Check for the version is valid(EUsbManagerResourceVersionOne, EUsbManagerResourceVersionTwo
-	// or EUsbManagerResourceVersionThree).
-	if(resourceVersion > EUsbManagerResourceVersionThree)
-		{
-		LOGTEXT2(_L8("Version of resource file is valid (>%d)"), EUsbManagerResourceVersionThree);
-		User::LeaveIfError(KErrNotSupported);
-		}
-	
-	resource.ConfirmSignatureL(resourceVersion);
-
-	HBufC8* personalityBuf = 0;
-	TRAPD(ret, personalityBuf = resource.AllocReadL(DEVICE_PERSONALITIES));
-	// If personalities resource is not found, swallow the error and return
-	// as no specified personalities is a valid configuration
-	if (ret == KErrNotFound)
-		{
-		LOGTEXT(_L8("Personalities are not configured"));
-		CleanupStack::PopAndDestroy(2, &fs); 
-		return;
-		}
-	// Otherwise leave noisily if the AllocRead fails
-	LEAVEIFERRORL(ret);
-	CleanupStack::PushL(personalityBuf);
-
-	// The format of the USB resource structure is:
-	//
-	// 	STRUCT PERSONALITY
-	//		{
-	// 		WORD	bcdDeviceClass;
-	// 		WORD	bcdDeviceSubClass;
-	//		WORD 	protocol;
-	//		WORD	numConfigurations;
-	//		WORD 	vendorId;
-	//		WORD 	productId;
-	//		WORD 	bcdDevice;
-	//		LTEXT 	manufacturer;
-	//		LTEXT 	product;
-	//		WORD 	id;					// personality id
-	//		LTEXT	class_uids;	
-	//		LTEXT 	description;		// personality description
-	//     	LTEXT   detailedDescription;  //detailed description. This is in version 2
-	//		LONG 	Property;
-	//		}
-	//
-	// Note that the resource must be read in this order!
-	
-	TResourceReader reader;
-	reader.SetBuffer(personalityBuf);
-
-	TUint16 personalityCount 	= static_cast<TUint16>(reader.ReadUint16());
-	
-	// Read the manufacturer and device name (product) here from SysUtil class
-	TPtrC16 sysUtilModelName;
-	TPtrC16 sysUtilManuName;
-
-	// This method returns ownership.
-	CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
-	CleanupStack::PushL(deviceInfo);
-	TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
-	TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
-	
-	for (TInt idx = 0; idx < personalityCount; idx++)
-		{
-		// read a personality 
-		TUint8 	bDeviceClass 		= static_cast<TUint8>(reader.ReadUint8());
-		TUint8 	bDeviceSubClass 	= static_cast<TUint8>(reader.ReadUint8());
-		TUint8 	protocol 			= static_cast<TUint8>(reader.ReadUint8());
-		TUint8 	numConfigurations	= static_cast<TUint8>(reader.ReadUint8());
-		TUint16 vendorId			= static_cast<TUint16>(reader.ReadUint16());
-		TUint16 productId			= static_cast<TUint16>(reader.ReadUint16());
-		TUint16 bcdDevice			= static_cast<TUint16>(reader.ReadUint16());
-		TPtrC	manufacturer		= reader.ReadTPtrC();
-		TPtrC	product				= reader.ReadTPtrC();
-		TUint16 id					= static_cast<TUint16>(reader.ReadUint16());
-		TPtrC	uidsStr				= reader.ReadTPtrC();
-		TPtrC 	description			= reader.ReadTPtrC();
-		
-		RArray<TUint> uids;
-		CleanupClosePushL(uids);
-		ConvertUidsL(uidsStr, uids);
-		// creates a CPersonality object
-		CPersonality* personality = CPersonality::NewL();
-		CleanupStack::PushL(personality);
-
-		personality->SetVersion(resourceVersion);
-		
-		// populates personality object
-		personality->SetId(id);
-		        
-		for (TInt uidIdx = 0; uidIdx < uids.Count(); uidIdx++)
-			{
-			LEAVEIFERRORL(personality->AddSupportedClasses(TUid::Uid(uids[uidIdx])));
-			}
-		
-		// gets a handle to iDeviceDescriptor of personality
-		CUsbDevice::TUsbDeviceDescriptor& dvceDes = personality->DeviceDescriptor();
-		if (gotSysUtilManuName == KErrNone)
-			{
-			personality->SetManufacturer(&sysUtilManuName);
-			}
-		else
-			{
-			personality->SetManufacturer(&manufacturer);
-			}
-			
-		if (gotSysUtilModelName == KErrNone)
-			{
-			personality->SetProduct(&sysUtilModelName);
-			}
-		else
-			{
-			personality->SetProduct(&product);
-			}
-			
-		personality->SetDescription(&description);
-		dvceDes.iDeviceClass = bDeviceClass;
-		dvceDes.iDeviceSubClass = bDeviceSubClass;
-		dvceDes.iDeviceProtocol = protocol;
-		dvceDes.iIdVendor = vendorId;
-		dvceDes.iIdProduct= productId;
-		dvceDes.iBcdDevice = bcdDevice;
-		dvceDes.iNumConfigurations = numConfigurations;
-		
-		//detailedDescription is only supported after EUsbManagerResourceVersionTwo
-		if(resourceVersion >= EUsbManagerResourceVersionTwo)
-			{
-			TPtrC   detailedDescription = reader.ReadTPtrC();        
-			personality->SetDetailedDescription(&detailedDescription);
-#ifdef __FLOG_ACTIVE
-			TBuf8<KUsbDescMaxSize_String> narrowLongBuf;
-			narrowLongBuf.Copy(detailedDescription);
-			LOGTEXT2(_L8("detailed description = '%S'"),        &narrowLongBuf);            
-#endif // __FLOG_ACTIVE
-			}
-
-		//Property is only supported after EUsbManagerResourceVersionThree
-		if(resourceVersion >= EUsbManagerResourceVersionThree)
-			{
-			TUint32 property			= static_cast<TUint32>(reader.ReadUint32());
-			personality->SetProperty(property);
-#ifdef __FLOG_ACTIVE
-		LOGTEXT2(_L8("property = %d\n"), 			property);
-#endif // __FLOG_ACTIVE
-			}
-		
-		// Append personality to iSupportedPersonalities
-		iSupportedPersonalities.AppendL(personality);
-		// Now pop off personality
-		CleanupStack::Pop(personality);
-#ifdef __FLOG_ACTIVE
-		// Debugging
-		LOGTEXT2(_L8("personalityCount = %d\n"), 	personalityCount);
-		LOGTEXT2(_L8("bDeviceClass = %d\n"), 		bDeviceClass);
-		LOGTEXT2(_L8("bDeviceSubClass = %d\n"), 	bDeviceSubClass);
-		LOGTEXT2(_L8("protocol = %d\n"), 			protocol);
-		LOGTEXT2(_L8("numConfigurations = %d\n"), 	numConfigurations);
-		LOGTEXT2(_L8("vendorId = %d\n"), 			vendorId);
-		LOGTEXT2(_L8("productId = %d\n"), 			productId);
-		LOGTEXT2(_L8("bcdDevice = %d\n"), 			bcdDevice);
-		TBuf8<KMaxName> narrowBuf;
-		narrowBuf.Copy(manufacturer);
-		LOGTEXT2(_L8("manufacturer = '%S'"), 		&narrowBuf);
-		narrowBuf.Copy(product);
-		LOGTEXT2(_L8("product = '%S'"), 			&narrowBuf);
-		LOGTEXT2(_L8("id = %d\n"), 					id);
-		LOGTEXT(_L8("ClassUids{"));
-		for (TInt k = 0; k < uids.Count(); k++)
-			{
-			LOGTEXT2(_L8("%d"), uids[k]);
-			}
-		LOGTEXT(_L8("}"));
-		narrowBuf.Copy(description);
-		LOGTEXT2(_L8("description = '%S'"), 		&narrowBuf);
-#endif // __FLOG_ACTIVE
-		CleanupStack::PopAndDestroy(&uids);	// close uid array		
-		}
-		
-	CleanupStack::PopAndDestroy(4, &fs); // deviceInfo, personalityBuf, resource, fs
-	iPersonalityCfged = ETrue;	
-	}
+    {    
+    LOG_FUNC
+    TPtrC16 sysUtilModelName;
+    TPtrC16 sysUtilManuName;
+    
+    iPersonalityCfged = EFalse;
+    
+    iCenRepManager->ReadDeviceConfigurationL(iDeviceConfiguration);
+    
+    iCenRepManager->ReadPersonalitiesL(iSupportedPersonalities);
+    
+    //update info for SetManufacturer & SetProduct
+    CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
+    CleanupStack::PushL(deviceInfo);
+    TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
+    TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
+    
+    //To overlap info 
+    if (gotSysUtilManuName == KErrNone)
+        {
+        iDeviceConfiguration.iManufacturerName->Des().Copy(sysUtilManuName); 
+        }
+        
+    if (gotSysUtilModelName == KErrNone)
+        {
+        iDeviceConfiguration.iProductName->Des().Copy(sysUtilModelName);
+        }
+    CleanupStack::PopAndDestroy(deviceInfo);
+    iPersonalityCfged = ETrue;
+    }
 	
 void CUsbDevice::SelectClassControllersL()
 /**
@@ -1443,8 +1142,19 @@ void CUsbDevice::SelectClassControllersL()
  */
 	{
 	LOG_FUNC
-
-	CreateClassControllersL(iCurrentPersonality->SupportedClasses());
+    const RArray<CPersonalityConfigurations::TUsbClasses>& classes = iCurrentPersonality->SupportedClasses();
+	RArray<TUid> classUids;
+	CleanupClosePushL( classUids ); 
+    TInt classCount = classes.Count();
+	for(TInt classIndex = 0; classIndex<classCount; ++classIndex)
+	    {
+        TUid uid = classes[classIndex].iClassUid;
+        classUids.AppendL(uid);
+	    }
+	
+	CreateClassControllersL(classUids);
+	
+    CleanupStack::PopAndDestroy( &classUids );
 	}
 #ifdef USE_DUMMY_CLASS_CONTROLLER	
 void CUsbDevice::CreateClassControllersL(const RArray<TUid>& /* aClassUids*/)
@@ -1489,7 +1199,6 @@ void CUsbDevice::SetDefaultPersonalityL()
 
 	TInt smallestId = iSupportedPersonalities[0]->PersonalityId();
  	TInt count = iSupportedPersonalities.Count();
- 	
  	for (TInt i = 1; i < count; i++)
  		{
  		if(iSupportedPersonalities[i]->PersonalityId() < smallestId)
@@ -1497,7 +1206,7 @@ void CUsbDevice::SetDefaultPersonalityL()
  			smallestId = iSupportedPersonalities[i]->PersonalityId();
  			}
  		}
-
+    
 	SetCurrentPersonalityL(smallestId);
 	SelectClassControllersL();
 	}
@@ -1516,44 +1225,6 @@ void CUsbDevice::LoadFallbackClassControllersL()
 	CreateClassControllersL(iSupportedClassUids);
  	}
  	
-void CUsbDevice::ResourceFileNameL(TFileName& aFileName)
-/**
- * Gets resource file name
- *
- * @param aFileName Descriptor to populate with resource file name
- */
- 	{
-	LOG_FUNC
-
-	RFs fs;
-	LEAVEIFERRORL(fs.Connect());
-	CleanupClosePushL(fs);
-
-#ifdef __WINS__
-	// If we are running in the emulator then read the resource file from system drive.
-	// This makes testing with different resource files easier.
-	_LIT(KPrivatePath, ":\\Private\\101fe1db\\");
-	aFileName.Append(RFs::GetSystemDriveChar()); //get the name of system drive
-	aFileName.Append(KPrivatePath);
-#else
- 	const TDriveNumber KResourceDrive = EDriveZ;
-
-	TDriveUnit driveUnit(KResourceDrive);
-	TDriveName drive=driveUnit.Name();
-	aFileName.Insert(0, drive);
-	// append private path
-	TPath privatePath;
-	fs.PrivatePath(privatePath);
-	aFileName.Append(privatePath);		
-#endif //WINS
-
-	// Find the nearest match of resource file for the chosen locale
-	aFileName.Append(_L("usbman.rsc"));
-	BaflUtils::NearestLanguageFile(fs, aFileName); // if a match is not found, usbman.rsc will be used
-
-	CleanupStack::PopAndDestroy(&fs);	// fs no longer needed
- 	}
-
 RDevUsbcClient& CUsbDevice::MuepoDoDevUsbcClient()
 /**
  * Inherited from MUsbmanExtensionPluginObserver - Function used by plugins to

@@ -21,7 +21,6 @@
 #include <e32svr.h>
 #include <e32base.h>
 #include <e32std.h>
-#include <usbman.rsg>
 #include <f32file.h>
 #include <barsc.h>
 #include <barsread.h>
@@ -129,6 +128,7 @@ void CDummyUsbDevice::ConstructL()
 	iPlugin = iExtensionPlugins[0];
 
 	iDummyLdd.Initialise();
+	//iRepository = CRepository::NewL(KUsbBatteryChargingCentralRepositoryUid);
 	User::LeaveIfError(iTimer.CreateLocal());
 	
 	DefinePropertyL(KBattChargWriteRepositoryUid, KBattChargWriteRepositoryKey,RProperty::EInt);
@@ -345,7 +345,7 @@ void CDummyUsbDevice::OpenFileL()
 
 TInt CDummyUsbDevice::GetNextLine()
 	{
-	TInt newLineOffset = (iPtr.Mid(iFileOffset)).Locate(13);
+	TInt newLineOffset = (iPtr.Mid(iFileOffset)).Locate(13);//Find(_L("\r\n"));
 	if (newLineOffset < 0)
 		{
 		return newLineOffset;
@@ -426,6 +426,7 @@ void CDummyUsbDevice::DoCommand()
 			{
 			TInt err = WriteToRepositoryProperty(iCommandValue);
 			
+			//TInt err = iRepository->Set(KUsbBatteryChargingKeyEnabledUserSetting, iCommandValue);
 			iTest(err == KErrNone);
 			}
 			break;
@@ -481,6 +482,8 @@ void CDummyUsbDevice::DoCheck()
 			TInt current;			
 			TInt err = GetChargingCurrentFromProperty(current);
 			
+			//TInt err = RProperty::Get(KPropertyUidUsbBatteryChargingCategory,
+			//	KPropertyUidUsbBatteryChargingChargingCurrent, current);
 			iTest(err == KErrNone);
 			iTest(current == iCheckValue);
 			}

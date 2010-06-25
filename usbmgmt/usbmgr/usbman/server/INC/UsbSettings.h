@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -50,16 +50,11 @@ _LIT(KUsbDefaultProduct, "Symbian OS");
 _LIT(KUsbDefaultSerialNumber, "0123456789");
 _LIT(KUsbDefaultConfig, "First and Last and Always");
 
-const TInt KUsbManagerResourceVersion = 0;
-const TInt KUsbManagerResourceVersionNew = 1;
-
-enum TUsbManagerResourceVersion
+enum TUsbManagerSupportedVersion
 	{
-	EUsbManagerResourceVersionOne = 1,
-	EUsbManagerResourceVersionTwo = 2,
-	EUsbManagerResourceVersionThree = 3
+    TUsbManagerSupportedVersionMin = 4,
+    TUsbManagerSupportedVersionFour = 4,        
+    TUsbManagerSupportedVersionMax = 4
 	};
-
-_LIT(KUsbManagerResource, "z:\\private\\101fe1db\\usbman.rsc");
 
 #endif // __USBSETTINGS_H__
