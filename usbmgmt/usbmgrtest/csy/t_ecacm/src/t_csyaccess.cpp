@@ -24,12 +24,10 @@
 
 #ifndef __WINS__
 _LIT(KCommDriverName, "EUSBC");
-//_LIT(KCommDeviceName, "USBC");
 #else
 _LIT(KCommPhysDriverName, "ECDRV");
 _LIT(KCommPhysDeviceName, "Comm.Wins");
 _LIT(KCommDriverName, "ECOMM");
-//_LIT(KCommDeviceName, "Comm");
 #endif
 
 LOCAL_D RTest gTest(_L("T_CSYACCESS"));
@@ -467,21 +465,6 @@ TInitReturnValue C32_SucceedAcmOpen(TUint aCount)
 					if ( !err ) 
 						{
 						gTest.Printf(_L("\tsuccessful result from RComm::Open\n"));
-						
-	/*					TCommServerConfigV01 serverConfig;
-						TCommServerConfig serverConfigBuf(serverConfig);
-						comm.Mode(serverConfigBuf);
-
-						const TUint KBufSize = 0x1000;
-						serverConfig.iBufSize = KBufSize;
-
-						err = comm.SetMode(serverConfig);
-						if ( !err )
-							{
-							gTest.Printf(_L("\tsuccessful result from RComm::SetMode\n"));
-							// End of use case.
-							}
-  */
 						comm.Close();			
 						}
 					}
@@ -751,7 +734,10 @@ GLDEF_C TInt E32Main()
 		TInt error = KErrNone;
 
 		RCommServ sess;
-		sess.Connect();
+		gTest.Next(_L("Connecting to Comm Server"));
+		r = sess.Connect();
+		gTest(r == KErrNone);
+		
 		sess.__DbgMarkHeap();
 
 		switch (key )
@@ -830,7 +816,9 @@ TInt RunOneTest(TInt aKey)
 void RunAll()
 	{
 	RCommServ sess;
-	sess.Connect();
+    gTest.Next(_L("Connecting to Comm Server"));
+    TInt r = sess.Connect();
+    gTest(r == KErrNone);
 
 	for ( TInt ii = 0 ; ii < 9 ; ii++ ) // TODO: keep 9 up-to-date with number of tests.
 		{

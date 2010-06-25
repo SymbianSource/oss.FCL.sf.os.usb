@@ -46,7 +46,6 @@ void CSimplexRead::StartL()
 		RDebug::Print(_L(": CSimplexRead::StartL Warning - Already active\n"));
 		return;
 		}
-	//iBuffer.SetMax();	
 	iCommPort->ReadOneOrMore(iStatus, iBuffer);
 	SetActive();
 	}
@@ -56,8 +55,6 @@ void CSimplexRead::RunL()
 #ifdef _DEBUG
 	RDebug::Print(_L(": CSimplexRead::RunL - iStatus:%d iBuffer.Length:%d TotalAmount Left:%d\n"),iStatus.Int(),iBuffer.Length(),iTotalAmount);
 #endif
-	//RDebug::Print(_L(">%S<\n"),&iBuffer);
-	//Notify Duplex object
 	iDuplex.NotifyRead(iStatus.Int(),iBuffer.Length(), iBuffer);
 	}
 
@@ -342,7 +339,6 @@ void CSignalChangeNotifier::RunL()
 				RDebug::Print(_L(": Serial RTS on"));
 #endif
 				TheSerialPort.SetSignals( KSignalRTS, 0 );
-				//TheUsbPort.SetSignals( KSignalCTS, 0 );
 				}
 			else
 				{
@@ -350,7 +346,6 @@ void CSignalChangeNotifier::RunL()
 				RDebug::Print(_L(": Serial RTS off"));
 #endif
 				TheSerialPort.SetSignals( 0, KSignalRTS );
-				//TheUsbPort.SetSignals( 0, KSignalCTS );
 				}
 			}
 	
@@ -362,7 +357,6 @@ void CSignalChangeNotifier::RunL()
 				RDebug::Print(_L(": Serial DTR on"));
 #endif
 				TheSerialPort.SetSignals( KSignalDTR, 0 );
-				//TheUsbPort.SetSignals( KSignalDSR, 0 );
 				}
 			else
 				{
@@ -370,7 +364,6 @@ void CSignalChangeNotifier::RunL()
 				RDebug::Print(_L(": Serial DTR off"));
 #endif
 				TheSerialPort.SetSignals( 0, KSignalDTR );
-				//TheUsbPort.SetSignals( 0, KSignalDSR );
 				}
 			}
 
@@ -534,7 +527,6 @@ void CActiveConsole::DoCancel()
 	iUsbConfigChangeNotifier->Cancel();
 	iSerialSignalChangeNotifier->Cancel();
 	iUsbSignalChangeNotifier->Cancel();
-	//iUsbFControlNotifier->Cancel();
 	
 	iUsbToSerial->Cancel();
 	iSerialToUsb->Cancel();
@@ -571,7 +563,6 @@ void CActiveConsole::ConstructL()
 
 	iSerialSignalChangeNotifier = CSignalChangeNotifier::NewL(EFalse);
 	iUsbSignalChangeNotifier = CSignalChangeNotifier::NewL(ETrue);
-//	iUsbFControlNotifier = CFControlChangeNotifier::NewL();
 	iUsbConfigChangeNotifier = CConfigChangeNotifier::NewL();
 	}
 
@@ -590,7 +581,6 @@ void CActiveConsole::Start()
 	TRAP(ignoreErr, iUsbConfigChangeNotifier->StartL());
 	TRAP(ignoreErr, iSerialSignalChangeNotifier->StartL());
 	TRAP(ignoreErr, iUsbSignalChangeNotifier->StartL());
-//	iUsbFControlNotifier->StartL();
 	
 	TRAP(ignoreErr, iUsbToSerial->StartL());
 	TRAP(ignoreErr, iSerialToUsb->StartL());
@@ -701,107 +691,6 @@ void CActiveConsole::ProcessKeyPressL()
 		}
 	}
 
-/*
-LOCAL_C TInt RateToInt(TBps aRate)
-	{
-	switch (aRate)
-		{
-	case EBps115200:	return 115200;
-    case EBps57600:	return 57600;
-    case EBps38400:	return 38400;
-    case EBps19200:	return 19200;
-    case EBps9600:	return 9600;
-	case EBps7200:	return 7200;
-    case EBps4800:	return 4800;
-	case EBps3600:	return 3600;
-    case EBps2400:	return 2400;
-	case EBps2000:	return 2000;
-	case EBps1800:	return 1800;
-    case EBps1200:	return 1200;
-    case EBps600:	return 600;
-    case EBps300:	return 300;
-    case EBps150:	return 150;
-	case EBps134:	return 134;
-    case EBps110:	return 110;
-	case EBps75:	return 75;
-	case EBps50:	return 50;
-	default:	return -1;
-		}
-	}
-
-LOCAL_C void ConfigString(TDes &aBuf, const TCommNotificationV01 &aConfig)
-	{
-	// Config
-	aBuf.Format(_L(" %d "), RateToInt(aConfig.iRate));
-	switch (aConfig.iParity)
-		{
-	case EParityEven: aBuf.Append(_L("E")); break;
-	case EParityOdd: aBuf.Append(_L("O")); break;
-	case EParityNone: aBuf.Append(_L("N")); break;
-    default: break;
-		}
-	switch (aConfig.iDataBits)
-		{
-	case EData5: aBuf.Append(_L("5")); break;
-	case EData6: aBuf.Append(_L("6")); break;
-	case EData7: aBuf.Append(_L("7")); break;
-	case EData8: aBuf.Append(_L("8")); break;
-    default: break;
-		}
-	if (aConfig.iStopBits==EStop1)
-		aBuf.Append(_L("1 "));
-	else
-		aBuf.Append(_L("2 "));
-
-	aBuf.Append(_L("Use:"));
-	if (aConfig.iHandshake==0)
-		aBuf.Append(_L("NoControl "));
-	if (aConfig.iHandshake&(KConfigObeyXoff|KConfigSendXoff))
-		aBuf.Append(_L("XonXoff "));
-	if (aConfig.iHandshake&KConfigObeyCTS)
-		aBuf.Append(_L("CTS/RTS "));
-	if (aConfig.iHandshake&KConfigObeyDSR)
-		aBuf.Append(_L("DSR/DTR "));
-	if (aConfig.iHandshake&KConfigWriteBufferedComplete)
-		aBuf.Append(_L("Early "));
-	//|KConfigObeyDCD|KConfigFailDCD|))
-
-//	if (aConfig.iBreak==TEiger::EBreakOn)
-//		aBuf.Append(_L("Brk "));
-//	if (aConfig.iFifo==EFifoEnable)
-//		aBuf.Append(_L("Fifo "));
-	}
-	
-LOCAL_C void PrintCaps()
-	{
-	TCommCaps2 caps;
-	TheUsbPort.Caps(caps);
-	TUint notifycaps = caps().iNotificationCaps;
-	RDebug::Print(_L("Capabilities:\n"));
-	if (notifycaps&KNotifySignalsChangeSupported)
-		RDebug::Print(_L("Notify Signals Change supported\n"));
-	if (notifycaps&KNotifyRateChangeSupported)
-		RDebug::Print(_L("Notify Rate Change supported\n"));
-	if (notifycaps&KNotifyDataFormatChangeSupported)
-		RDebug::Print(_L("Notify Data Format Change supported\n"));
-	if (notifycaps&KNotifyHandshakeChangeSupported)
-		RDebug::Print(_L("Notify Handshake Change supported\n"));
-	if (notifycaps&KNotifyBreakSupported)
-		RDebug::Print(_L("Notify Break supported\n"));
-	if (notifycaps&KNotifyFlowControlChangeSupported)
-		RDebug::Print(_L("Notify Flow Control Change supported\n"));
-	if (notifycaps&KNotifyDataAvailableSupported)
-		RDebug::Print(_L("Notify Data Available supported\n"));
-	if (notifycaps&KNotifyOutputEmptySupported)
-		RDebug::Print(_L("Notify Output Empty supported\n"));
-	RDebug::Print(_L("\n"));
-	if ((caps().iRoleCaps)&KCapsRoleSwitchSupported)
-		RDebug::Print(_L("Role switching is supported\n"));
-	RDebug::Print(_L("\n"));
-	if ((caps().iFlowControlCaps)&KCapsFlowControlStatusSupported)
-		RDebug::Print(_L("Retrieve flow control status is supported\n"));
-	}
-*/
 LOCAL_C void DoInitL()
 	{
 	// Do the necessary initialisation of the C32, 2 comm ports, USB stuff.
@@ -901,8 +790,6 @@ LOCAL_C void DoInitL()
 		}
 	RDebug::Print(_L("E32Main: Opened Serial Comm Port"));
 
-	// Print the caps
-	//PrintCaps();
 
 	RDebug::Print(_L("E32Main: Reading Serial Comm Port config"));
 	TheSerialPort.Config(TheSerialConfigBuf);	// get config
@@ -911,12 +798,10 @@ LOCAL_C void DoInitL()
 
 	TBuf<80> buf;
 	buf.FillZ();
-	//ConfigString(buf, TheUsbConfig);
 	RDebug::Print(_L("E32Main: Old USB Port Settings"));
 	RDebug::Print(buf);
 	RDebug::Print(_L(""));
 	buf.FillZ();
-	//ConfigString(buf, TheSerialConfig);
 	RDebug::Print(_L("E32Main: Old Serial Port Settings"));
 	RDebug::Print(buf);
 	RDebug::Print(_L(""));

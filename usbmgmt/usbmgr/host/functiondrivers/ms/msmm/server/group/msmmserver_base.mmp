@@ -33,6 +33,7 @@ SOURCEPATH ../src
 SOURCE main.cpp 
 SOURCE msmmserver.cpp
 SOURCE msmmsession.cpp
+SOURCE msmmdismountusbdrives.cpp
 SOURCE eventqueue.cpp
 SOURCE eventhandler.cpp
 SOURCE msmmterminator.cpp

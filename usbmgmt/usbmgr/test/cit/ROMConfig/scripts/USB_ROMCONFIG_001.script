@@ -19,7 +19,7 @@ LOAD_SERVER TestServerSymbianExcludeUsb
 
 START_TESTCASE USB-ROMCONFIG-001
 //! @SYMTestCaseID USB-ROMCONFIG-001
-//! @SYMTestCaseDesc RUsb::Connect should fail on a SYMBIAN_EXCLUDE_USB ROM
+//! @SYMTestCaseDesc RUsb::Connect should fail on a ROM built without __USB specified
 //! @SYMREQ 5414
 //! @SYMTestType CIT
 //! @SYMTestPriority 1

@@ -16,7 +16,7 @@
 */
 
 // Run all the USB_ROMCONFIG_* tests
-// Expects a ROM to be built without USB i.e. SYMBIAN_EXCLUDE_USB has been specified
+// Expects a ROM to be built without USB i.e. __USB has NOT been specified
 
 RUN_SCRIPT c:\scripts\usbromconfig\USB_ROMCONFIG_001.script
 

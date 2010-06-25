@@ -21,13 +21,14 @@
 */
 
 #include "msmmserver.h"
-#include <usb/hostms/msmmpolicypluginbase.h>
 #include "msmm_internal_def.h"
 #include "msmmsession.h"
 #include "msmmengine.h"
 #include "eventqueue.h"
 #include "msmmterminator.h"
+#include "msmmdismountusbdrives.h"
 
+#include <usb/hostms/msmmpolicypluginbase.h>
 #include <usb/usblogger.h>
 
 #ifdef __FLOG_ACTIVE
@@ -97,6 +98,26 @@ void CMsmmServer::ThreadFunctionL()
     CleanupStack::PopAndDestroy(2, scheduler);
     }
 
+CPolicyServer::TCustomResult CMsmmServer::CustomSecurityCheckL(
+    const RMessage2&  aMsg,
+     TInt&  /*aAction*/,
+     TSecurityInfo&  /*aMissing*/)
+ {
+     CPolicyServer::TCustomResult returnValue = CPolicyServer::EFail;    
+     
+     TSecureId ClientSID = aMsg.SecureId();
+ 
+     if (KFDFWSecureId == ClientSID)
+         {
+         returnValue = CPolicyServer::EPass;
+         }     
+     else if ((KSidHbDeviceDialogAppServer == ClientSID) && SessionNumber() > 0)
+         {
+         returnValue = CPolicyServer::EPass;
+         }
+     return returnValue;
+ }
+
 // Public functions
 // Construction and destruction
 CMsmmServer* CMsmmServer::NewLC()
@@ -119,6 +140,8 @@ CMsmmServer::~CMsmmServer()
     delete iEventQueue;
     delete iEngine;
     delete iTerminator;
+    delete iDismountErrData;
+    delete iDismountManager;
     REComSession::FinalClose();
 
 #ifndef __OVER_DUMMYCOMPONENT__
@@ -136,7 +159,7 @@ CSession2* CMsmmServer::NewSessionL(const TVersion& aVersion,
     if (KMaxClientCount <= SessionNumber())
         {
         // There is a connection to MSMM server already.
-        // Currently design of MSMM allows only one activated client 
+        // Currently design of MSMM can have two clients, one FDF and the other Indicator UI 
         // at any time.
         User::Leave(KErrInUse);
         }
@@ -188,6 +211,26 @@ void CMsmmServer::RemoveSession()
         }
     }
 
+void CMsmmServer::DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice)
+    {
+    LOG_FUNC
+    delete iDismountManager;
+    iDismountManager = NULL;
+    iDismountManager= CMsmmDismountUsbDrives::NewL();
+    
+    //Also notify the MSMM plugin of beginning of dismounting     
+    iDismountErrData->iError = EHostMsEjectInProgress;
+    iDismountErrData->iE32Error = KErrNone;
+    iDismountErrData->iManufacturerString = aDevice.iManufacturerString;
+    iDismountErrData->iProductString = aDevice.iProductString;
+    iDismountErrData->iDriveName = 0x0;
+   
+    TRAP_IGNORE(iPolicyPlugin->SendErrorNotificationL(*iDismountErrData));
+
+    // Start dismounting
+    iDismountManager->DismountUsbDrives(*iPolicyPlugin, aDevice);
+    }
+
 //  Private functions 
 // CMsmmServer Construction
 CMsmmServer::CMsmmServer(TInt aPriority)
@@ -205,6 +248,7 @@ void CMsmmServer::ConstructL()
     iEventQueue = CDeviceEventQueue::NewL(*this);
     iTerminator = CMsmmTerminator::NewL(*iEventQueue);
     iPolicyPlugin = CMsmmPolicyPluginBase::NewL();
+    iDismountErrData = new (ELeave) THostMsErrData;
     if (!iPolicyPlugin)
         {
         // Not any policy plugin implementation available

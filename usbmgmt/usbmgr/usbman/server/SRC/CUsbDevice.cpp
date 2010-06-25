@@ -118,6 +118,7 @@ CUsbDevice::~CUsbDevice()
 	// the observers themselves.
 	iObservers.Reset();
 
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	LOGTEXT2(_L8("about to delete device state watcher @ %08x"), (TUint32) iDeviceStateWatcher);
 	delete iDeviceStateWatcher;
@@ -133,6 +134,7 @@ CUsbDevice::~CUsbDevice()
 		{
 		LOGTEXT2(_L8("     User::FreeLogicalDevice returned %d"),err);
 		}
+#endif
 #endif	
 
 	delete iDefaultSerialNumber;
@@ -164,6 +166,7 @@ void CUsbDevice::ConstructL()
 
 	iUsbClassControllerIterator = new(ELeave) CUsbClassControllerIterator(iSupportedClasses);
 
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	LOGTEXT(_L8("About to load LDD"));
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
@@ -228,6 +231,7 @@ void CUsbDevice::ConstructL()
 		}
 
 	LOGTEXT(_L8("UsbDevice::ConstructL() finished"));
+#endif
 #endif
 	
 #ifndef __OVER_DUMMYUSBDI__
@@ -491,6 +495,7 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 
 	if (iDeviceState != state)
 		{
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 		if (iDeviceState == EUsbDeviceStateUndefined &&
 			iUdcSupportsCableDetectWhenUnpowered &&
@@ -502,7 +507,8 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 			// it up (so long as usbman is fully started).
 			(void)PowerUpAndConnect(); // We don't care about any errors here.
 			}
-#endif // __WINS__
+#endif
+#endif // __OVER_DUMMYUSBDI__
 		// Change state straight away in case any of the clients check it
 		TUsbDeviceState oldState = iDeviceState;
 		iDeviceState = state;
@@ -610,6 +616,7 @@ void CUsbDevice::RunL()
 	case EUsbServiceStarting:
 		if (iUsbClassControllerIterator->Next() == KErrNotFound)
 			{
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 			if (!iUdcSupportsCableDetectWhenUnpowered || iDeviceState != EUsbDeviceStateUndefined)
 				{
@@ -622,6 +629,7 @@ void CUsbDevice::RunL()
 				// in the case where there are no USB classes defined.
 				(void)PowerUpAndConnect();
 				}
+#endif
 #endif
 			// If we're not running on target, we can just go to "started".
 			SetServiceState(EUsbServiceStarted);
@@ -636,6 +644,7 @@ void CUsbDevice::RunL()
 		if (iUsbClassControllerIterator->Previous() == KErrNotFound)
 			{
 			// if stopping classes, hide the USB interface from the host
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 			iLdd.DeviceDisconnectFromHost();
 
@@ -650,7 +659,8 @@ void CUsbDevice::RunL()
 				TInt res = iLdd.RemoveSerialNumberStringDescriptor();
 				LOGTEXT2(_L8("Remove serial number res = %d"), res);
 				}
-				
+
+#endif				
 #endif			
 			SetServiceState(EUsbServiceIdle);
 			}
@@ -793,7 +803,7 @@ void CUsbDevice::SetDeviceDescriptorL()
 	{
 	LOG_FUNC
 
-#ifndef __WINS__
+#if !defined(__OVER_DUMMYUSBDI__) && !defined(__WINS__)
 
 	TInt desSize = 0;
 	iLdd.GetDeviceDescriptorSize(desSize);
@@ -821,7 +831,7 @@ void CUsbDevice::SetDeviceDescriptorL()
 	TUsbDeviceDescriptor descriptor;
 	TUsbDeviceDescriptor* deviceDescriptor = &descriptor;
 	
-#endif // __WINS__
+#endif // __OVER_DUMMYUSBDI__ && _WINS_
 
 	if (iPersonalityCfged)
 		{
@@ -832,6 +842,7 @@ void CUsbDevice::SetDeviceDescriptorL()
 	SetUsbDeviceSettingsL(*deviceDescriptor);
 		}
 	
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	ret = iLdd.SetDeviceDescriptor(devicePtr);
 
@@ -843,7 +854,8 @@ void CUsbDevice::SetDeviceDescriptorL()
 
 	CleanupStack::PopAndDestroy(deviceBuf);
 
-#endif // __WINS__
+#endif
+#endif // __OVER_DUMMYUSBDI__
 	}
 
 void CUsbDevice::SetUsbDeviceSettingsDefaultsL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
@@ -932,6 +944,7 @@ void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDevice
 	
 	// If we succesfully read the manufacturer or device name from SysUtil API
 	// then set these results, otherwise use the values defined in resource file
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	if (gotSysUtilManuName == KErrNone)
 		{
@@ -950,7 +963,9 @@ void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDevice
 		{
 		LEAVEIFERRORL(iLdd.SetProductStringDescriptor(productString));
 		}
-#endif // __WINS__
+		
+#endif
+#endif // __OVER_DUMMYUSBDI__
 
 #ifdef __FLOG_ACTIVE
 	PrintDescriptor(aDeviceDescriptor);	
@@ -961,6 +976,7 @@ void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDevice
 	LOGTEXT2(_L8("Product is: '%S'"), &narrowString);
 #endif // __FLOG_ACTIVE
 
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__	
 	//Read the published serial number. The key is the UID KUidUsbmanServer = 0x101FE1DB
 	TBuf16<KUsbStringDescStringMaxSize> serNum;
@@ -982,7 +998,9 @@ void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDevice
 		LOGTEXT(_L8("SerialNumber has not been published"));	
 		}
 #endif // __FLOG_ACTIVE
-#endif // __WINS__
+
+#endif
+#endif // __OVER_DUMMYUSBDI__
 
 
 	CleanupStack::PopAndDestroy(4, &fs); //  deviceInfo, id, resource, fs
@@ -1012,6 +1030,7 @@ void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDesc
 	aDeviceDescriptor.iSerialNumber			= deviceDes.iSerialNumber;
 	aDeviceDescriptor.iNumConfigurations	= deviceDes.iNumConfigurations;
 
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(*(iCurrentPersonality->Manufacturer())));
 	LEAVEIFERRORL(iLdd.SetProductStringDescriptor(*(iCurrentPersonality->Product())));
@@ -1036,12 +1055,15 @@ void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDesc
 		LOGTEXT(_L8("SerialNumber has not been published"));	
 		}
 #endif // __FLOG_ACTIVE
-#endif // __WINS__
+
+#endif
+#endif // __OVER_DUMMYUSBDI__
 
 
 #ifdef __FLOG_ACTIVE
 	PrintDescriptor(aDeviceDescriptor);		
 
+#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	TBuf16<KUsbStringDescStringMaxSize> wideString;
 	TBuf8<KUsbStringDescStringMaxSize> narrowString;
@@ -1049,7 +1071,8 @@ void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDesc
 	LEAVEIFERRORL(iLdd.GetConfigurationStringDescriptor(wideString));
 	narrowString.Copy(wideString);
 	LOGTEXT2(_L8("Configuration is: '%S'"), &narrowString);
-#endif // __WINS__
+#endif
+#endif // __OVER_DUMMYUSBDI__
 
 #endif // __FLOG_ACTIVE
 	}

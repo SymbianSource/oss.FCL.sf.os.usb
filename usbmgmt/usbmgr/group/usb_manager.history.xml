@@ -220,7 +220,7 @@
     - Added new .rss file (usbmanmtp.rss) which contains additional personality definition for the MTP personality
     - Extended usbsvrbase.mmp to build the new .rss file as usbmanmtp.rsc
     - Added more definitions to the usbman*.rls localisation files to cover the new MTP personality
-    - Amended usbman.iby to choose the usbman.rsc file in the final ROM depending on the presence or absence of the SYMBIAN_EXCLUDE_MTP macro at ROM build time.
+    - Amended usbman.iby to choose the usbman.rsc file in the final ROM depending on the presence or absence of the __MTP_PROTOCOL_SUPPORT macro at ROM build time.
   </defect>
 
   <defect number="PDEF101314" title="NotifyDataAvailable() is not supported by CAcmPort" revision="005">

@@ -35,7 +35,6 @@ TCommConfigV01& TheConfig = TheConfigBuf();
 
 const TInt KReceiveBufferLength = 8192;
 
-//_LIT(KUsbCsyName, "ECACM");
 _LIT(KUsbPortName, "ACM::0");
 _LIT(KUsbLddName, "EUSBC");
 
@@ -421,8 +420,6 @@ void CancelTx_TestL()
 	_printf(_L("Writing data\n"));
 	for (timeout = 10; timeout<100; timeout++)
 		{
-//		FillBuffer(readBuf);
-
 		port.Write(status, readBuf);
 
 		// Wait before cancelling
@@ -527,7 +524,6 @@ void Shutdown_TestL()
 
 	if (status != KErrNone)	// Error code ? TODO
 		{
-		//LEAVE(status.Int());
 		_printf(_L("Read failed\n"));
 		}
 
@@ -985,7 +981,6 @@ void Loopback_TestL()
 			break;
 			}
 
-//		_printf(_L("Read %d bytes\n"), readBuf.Length());
 
 		port.Write(status, readBuf);
 		User::WaitForRequest(status, consoleStatus);
@@ -1135,14 +1130,6 @@ void mainL()
 
 	port.SetConfig(TheConfigBuf);
 
-//	_printf(_L("----------------------------------------\n"));
-//	_printf(_L("Initial port config:\n"));
-//	_printf(_L("  Rate: %d bps\n"), TheConfig.iRate);
-//	_printf(_L("  Data bits: %d. Parity type: %d. Stop bits: %d\n"),
-//		TheConfig.iStopBits, TheConfig.iParity, TheConfig.iStopBits);
-//	_printf(_L("  Handshaking options: 0x%X\n"), TheConfig.iHandshake);
-//	_printf(_L("----------------------------------------\n\n"));
-
 	CleanupStack::PopAndDestroy(); // port
 
 	TBool noExit = ETrue;
@@ -1185,19 +1172,7 @@ void mainL()
 				  _printf(_L("a. Event notification, flow control (test 2.8.2)\n"));
 				  _printf(_L("b. Event notification, config change (test 2.8.3)\n"));
 				  _printf(_L("c. Second client (test 2.9)\n"));
-/*				  _printf(_L("d. ACM request, encapsulated command (test 2.10.1)\n"));
-				  _printf(_L("e. ACM request, break (test 2.10.2)\n"));
-				  _printf(_L("f. ACM request, setting feature (test 2.10.3)\n"));
-				  _printf(_L("g. ACM request, clearing feature (test 2.10.4)\n"));
-				  _printf(_L("h. ACM request, setting line coding (test 2.10.5)\n"));
-				  _printf(_L("i. ACM request, control line state (test 2.10.6)\n"));
-				  _printf(_L("j. ACM request, encapsualted response (test 2.10.7)\n"));
-				  _printf(_L("k. ACM request, comms feature (test 2.10.8)\n"));
-				  _printf(_L("l. ACM request, getting line coding (test 2.10.9)\n"));
-				  _printf(_L("m. ACM Notifications, send serial state (test 2.11.1)\n"));
-				  _printf(_L("n. ACM Notifications, network status (test 2.11.2)\n"));
-				  _printf(_L("o. ACM Notifications, response available (test 2.11.3)\n"));
-*/				  _printf(_L("p. Loopback test (test 2.12)\n"));
+				  _printf(_L("p. Loopback test (test 2.12)\n"));
 				  _printf(_L("q. Main menu\n"));
 
 				  ch = (char) _getch();

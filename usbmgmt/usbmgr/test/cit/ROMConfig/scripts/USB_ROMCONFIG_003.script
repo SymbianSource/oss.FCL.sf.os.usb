@@ -19,7 +19,7 @@ LOAD_SERVER TestServerSymbianExcludeUsb
 
 START_TESTCASE USB-ROMCONFIG-003
 //! @SYMTestCaseID USB-ROMCONFIG-003
-//! @SYMTestCaseDesc RCommServ::LoadCommModule should fail for ACM csy on a SYMBIAN_EXCLUDE_USB ROM
+//! @SYMTestCaseDesc RCommServ::LoadCommModule should fail for ACM csy on a ROM built without __USB specified
 //! @SYMREQ 5414
 //! @SYMTestType CIT
 //! @SYMTestPriority 1

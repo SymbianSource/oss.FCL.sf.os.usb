@@ -146,7 +146,7 @@ private:
 	RComm* iCommPort;
 	};
 
-class CDuplex : public MTransferNotifier, CBase
+class CDuplex : public CBase, MTransferNotifier
 	{
 public:
 	// Construction

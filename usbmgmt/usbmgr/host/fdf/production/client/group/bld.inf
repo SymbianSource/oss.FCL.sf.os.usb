@@ -20,7 +20,7 @@
  @internalComponent
 */
 
-#if !defined(WINS)
+
 
 PRJ_PLATFORMS
 ARMV5
@@ -34,4 +34,4 @@ PRJ_EXPORTS
 PRJ_TESTEXPORTS
 ../public/usbhoststack.h		SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbhost/internal/usbhoststack.h)
 
-#endif
+
