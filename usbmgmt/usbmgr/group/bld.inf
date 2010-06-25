@@ -34,6 +34,9 @@ PRJ_EXPORTS
 usb.iby	/epoc32/rom/include/usb.iby
 Usbman.iby	/epoc32/rom/include/usbman.iby
 
+//Temporary location, Will be moved if SHAI is ready
+usbperipheral.iby /epoc32/rom/include/usbperipheral.iby
+
 // ConfML Files
 ../conf/usbmanager.confml                OS_LAYER_EXPORTS_CONFML(usbmanager.confml)
 
