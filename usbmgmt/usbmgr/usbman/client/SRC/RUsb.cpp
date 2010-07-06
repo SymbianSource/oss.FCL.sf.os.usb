@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -750,28 +750,12 @@ EXPORT_C TInt RUsb::RequestSession()
 	return SendReceive(EUsbRequestSession);
 	}
 
-EXPORT_C TInt RUsb::GetDetailedDescription(TInt aPersonalityId, HBufC*& aLocalizedPersonalityDescriptor)
+EXPORT_C TInt RUsb::GetDetailedDescription(TInt /*aPersonalityId*/, HBufC*& /*aLocalizedPersonalityDescriptor*/)
 	{
 	LOG_LINE
 	LOG_FUNC
-
- 	TInt ret = KErrNone;
-	// caller is responsible for freeing up memory allocated for aLocalizedPersonalityDescriptor
-	TRAP(ret, aLocalizedPersonalityDescriptor = HBufC::NewL(KUsbStringDescStringMaxSize));
-	if (ret == KErrNone)
-		{
-		TPtr ptr = aLocalizedPersonalityDescriptor->Des();
-		TIpcArgs ipcArgs(0, &ptr);
-		ipcArgs.Set(0, aPersonalityId);
-		ret = SendReceive(EUsbGetDetailedDescription, ipcArgs);
-		}
-	else
-		{
-		// just in case caller tries to free the memory before checking the return code
-		aLocalizedPersonalityDescriptor = NULL;
-		}
-
-	return ret; 
+	//This API has been deprecated
+	return KErrNotSupported; 
 	}
 
 EXPORT_C TInt RUsb::GetPersonalityProperty(TInt aPersonalityId, TUint32& aProperty)

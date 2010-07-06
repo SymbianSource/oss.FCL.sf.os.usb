@@ -212,9 +212,12 @@ void CDeviceEventHandler::DoCancel()
     LOG_FUNC
     // Complete client with KErrCancel
     CompleteClient(KErrCancel);
-    
+
     // Cancel current pending command
-    iSubCommandQueue.Head().CancelAsyncCmd();
+    if (iSubCommandQueue.Count())
+        {
+        iSubCommandQueue.Head().CancelAsyncCmd();
+        }
     }
 
 void CDeviceEventHandler::RunL( )
@@ -251,30 +254,33 @@ void CDeviceEventHandler::RunL( )
 TInt CDeviceEventHandler::RunError(TInt aError)
     {
     LOG_FUNC
-    // Retrieve sub-command related error notification data
-    iSubCommandQueue.Head().HandleError(*iErrNotiData, aError);
-        
-    // If current sub-command isn't a key one, the handler will continue to
-    // execute rest sub-command in the queue. But, if current sub-command
-    // is the last one in the queue, handler shall complete the client also. 
-    if (iSubCommandQueue.Head().IsKeyCommand() || 
-            (iSubCommandQueue.Count() == 1))
-        {
-        CompleteClient(aError);
-        }
 
-    //Restart the handler after error handling;
-    if (!IsActive())
-        {
-        Start();
-        }
-    Complete(aError);
-    
     if (iSubCommandQueue.Count())
         {
+        // Retrieve sub-command related error notification data
+        iSubCommandQueue.Head().HandleError(*iErrNotiData, aError);
+
+        // If current sub-command isn't a key one, the handler will continue to
+        // execute rest sub-command in the queue. But, if current sub-command
+        // is the last one in the queue, handler shall complete the client also. 
+        if (iSubCommandQueue.Head().IsKeyCommand() || 
+                (iSubCommandQueue.Count() == 1))
+            {
+            CompleteClient(aError);
+            }
         iSubCommandQueue.Pop();
         }
-    
+
+    if( IsActive() )
+        {
+        Complete(aError);
+        }
+    else if (iSubCommandQueue.Count())
+        {
+        Start();
+   	    Complete();
+        }
+
     return KErrNone;
     }
 

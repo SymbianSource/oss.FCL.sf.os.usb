@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,13 +21,13 @@ DEFAULT
 PRJ_EXPORTS
 ../public/Usb_std.h						SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb_std.h)
 ../public/MUsbDeviceNotify.h			SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(musbdevicenotify.h)
-../public/usbman.rh						/epoc32/include/usbman.rh
 ../public/usberrors.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usberrors.h)
 ../public/UsbClassUids.h				SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbclassuids.h)
 ../public/usbshared.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/usbshared.h)
 ../public/usbotgdefs.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbotgdefs.h)
 ../public/usbhostdefs.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbhostdefs.h)
-./backup_registration.xml  			/epoc32/data/z/private/101fe1db/backup_registration.xml
+./backup_registration.xml  				/epoc32/data/z/private/101fe1db/backup_registration.xml
+../conf/usbmanager_101fe1db.crml 		OS_LAYER_EXPORTS_CRML(usbmanager_101fe1db.crml)
 
 PRJ_TESTEXPORTS
 

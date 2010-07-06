@@ -21,7 +21,6 @@
 #include <e32svr.h>
 #include <e32base.h>
 #include <e32std.h>
-#include <usbman.rsg>
 #include <f32file.h>
 #include <barsc.h>
 #include <barsread.h>

@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -35,12 +35,16 @@
 #include <usb/usblogger.h>
 #include <musbmanextensionpluginobserver.h>
 
+
+
 class CUsbDeviceStateWatcher;
 class CUsbClassControllerBase;
 class CUsbServer;
 class MUsbDeviceNotify;
 class CPersonality;
 class CUsbmanExtensionPlugin;
+class CUsbManCenRepManager;
+
 
 const TUid KUidUsbPlugIns = {0x101fbf21};
 
@@ -74,14 +78,24 @@ public:
 		TUint8  iDeviceProtocol;
 		TUint8  iMaxPacketSize;
 		TUint16 iIdVendor;
-		TUint16	iIdProduct;
+		TUint16	iProductId;
 		TUint16	iBcdDevice;
 		TUint8  iManufacturer;
 		TUint8  iProduct;
 		TUint8  iSerialNumber;
 		TUint8  iNumConfigurations;
 		};
-
+		
+      /**
+       * See Central Repository
+       */
+      class TUsbDeviceConfiguration
+            {
+      public:
+            TUint16 iVendorId;
+            HBufC*  iManufacturerName;
+            HBufC*  iProductName;
+            };
 public:
 	static CUsbDevice* NewL(CUsbServer& aUsbServer);
 	virtual ~CUsbDevice();
@@ -115,6 +129,7 @@ public:
 	void ReadPersonalitiesL();
 	void SetDefaultPersonalityL();
 	void LoadFallbackClassControllersL();
+	void ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray);
 	
 public: // From CActive
 	void RunL();
@@ -137,14 +152,12 @@ protected:
 
 private:
 	void SetDeviceDescriptorL();
-	void SetUsbDeviceSettingsL(TUsbDeviceDescriptor& aDeviceDescriptor);
 	void SetUsbDeviceSettingsDefaultsL(TUsbDeviceDescriptor& aDeviceDescriptor);
 	void SelectClassControllersL();
 	void SetCurrentPersonalityL(TInt aPersonalityId);
 	void SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor);
 	void ResourceFileNameL(TFileName& aFileName);
 	void CreateClassControllersL(const RArray<TUid>& aClassUids);
-	void ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray);
 	TInt PowerUpAndConnect();	
 #ifdef __FLOG_ACTIVE
 	void PrintDescriptor(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor);
@@ -167,6 +180,8 @@ private:
 	TBool iPersonalityCfged;
 	TBool iUdcSupportsCableDetectWhenUnpowered;
 	HBufC16* iDefaultSerialNumber;
+	CUsbManCenRepManager* iCenRepManager; // Own CenRepManager instance
+	TUsbDeviceConfiguration iDeviceConfiguration;
 	
 	REComSession* iEcom;	//	Not to be deleted, only closed!
 	};

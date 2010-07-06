@@ -344,7 +344,7 @@ void doExampleL(CConsoleBase *aCon)
     }
     
     //Connect to the file server
-    gFs.Connect();
+    User::LeaveIfError(gFs.Connect());
     TInt result = KErrNone;
     TRAPD(error, result = TestCase1L());
     if(error)
