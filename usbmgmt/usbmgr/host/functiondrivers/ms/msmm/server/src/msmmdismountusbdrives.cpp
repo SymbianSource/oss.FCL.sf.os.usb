@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2008 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,20 +21,23 @@
 #include <usb/hostms/msmmpolicypluginbase.h>
 
 #include "msmmdismountusbdrives.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "msmmdismountusbdrivesTraces.h"
+#endif
+
 
 const TInt KDismountTimeOut   = 6000000; // 6 seconds
 
 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
-#endif
-
 CMsmmDismountUsbDrives::~CMsmmDismountUsbDrives()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_CMSMMDISMOUNTUSBDRIVES_DES_ENTRY );
+    
     Cancel(); 
     delete iDismountTimer;    
     iRFs.Close();    
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_CMSMMDISMOUNTUSBDRIVES_DES_EXIT );
     }
 
 /**
@@ -42,9 +45,11 @@ CMsmmDismountUsbDrives::~CMsmmDismountUsbDrives()
  */
 CMsmmDismountUsbDrives* CMsmmDismountUsbDrives::NewL()
     {
-    LOG_STATIC_FUNC_ENTRY    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_NEWL_ENTRY );
+    
     CMsmmDismountUsbDrives* self = CMsmmDismountUsbDrives::NewLC();
     CleanupStack::Pop(self);    
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_NEWL_EXIT );
     return self;
     }
 
@@ -53,10 +58,12 @@ CMsmmDismountUsbDrives* CMsmmDismountUsbDrives::NewL()
  */
 CMsmmDismountUsbDrives* CMsmmDismountUsbDrives::NewLC()
     {
-    LOG_STATIC_FUNC_ENTRY    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_NEWLC_ENTRY );
+    
     CMsmmDismountUsbDrives* self = new (ELeave) CMsmmDismountUsbDrives();
     CleanupStack::PushL(self);
     self->ConstructL();
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_NEWLC_EXIT );
     return self;
     }
 
@@ -65,7 +72,7 @@ CMsmmDismountUsbDrives* CMsmmDismountUsbDrives::NewLC()
  */
 void CMsmmDismountUsbDrives::RunL()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_RUNL_ENTRY );
     
     iDismountTimer->CancelTimer();    
     
@@ -85,6 +92,7 @@ void CMsmmDismountUsbDrives::RunL()
         {
         DoDismount();
         }
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_RUNL_EXIT );
     }
 
 /**
@@ -92,22 +100,28 @@ void CMsmmDismountUsbDrives::RunL()
  */
 void CMsmmDismountUsbDrives::DoCancel()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_DOCANCEL_ENTRY );
+    
     iRFs.NotifyDismountCancel(iStatus);
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_DOCANCEL_EXIT );
     }
 
 CMsmmDismountUsbDrives::CMsmmDismountUsbDrives()
     : CActive(EPriorityStandard)
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_CMSMMDISMOUNTUSBDRIVES_ENTRY );
+    
     CActiveScheduler::Add(this);    
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_CMSMMDISMOUNTUSBDRIVES_EXIT );
     }
 
 void CMsmmDismountUsbDrives::ConstructL()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_CONSTRUCTL_ENTRY );
+    
     User::LeaveIfError( iRFs.Connect());
     iDismountTimer = CDismountTimer::NewL(this);
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_CONSTRUCTL_EXIT );
     }
 
 /**
@@ -115,7 +129,8 @@ void CMsmmDismountUsbDrives::ConstructL()
  */
 void CMsmmDismountUsbDrives::DismountUsbDrives(CMsmmPolicyPluginBase& aPlugin, TUSBMSDeviceDescription& aDevice)
     {    
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_DISMOUNTUSBDRIVES_ENTRY );
+    
     Cancel();
     iPlugin = &aPlugin;
     TUSBMSDeviceDescription& device = iDevicePkgInfo();
@@ -123,6 +138,7 @@ void CMsmmDismountUsbDrives::DismountUsbDrives(CMsmmPolicyPluginBase& aPlugin, T
     iDriveIndex = 0;
     iRFs.DriveList( iDriveList );
     DoDismount();
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_DISMOUNTUSBDRIVES_EXIT );
     }
 
 /**
@@ -148,7 +164,8 @@ void CMsmmDismountUsbDrives::CompleteDismountRequest(const TInt aResult)
  */
 void CMsmmDismountUsbDrives::DoDismount()
     {
-    LOG_FUNC        
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_DODISMOUNT_ENTRY );
+       
     TDriveInfo info;
     TInt err = KErrNone;
     for ( ; iDriveIndex < KMaxDrives; iDriveIndex++ )
@@ -160,16 +177,19 @@ void CMsmmDismountUsbDrives::DoDismount()
                  info.iDriveAtt & KDriveAttExternal && 
                  err == KErrNone  )
                 {
-                LOGTEXT(_L("CMsmmDismountUsbDrives::DoDismount Dismount notify request "));    
+                OstTrace0( TRACE_NORMAL, CMSMMDISMOUNTUSBDRIVES_DODISMOUNT, 
+                        "CMsmmDismountUsbDrives::DoDismount Dismount notify request" );
                 iRFs.NotifyDismount( iDriveIndex, iStatus, EFsDismountNotifyClients );                
                 iDismountTimer->StartTimer();
                 SetActive();
+                OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_DODISMOUNT_EXIT );
                 return;
                 }                     
             }
         }
     // Indicates we have gone through all the drives and no more usb drives left to request dismount
     CompleteDismountRequest( KErrNone );
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_DODISMOUNT_EXIT_DUP1 );
     }
 
 
@@ -178,29 +198,34 @@ void CMsmmDismountUsbDrives::DoDismount()
  */
 void CMsmmDismountUsbDrives::TimerExpired()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CMSMMDISMOUNTUSBDRIVES_TIMEREXPIRED_ENTRY );
     
     Cancel();
     iDismountTimer->CancelTimer();    
     CompleteDismountRequest( KErrInUse );    
+    OstTraceFunctionExit0( CMSMMDISMOUNTUSBDRIVES_TIMEREXPIRED_EXIT );
     }    
 
 //CDismountTimer
 
 CDismountTimer* CDismountTimer::NewL( MTimerNotifier* aTimeOutNotify)
     {
-    LOG_STATIC_FUNC_ENTRY    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_NEWL_ENTRY );
+        
     CDismountTimer* self = CDismountTimer::NewLC( aTimeOutNotify );
     CleanupStack::Pop(self);
+    OstTraceFunctionExit0( CDISMOUNTTIMER_NEWL_EXIT );
     return self;
     }
 
 CDismountTimer* CDismountTimer::NewLC( MTimerNotifier* aTimeOutNotify )
     {
-    LOG_STATIC_FUNC_ENTRY    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_NEWLC_ENTRY );
+        
     CDismountTimer* self = new (ELeave) CDismountTimer( aTimeOutNotify );
     CleanupStack::PushL(self);
     self->ConstructL();
+    OstTraceFunctionExit0( CDISMOUNTTIMER_NEWLC_EXIT );
     return self;
     }
 
@@ -208,41 +233,51 @@ CDismountTimer::CDismountTimer( MTimerNotifier* aTimeOutNotify):
     CTimer(EPriorityStandard), 
     iNotify(aTimeOutNotify)    
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_CDISMOUNTTIMER_CONS_ENTRY );
     }    
 
 CDismountTimer::~CDismountTimer()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_CDISMOUNTTIMER_DES_ENTRY );
+    
     Cancel();
+    OstTraceFunctionExit0( CDISMOUNTTIMER_CDISMOUNTTIMER_DES_EXIT );
     }
 
 void CDismountTimer::ConstructL()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_CONSTRUCTL_ENTRY );
+        
     if ( !iNotify )    
         {
         User::Leave(KErrArgument);    
         }
     CTimer::ConstructL();
     CActiveScheduler::Add(this);
+    OstTraceFunctionExit0( CDISMOUNTTIMER_CONSTRUCTL_EXIT );
     }
 
 void CDismountTimer::RunL()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_RUNL_ENTRY );
+    
     // Timer request has completed, so notify the timer's owner
     iNotify->TimerExpired();
+    OstTraceFunctionExit0( CDISMOUNTTIMER_RUNL_EXIT );
     }
 void CDismountTimer::CancelTimer()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_CANCELTIMER_ENTRY );
+     
     Cancel();    
+    OstTraceFunctionExit0( CDISMOUNTTIMER_CANCELTIMER_EXIT );
     }
 
 void CDismountTimer::StartTimer()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDISMOUNTTIMER_STARTTIMER_ENTRY );
+    
     After( KDismountTimeOut );  
+    OstTraceFunctionExit0( CDISMOUNTTIMER_STARTTIMER_EXIT );
     }
 // End of File

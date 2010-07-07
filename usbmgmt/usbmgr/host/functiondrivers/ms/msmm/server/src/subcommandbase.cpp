@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -26,10 +26,12 @@
 #include "eventhandler.h"
 
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "subcommandbaseTraces.h"
 #endif
+
+
 
 THostMsSubCommandParam::THostMsSubCommandParam(MMsmmSrvProxy& aServer, 
         MUsbMsEventHandler& aHandler, 
@@ -40,7 +42,7 @@ THostMsSubCommandParam::THostMsSubCommandParam(MMsmmSrvProxy& aServer,
     iCreator(aCreator),
     iEvent(aEvent)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( THOSTMSSUBCOMMANDPARAM_THOSTMSSUBCOMMANDPARAM_CONS_ENTRY );
     }
 
 TSubCommandBase::TSubCommandBase(THostMsSubCommandParam& aParameter):
@@ -51,7 +53,7 @@ iEvent(aParameter.iEvent),
 iIsExecuted(EFalse),
 iIsKeyCommand(ETrue)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSUBCOMMANDBASE_TSUBCOMMANDBASE_CONS_ENTRY );
     }
 
 void TSubCommandBase::ExecuteL()
@@ -62,26 +64,34 @@ void TSubCommandBase::ExecuteL()
 
 void TSubCommandBase::AsyncCmdCompleteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSUBCOMMANDBASE_ASYNCCMDCOMPLETEL_ENTRY );
+    
     DoAsyncCmdCompleteL();
+    OstTraceFunctionExit0( TSUBCOMMANDBASE_ASYNCCMDCOMPLETEL_EXIT );
     }
 
 void TSubCommandBase::CancelAsyncCmd()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSUBCOMMANDBASE_CANCELASYNCCMD_ENTRY );
+    
     DoCancelAsyncCmd();
+    OstTraceFunctionExit0( TSUBCOMMANDBASE_CANCELASYNCCMD_EXIT );
     }
 
 void TSubCommandBase::DoAsyncCmdCompleteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSUBCOMMANDBASE_DOASYNCCMDCOMPLETEL_ENTRY );
+    
     // Empty implementation
+    OstTraceFunctionExit0( TSUBCOMMANDBASE_DOASYNCCMDCOMPLETEL_EXIT );
     }
 
 void TSubCommandBase::DoCancelAsyncCmd()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSUBCOMMANDBASE_DOCANCELASYNCCMD_ENTRY );
+    
     // Empty implementation
+    OstTraceFunctionExit0( TSUBCOMMANDBASE_DOCANCELASYNCCMD_EXIT );
     }
 
 // End of file

@@ -159,13 +159,13 @@ private:
 	void ResourceFileNameL(TFileName& aFileName);
 	void CreateClassControllersL(const RArray<TUid>& aClassUids);
 	TInt PowerUpAndConnect();	
-#ifdef __FLOG_ACTIVE
+#ifdef _DEBUG
 	void PrintDescriptor(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor);
 #endif
 	void InstantiateExtensionPluginsL();
 private:
 	RPointerArray<CUsbClassControllerBase> iSupportedClasses;
-	RPointerArray<MUsbDeviceNotify> iObservers;
+	RPointerArray<MUsbDeviceNotify> iObservers; 
 	RPointerArray<CUsbmanExtensionPlugin> iExtensionPlugins;
 	TUsbDeviceState  iDeviceState;
 	TUsbServiceState iServiceState;

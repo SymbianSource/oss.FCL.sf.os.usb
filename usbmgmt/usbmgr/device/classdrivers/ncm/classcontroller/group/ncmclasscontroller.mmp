@@ -36,3 +36,4 @@ LIBRARY     ncminternalsrv.lib
 LIBRARY     usbcsc_bil.lib
 LIBRARY     insock.lib
 LIBRARY     nifman.lib
+

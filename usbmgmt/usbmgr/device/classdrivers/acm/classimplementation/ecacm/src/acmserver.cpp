@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,19 +21,19 @@
  @internalComponent
 */
 
-#include <usb/usblogger.h>
 #include "acmserver.h"
 #include "acmsession.h"
 #include "acmserversecuritypolicy.h"
 #include "acmserverconsts.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "acmserverTraces.h"
 #endif
+
 
 CAcmServer* CAcmServer::NewL(MAcmController& aAcmController)
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CACMSERVER_NEWL_ENTRY );
 
 	CAcmServer* self = new(ELeave) CAcmServer(aAcmController);
 	CleanupStack::PushL(self);
@@ -42,33 +42,43 @@ CAcmServer* CAcmServer::NewL(MAcmController& aAcmController)
 	// code).
 	if ( err != KErrAlreadyExists )
 		{
-		LEAVEIFERRORL(err);
+		if (err < 0)
+			{
+			OstTrace1( TRACE_ERROR, CACMSERVER_NEWL, "CAcmServer::NewL;err=%d", err );
+			User::Leave(err);
+			}
 		}
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CACMSERVER_NEWL_EXIT );
 	return self;
 	}
 
 CAcmServer::~CAcmServer()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMSERVER_CACMSERVER_DES_ENTRY );
+	OstTraceFunctionExit0( CACMSERVER_CACMSERVER_DES_EXIT );
 	}
 
 CAcmServer::CAcmServer(MAcmController& aAcmController)
  :	CPolicyServer(CActive::EPriorityStandard, KAcmServerPolicy),
  	iAcmController(aAcmController)
  	{
+	OstTraceFunctionEntry0( CACMSERVER_CACMSERVER_CONS_ENTRY );
+	OstTraceFunctionExit0( CACMSERVER_CACMSERVER_CONS_EXIT );
 	}
 
 CSession2* CAcmServer::NewSessionL(const TVersion& aVersion, const RMessage2& aMessage) const
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMSERVER_NEWSESSIONL_ENTRY );
 	//Validate session as coming from UsbSvr
 	static _LIT_SECURITY_POLICY_S0(KSidPolicy, 0x101fe1db);
 	TBool auth = KSidPolicy.CheckPolicy(aMessage);
 	if(!auth)
 		{
-		LEAVEIFERRORL(KErrPermissionDenied);
+		OstTrace1( TRACE_ERROR, CACMSERVER_NEWSESSIONL_DUP1, 
+							"CAcmServer::NewSessionL;KErrPermissionDenied=%d", 
+							KErrPermissionDenied );
+		User::Leave(KErrPermissionDenied);
 		}
 
 	// Version number check...
@@ -78,10 +88,14 @@ CSession2* CAcmServer::NewSessionL(const TVersion& aVersion, const RMessage2& aM
 
 	if ( !User::QueryVersionSupported(v, aVersion) )
 		{
-		LEAVEIFERRORL(KErrNotSupported);
+		OstTrace1( TRACE_ERROR, CACMSERVER_NEWSESSIONL_DUP2, 
+							"CAcmServer::NewSessionL;KErrNotSupported=%d", 
+							KErrNotSupported );
+		User::Leave(KErrNotSupported);
 		}
 
 	CAcmSession* sess = CAcmSession::NewL(iAcmController);
-	LOGTEXT2(_L8("\tsess = 0x%08x"), sess);
+	OstTraceExt1( TRACE_NORMAL, CACMSERVER_NEWSESSIONL, "CAcmServer::NewSessionL;sess=%p", sess );
+	OstTraceFunctionExit0( CACMSERVER_NEWSESSIONL_EXIT );
 	return sess;
 	}

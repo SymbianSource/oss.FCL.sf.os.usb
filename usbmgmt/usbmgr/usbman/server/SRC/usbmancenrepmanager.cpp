@@ -26,11 +26,11 @@
 #include "CPersonality.h"
 #include "usbmancenrepmanager.h"
 #include "CUsbDevice.h"
-
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBSVR");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "usbmancenrepmanagerTraces.h"
 #endif
+
  
 _LIT(KUsbCenRepPanic, "UsbCenRep");
 
@@ -52,7 +52,8 @@ enum TUsbCenRepPanic
 CUsbManCenRepManager::CUsbManCenRepManager(CUsbDevice& aUsbDevice)
   : iUsbDevice( aUsbDevice )
 	{
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_CUSBMANCENREPMANAGER_CONS_ENTRY );
+	OstTraceFunctionExit0( CUSBMANCENREPMANAGER_CUSBMANCENREPMANAGER_CONS_EXIT );
 	}
 
 // ---------------------------------------------------------------------------
@@ -61,11 +62,12 @@ CUsbManCenRepManager::CUsbManCenRepManager(CUsbDevice& aUsbDevice)
 //
 CUsbManCenRepManager* CUsbManCenRepManager::NewL(CUsbDevice& aUsbDevice)
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_NEWL_ENTRY );
     CUsbManCenRepManager* self = new (ELeave) CUsbManCenRepManager(aUsbDevice);
     CleanupStack::PushL( self );
     self->ConstructL();
     CleanupStack::Pop( self );
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_NEWL_EXIT );
     return self;
     }
 
@@ -75,10 +77,11 @@ CUsbManCenRepManager* CUsbManCenRepManager::NewL(CUsbDevice& aUsbDevice)
 //
 void CUsbManCenRepManager::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_CONSTRUCTL_ENTRY );
     // Open the Central Repository
     iRepository = CRepository::NewL( KCRUidUSBManagerConfiguration );
     CheckSignatureL();
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_CONSTRUCTL_EXIT );
     }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +90,9 @@ void CUsbManCenRepManager::ConstructL()
 //
 CUsbManCenRepManager::~CUsbManCenRepManager()
 	{
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_CUSBMANCENREPMANAGER_DES_ENTRY );
     delete iRepository;
+	OstTraceFunctionExit0( CUSBMANCENREPMANAGER_CUSBMANCENREPMANAGER_DES_EXIT );
 	}
 
 // ---------------------------------------------------------------------------
@@ -97,13 +101,15 @@ CUsbManCenRepManager::~CUsbManCenRepManager()
 //
 HBufC* CUsbManCenRepManager::ReadStringKeyLC( TUint32 aKeyId )
 	{
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_READSTRINGKEYLC_ENTRY );
     HBufC* keyBuf = HBufC::NewLC( NCentralRepositoryConstants::KMaxUnicodeStringLength );
     TPtr key = keyBuf->Des();
 
-    LEAVEIFERRORL( iRepository->Get( aKeyId, key ) );
-	LOGTEXT3(_L("LocSets: ReadStringKeyLC id: %x, val: %S"), aKeyId, &key ); 
+    TInt err = iRepository->Get( aKeyId, key );
+    LEAVEIFERRORL( err, OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READSTRINGKEYLC, "CUsbManCenRepManager::ReadStringKeyLC;Leave err=%d", err ););
+	OstTraceExt2( TRACE_NORMAL, CUSBMANCENREPMANAGER_READSTRINGKEYLC_DUP1, "CUsbManCenRepManager::ReadStringKeyLC;aKeyId=%x;key=%S", aKeyId, key );
 
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_READSTRINGKEYLC_EXIT );
     return keyBuf;
     }
 
@@ -113,12 +119,14 @@ HBufC* CUsbManCenRepManager::ReadStringKeyLC( TUint32 aKeyId )
 //
 TInt CUsbManCenRepManager::ReadKeyL( TUint32 aKeyId )
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_READKEYL_ENTRY );
     TInt key;
     
-    LEAVEIFERRORL( iRepository->Get( aKeyId, key ) );
-    LOGTEXT3(_L("LocSets: ReadKeyL id: 0x%x, val: 0x%x"), aKeyId, key); 
+    TInt err = iRepository->Get( aKeyId, key );
+    LEAVEIFERRORL( err, OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READKEYL, "CUsbManCenRepManager::ReadKeyL;Leave err=%d", err ); );
+    OstTraceExt2( TRACE_NORMAL, CUSBMANCENREPMANAGER_READKEYL_DUP1, "CUsbManCenRepManager::ReadKeyL;LocSets: ReadKeyL id: 0x%x, val: 0x%x", aKeyId, (TInt32)key );
 
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_READKEYL_EXIT );
     return key;
     }
 
@@ -128,14 +136,15 @@ TInt CUsbManCenRepManager::ReadKeyL( TUint32 aKeyId )
 //
 void CUsbManCenRepManager::CheckSignatureL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_CHECKSIGNATUREL_ENTRY );
     iSignature = ReadKeyL( KUsbManConfigSign );
     
     if ( iSignature < TUsbManagerSupportedVersionMin ||
             iSignature > TUsbManagerSupportedVersionMax )
         {
-        LEAVEL(KErrNotSupported);
+        OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_CHECKSIGNATUREL, "CUsbManCenRepManager::CheckSignatureL;Leave reason=%d", KErrNotSupported );
         }    
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_CHECKSIGNATUREL_EXIT );
     }
 
 // ---------------------------------------------------------------------------
@@ -144,27 +153,38 @@ void CUsbManCenRepManager::CheckSignatureL()
 //
 void CUsbManCenRepManager::ReadDeviceConfigurationL(CUsbDevice::TUsbDeviceConfiguration& aDeviceConfig)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_ENTRY );
     //Only support version four right now.
-    __ASSERT_DEBUG( ( TUsbManagerSupportedVersionFour == iSignature ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
+    if(TUsbManagerSupportedVersionFour != iSignature)
+        {
+        OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL, "CUsbManCenRepManager::ReadDeviceConfigurationL;Panic error=%d", ECenRepConfigError );
+        __ASSERT_DEBUG( EFalse, User::Panic( KUsbCenRepPanic, ECenRepConfigError ) );
+        }
+    
     
     //Shall only have on device configuration setting.
     TUint32 devConfigCount = ReadKeyL( KUsbManDeviceCountIndexKey );
-    __ASSERT_DEBUG( ( devConfigCount == 1 ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
+    if(devConfigCount != 1)
+        {
+        OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_DUP1, "CUsbManCenRepManager::ReadDeviceConfigurationL;Panic error=%d", ECenRepConfigError );
+        __ASSERT_DEBUG( EFalse, User::Panic( KUsbCenRepPanic, ECenRepConfigError ) );
+        }
+    
         
     RArray<TUint32> keyArray;
     CleanupClosePushL( keyArray );
-    LEAVEIFERRORL( iRepository->FindL( KUsbManDevicePartialKey, KUsbManConfigKeyMask, keyArray ) );
+    TInt err = iRepository->FindL( KUsbManDevicePartialKey, KUsbManConfigKeyMask, keyArray );
+    LEAVEIFERRORL( err, OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_DUP2, "CUsbManCenRepManager::ReadDeviceConfigurationL;Leave err=%d", err ); );
     
     TInt keyCount = keyArray.Count();
-    LOGTEXT2( _L("CUsbManCenRepManager::ReadDeviceConfigurationL keyCount of device config = %d"), keyCount );
+    OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_DUP3, "CUsbManCenRepManager::ReadDeviceConfigurationL;keyCount of device config = %d", keyCount );
     
     //Get each extension type key value and store in iExtList array
     for( TInt index = 0; index < keyCount; index++ )
         {
         TUint32 key = keyArray[index];
         TUint32 fieldId = ( key & KUsbManConfigFieldMask );
-        LOGTEXT2( _L("CUsbManCenRepManager::ReadDeviceConfigurationL fieldId = %d"), fieldId );
+        OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_DUP4, "CUsbManCenRepManager::ReadDeviceConfigurationL;fieldId=%d", fieldId );
         if( fieldId == KUsbManDeviceVendorIdKey )
             {
             aDeviceConfig.iVendorId = ReadKeyL( key );
@@ -185,10 +205,12 @@ void CUsbManCenRepManager::ReadDeviceConfigurationL(CUsbDevice::TUsbDeviceConfig
             }
         else
             {
-            _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError );
+            OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_DUP5, "CUsbManCenRepManager::ReadDeviceConfigurationL;panic error=%d", ECenRepConfigError );
+            User::Panic( KUsbCenRepPanic, ECenRepConfigError );
             }
         }
     CleanupStack::PopAndDestroy( &keyArray );  
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_READDEVICECONFIGURATIONL_EXIT );
     }
 
 
@@ -198,14 +220,18 @@ void CUsbManCenRepManager::ReadDeviceConfigurationL(CUsbDevice::TUsbDeviceConfig
 //
 void CUsbManCenRepManager::ReadPersonalitiesL(RPointerArray<CPersonality>& aPersonalities)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_READPERSONALITIESL_ENTRY );
     
 	//Only support version four right now.
-	__ASSERT_DEBUG( ( TUsbManagerSupportedVersionFour == iSignature ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
-	
+	if(TUsbManagerSupportedVersionFour != iSignature)
+	    {
+        OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READPERSONALITIESL, "CUsbManCenRepManager::ReadPersonalitiesL;ECenRepConfigError=%d", ECenRepConfigError );
+        __ASSERT_DEBUG( EFalse, User::Panic( KUsbCenRepPanic, ECenRepConfigError ) );
+	    }
+
 	// Get the personality count.
 	TUint32 personalityCount = ReadKeyL( KUsbManDevicePersonalitiesCountIndexKey );
-	LOGTEXT2( _L("CUsbManCenRepManager::ReadPersonalitiesL personalityCount = %d"), personalityCount );
+	OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP3, "CUsbManCenRepManager::ReadPersonalitiesL;personalityCount=%d", personalityCount );
 	
 	RArray<TUint32> keyArray;
 	CleanupClosePushL( keyArray ); 
@@ -219,17 +245,18 @@ void CUsbManCenRepManager::ReadPersonalitiesL(RPointerArray<CPersonality>& aPers
         
         // Find the keys belonging to the personality
         TUint32 devicePersonalitiesKey = KUsbManDevicePersonalitiesPartialKey | ( personalityIdx << KUsbManPersonalitiesOffset );
-        LEAVEIFERRORL( iRepository->FindL( devicePersonalitiesKey, KUsbManConfigKeyMask, keyArray ) );
+        TInt err = iRepository->FindL( devicePersonalitiesKey, KUsbManConfigKeyMask, keyArray );
+        LEAVEIFERRORL( err, OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP1, "CUsbManCenRepManager::ReadPersonalitiesL;Leave err=%d", err ); );
         
         TInt keyCount = keyArray.Count();
-        LOGTEXT2( _L("CUsbManCenRepManager::ReadPersonalitiesL keyCount of personality = %d"), keyCount );
+        OstTrace1( TRACE_NORMAL, DUP2_CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP2, "CUsbManCenRepManager::ReadPersonalitiesL; keyCount of personality = %d", keyCount );
         
         // Get each key value of the personality and store it.
         for( TInt keyIdx = 0; keyIdx < keyCount; keyIdx++ )
             {
             TUint32 key = keyArray[keyIdx];
             TUint32 fieldId = (key & KUsbManConfigFieldMask);
-            LOGTEXT2( _L("CUsbManCenRepManager::ReadPersonalitiesL key id of personality = %d"), fieldId );
+            OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP4, "CUsbManCenRepManager::ReadPersonalitiesL;key id of personality=%d", fieldId );
             switch( fieldId )
                 {
                 case KUsbManDevicePersonalitiesDeviceClassKey:
@@ -269,7 +296,8 @@ void CUsbManCenRepManager::ReadPersonalitiesL(RPointerArray<CPersonality>& aPers
                     break;
                     }
                 default:
-                    _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError );
+                    OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP5, "CUsbManCenRepManager::ReadPersonalitiesL;Panic error=%d", ECenRepConfigError );
+                    User::Panic( KUsbCenRepPanic, ECenRepConfigError );
                     break;
                 }
             }
@@ -305,17 +333,18 @@ void CUsbManCenRepManager::ReadPersonalitiesL(RPointerArray<CPersonality>& aPers
        
         if(isPersonalitySupport)
             {
-            LOGTEXT2( _L("CUsbManCenRepManager::ReadPersonalitiesL Personality ID: %d is supported"), personality->PersonalityId() );
+            OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP6, "CUsbManCenRepManager::ReadPersonalitiesL; Personality ID: %d is supported", personality->PersonalityId() );
             aPersonalities.Append( personality );
             CleanupStack::Pop( personality );
             }
         else
             {
-            LOGTEXT2( _L("CUsbManCenRepManager::ReadPersonalitiesL Personality ID: %d is not supported"), personality->PersonalityId() );
+            OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READPERSONALITIESL_DUP7, "CUsbManCenRepManager::ReadPersonalitiesL;Personality ID: %d is not supported", personality->PersonalityId() );
             CleanupStack::PopAndDestroy(personality);
             }
         }
     CleanupStack::PopAndDestroy( &keyArray );  	
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_READPERSONALITIESL_EXIT );
     }
 
 // ---------------------------------------------------------------------------
@@ -324,20 +353,26 @@ void CUsbManCenRepManager::ReadPersonalitiesL(RPointerArray<CPersonality>& aPers
 //
 void CUsbManCenRepManager::ReadConfigurationsForPersonalityL(TInt aPersonalityId, CPersonality& aPersonality)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_ENTRY );
     RArray<TUint32> configArray;
     CleanupClosePushL(configArray);
  
     //Only support version four right now.
-    __ASSERT_DEBUG( ( TUsbManagerSupportedVersionFour == iSignature ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
-    
-    LEAVEIFERRORL( iRepository->FindEqL( KUsbManDeviceConfigurationsPartialKey, KUsbManConfigFirstEntryMask, aPersonalityId, configArray ) );
+    if(TUsbManagerSupportedVersionFour != iSignature)
+        {
+        OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL, "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;Panic error=%d", ECenRepConfigError );
+        __ASSERT_DEBUG( EFalse, User::Panic( KUsbCenRepPanic, ECenRepConfigError ) );
+        }
+
+    TInt err = iRepository->FindEqL( KUsbManDeviceConfigurationsPartialKey, KUsbManConfigFirstEntryMask, aPersonalityId, configArray );
+    LEAVEIFERRORL( err, OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_DUP1, "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;Leave err=%d", err ); );
     
     // Get the configuration count.
     TUint32 configCount = configArray.Count();
     TUint32 totalConfigCount = ReadKeyL( KUsbManDeviceConfigurationsCountIndexKey );
 
-    LOGTEXT4( _L("ReadConfigurationsForPersonalityL: aPersonalityId = %d total configCount = %d configArray.Count() = %d"), aPersonalityId, totalConfigCount, configArray.Count());
+    OstTraceExt3( TRACE_NORMAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_DUP2, 
+            "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;aPersonalityId = %d total configCount = %d configArray.Count() = %d", aPersonalityId, totalConfigCount, configArray.Count() );
     
     //This is intend to handle one special case that key 0x2ff00's value
     // equal our target personality id.
@@ -364,14 +399,18 @@ void CUsbManCenRepManager::ReadConfigurationsForPersonalityL(TInt aPersonalityId
             {
             TUint32 fieldId = ( (key + keyIdx ) & KUsbManConfigFieldMask );
             TInt keyValue = -1;
-            LOGTEXT4( _L("ReadConfigurationsForPersonalityL fieldId = %d configIdx = %d keyIdx = %d"), fieldId, configIdx, keyIdx );
+            OstTraceExt3( TRACE_NORMAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_DUP3, "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;fieldId=%d;configIdx=%d;keyIdx=%d", fieldId, configIdx, keyIdx );
             
             if(KUsbManDeviceConfigurationsPersonalityIdKey == fieldId)
                 {
                 TRAPD( err, keyValue = ReadKeyL( key + keyIdx ) );
                 if( err == KErrNone )
                     {
-                    __ASSERT_DEBUG( ( keyValue == aPersonalityId ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
+                    if(keyValue != aPersonalityId)
+                        {
+                        OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_DUP4, "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;Panic error=%d", ECenRepConfigError );
+                        __ASSERT_DEBUG( EFalse, User::Panic( KUsbCenRepPanic, ECenRepConfigError ) );
+                        }
                     config->SetPersonalityId( keyValue );
                     }
                 }
@@ -420,7 +459,8 @@ void CUsbManCenRepManager::ReadConfigurationsForPersonalityL(TInt aPersonalityId
                 }
             else
                 {
-                _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError );
+                OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_DUP5, "CUsbManCenRepManager::ReadConfigurationsForPersonalityL;Panic error=%d", ECenRepConfigError );
+                User::Panic( KUsbCenRepPanic, ECenRepConfigError );
                 }
             }
         aPersonality.AppendPersonalityConfigsL( config );
@@ -429,6 +469,7 @@ void CUsbManCenRepManager::ReadConfigurationsForPersonalityL(TInt aPersonalityId
         }
 
     CleanupStack::PopAndDestroy( &configArray );     
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_READCONFIGURATIONSFORPERSONALITYL_EXIT );
     }
 
 // ---------------------------------------------------------------------------
@@ -437,31 +478,39 @@ void CUsbManCenRepManager::ReadConfigurationsForPersonalityL(TInt aPersonalityId
 //
 TBool CUsbManCenRepManager::IsClassConfigurableL(TUint aClassId, TInt& aFeatureId)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_ISCLASSCONFIGURABLEL_ENTRY );
     TBool classConfigurable = EFalse;
     RArray<TUint32> keyArray;
     CleanupClosePushL(keyArray);
     
     TInt err = iRepository->FindEqL( KUsbManDeviceConfigurableClassesPartialKey, KUsbManConfigFirstEntryMask, (TInt)aClassId, keyArray );
-    LOGTEXT3( _L("CUsbManCenRepManager::IsClassConfigurableL: aClassId = 0x%x err = %d "), aClassId, err);
+    OstTraceExt2( TRACE_NORMAL, CUSBMANCENREPMANAGER_ISCLASSCONFIGURABLEL, "CUsbManCenRepManager::IsClassConfigurableL;aClassId=0x%x;err=%d", aClassId, err );
     switch ( err )
         {
         case KErrNotFound:
             break;
         case KErrNone:
             {
-            __ASSERT_DEBUG( ( keyArray.Count() == 1 ), _USB_PANIC( KUsbCenRepPanic, ECenRepConfigError ) );
+#ifdef _DEBUG
+            if(keyArray.Count() != 1)
+                {
+                OstTrace1( TRACE_FATAL, DUP1_CUSBMANCENREPMANAGER_ISCLASSCONFIGURABLEL_DUP1, "CUsbManCenRepManager::IsClassConfigurableL;panic error=%d", ECenRepConfigError );
+                User::Panic( KUsbCenRepPanic, ECenRepConfigError );
+                }
+#endif
             // The array size always is 1, so here using 0 as index.
             aFeatureId = ReadKeyL( keyArray[0] | KUsbManDeviceConfigurableClassesFeatureIdKey );
             classConfigurable = ETrue;
             break;
             }
         default:
-            LEAVEL( err );
+            OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_ISCLASSCONFIGURABLEL_DUP2, "CUsbManCenRepManager::IsClassConfigurableL;Leave err=%d", err );
+            User::Leave( err );
             break;
         }    
     
     CleanupStack::PopAndDestroy( &keyArray );     
+    OstTraceFunctionExit0( CUSBMANCENREPMANAGER_ISCLASSCONFIGURABLEL_EXIT );
     return classConfigurable;
     }
 
@@ -471,19 +520,22 @@ TBool CUsbManCenRepManager::IsClassConfigurableL(TUint aClassId, TInt& aFeatureI
 //
 TBool CUsbManCenRepManager::IsFeatureSupportedL(TInt aFeatureId)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL_ENTRY );
 #ifdef SYMBIAN_FEATURE_MANAGER
     if(CFeatureDiscovery::IsFeatureSupportedL(TUid::Uid(aFeatureId)))
         {
-        LOGTEXT2( _L("CUsbManCenRepManager::IsFeatureSupportedL featureId = 0x%x supported"), aFeatureId );
+        OstTrace1( TRACE_NORMAL, DUP1_CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL_DUP1, "CUsbManCenRepManager::IsFeatureSupportedL;featureId = 0x%x supported", aFeatureId );
+        OstTraceFunctionExit0( CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL_EXIT );
         return ETrue;
         }
     else
         {
-        LOGTEXT2( _L("CUsbManCenRepManager::IsFeatureSupportedL featureId = 0x%x not supported"), aFeatureId );
+        OstTrace1( TRACE_NORMAL, CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL_DUP2, "CUsbManCenRepManager::IsFeatureSupportedL;featureId = 0x%x not supported", aFeatureId );
+        OstTraceFunctionExit0( CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL_EXIT_DUP1 );
         return EFalse;
         }
 #else
-    _USB_PANIC( KUsbCenRepPanic, ECenRepFeatureManagerError )
+    OstTrace1( TRACE_FATAL, CUSBMANCENREPMANAGER_ISFEATURESUPPORTEDL, "CUsbManCenRepManager::IsFeatureSupportedL;panic error code=%d", ECenRepFeatureManagerError );
+    User::Panic( KUsbCenRepPanic, ECenRepFeatureManagerError )
 #endif    
     }

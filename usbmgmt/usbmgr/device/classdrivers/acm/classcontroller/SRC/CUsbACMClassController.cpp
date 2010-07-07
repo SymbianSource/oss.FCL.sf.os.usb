@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,22 +22,21 @@
  @file
 */
 
-#include "CUsbACMClassController.h"
 #include <usb_std.h>
 #include <acminterface.h>
-#include <usb/acmserver.h>		
+#include <usb/acmserver.h>
+#include "CUsbACMClassController.h"
 #include "UsbmanInternalConstants.h"
-#include <usb/usblogger.h>
 #include "acmserverconsts.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ACMCC");
-
-// Panic category 
-_LIT( KAcmCcPanicCategory, "UsbAcmCc" );
-
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CUsbACMClassControllerTraces.h"
 #endif
 
+#ifdef _DEBUG
+// Panic category 
+_LIT( KAcmCcPanicCategory, "UsbAcmCc" );
+#endif
 
 
 /**
@@ -67,12 +66,13 @@ enum TAcmCcPanic
  */
 CUsbACMClassController* CUsbACMClassController::NewL(MUsbClassControllerNotify& aOwner)
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_NEWL_ENTRY );
 
 	CUsbACMClassController* self = new (ELeave) CUsbACMClassController(aOwner);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_NEWL_EXIT );
 	return self;
 	}
 
@@ -81,6 +81,7 @@ CUsbACMClassController* CUsbACMClassController::NewL(MUsbClassControllerNotify& 
  */
 CUsbACMClassController::~CUsbACMClassController()
 	{
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_CUSBACMCLASSCONTROLLER_DES_ENTRY );
 	Cancel();
 
 #ifdef USE_ACM_REGISTRATION_PORT
@@ -89,6 +90,7 @@ CUsbACMClassController::~CUsbACMClassController()
 #else
     iAcmServer.Close();
 #endif // USE_ACM_REGISTRATION_PORT
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_CUSBACMCLASSCONTROLLER_DES_EXIT );
 	}
 
 /**
@@ -101,6 +103,8 @@ CUsbACMClassController::CUsbACMClassController(
     : CUsbClassControllerPlugIn(aOwner, KAcmStartupPriority),
     iNumberOfAcmFunctions(KDefaultNumberOfAcmFunctions)
     {
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_CUSBACMCLASSCONTROLLER_CONS_ENTRY );
+    OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_CUSBACMCLASSCONTROLLER_CONS_EXIT );
     }
 
 /**
@@ -108,6 +112,8 @@ CUsbACMClassController::CUsbACMClassController(
  */
 void CUsbACMClassController::ConstructL()
     {
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_CONSTRUCTL_ENTRY );
+	
     iNumberOfAcmFunctions = KUsbAcmNumberOfAcmFunctions;
 
     iAcmProtocolNum[0] = KUsbAcmProtocolNumAcm1;
@@ -118,21 +124,45 @@ void CUsbACMClassController::ConstructL()
 
 	// Prepare to use whichever mechanism is enabled to control bringing ACM 
 	// functions up and down.
+    TInt	err;
 #ifdef USE_ACM_REGISTRATION_PORT
+    
+    err = iCommServer.Connect();
+    if (err < 0)
+    	{
+		OstTrace1( TRACE_ERROR, CUSBACMCLASSCONTROLLER_CONSTRUCTL, "CUsbACMClassController::ConstructL;leave err=%d", err );
+		User::Leave(err);
+    	}
+	
+    err = iCommServer.LoadCommModule(KAcmCsyName);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_ERROR, CUSBACMCLASSCONTROLLER_CONSTRUCTL_DUP1, "CUsbACMClassController::ConstructL;leave err=%d", err );
+		User::Leave(err);
+		}
 
-	LEAVEIFERRORL(iCommServer.Connect());
-	LEAVEIFERRORL(iCommServer.LoadCommModule(KAcmCsyName));
 	TName portName(KAcmSerialName);
 	portName.AppendFormat(_L("::%d"), 666);
 	// Open the registration port in shared mode in case other ACM CCs want to 
 	// open it.
-	LEAVEIFERRORL(iComm.Open(iCommServer, portName, ECommShared)); 
+	err = iComm.Open(iCommServer, portName, ECommShared);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_ERROR, CUSBACMCLASSCONTROLLER_CONSTRUCTL_DUP2, "CUsbACMClassController::ConstructL;leave err=%d", err );
+		User::Leave(err);
+		}
 
 #else
-
-    LEAVEIFERRORL(iAcmServer.Connect());
+	
+	err = iAcmServer.Connect();
+	if (err < 0)
+		{
+		OstTrace1( TRACE_ERROR, CUSBACMCLASSCONTROLLER_CONSTRUCTL_DUP3, "CUsbACMClassController::ConstructL;leave err=%d", err );
+		User::Leave(err);
+		}
 
 #endif // USE_ACM_REGISTRATION_PORT
+    OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_CONSTRUCTL_EXIT );
     }
 
 /**
@@ -143,24 +173,30 @@ void CUsbACMClassController::ConstructL()
  */
 void CUsbACMClassController::Start(TRequestStatus& aStatus)
 	{
-	LOG_FUNC;
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_START_ENTRY );	
 
 	// We should always be idle when this function is called (guaranteed by
 	// CUsbSession).
-	__ASSERT_DEBUG( iState == EUsbServiceIdle, _USB_PANIC(KAcmCcPanicCategory, EBadApiCallStart) );
+	if (iState != EUsbServiceIdle)
+		{
+		OstTrace1( TRACE_FATAL, CUSBACMCLASSCONTROLLER_START, "CUsbACMClassController::Start;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmCcPanicCategory, EBadApiCallStart) );
+		}
 
 	TRequestStatus* reportStatus = &aStatus;
 	TRAPD(err, DoStartL());
 	iState = (err == KErrNone) ? EUsbServiceStarted : EUsbServiceIdle;
 	User::RequestComplete(reportStatus, err);
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_START_EXIT );
 	}
 
 void CUsbACMClassController::DoStartL()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_DOSTARTL_ENTRY );
+	
 
 	iState = EUsbServiceStarting;
-	LOGTEXT2(_L8("    iNumberOfAcmFunctions = %d"), iNumberOfAcmFunctions);
+	OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL, "CUsbACMClassController::DoStartL;iNumberOfAcmFunctions=%d", iNumberOfAcmFunctions );
 
 #ifdef USE_ACM_REGISTRATION_PORT
 
@@ -168,21 +204,22 @@ void CUsbACMClassController::DoStartL()
     TUint acmSetting;
     for (TUint i = 0; i < iNumberOfAcmFunctions; i++)
         {
-        LOGTEXT2(_L8("    iAcmProtocolNum[i] = %d"), iAcmProtocolNum[i]);
+		OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP1, "CUsbACMClassController::DoStartL;iAcmProtocolNum[i]=%u", iAcmProtocolNum[i] );
 
         // indicate the number of ACMs to create, and its protocol number (in the 3rd-lowest byte)
         acmSetting = 1 | (static_cast<TUint> (iAcmProtocolNum[i]) << 16);
         TInt err = iComm.SetSignalsToMark(acmSetting);
         if (err != KErrNone)
             {
-            LOGTEXT2(_L8("    SetSignalsToMark error = %d"), err);
+			OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP2, "CUsbACMClassController::DoStartL;SetSignalsToMark error = %d", err );
             if (i != 0)
                 {
                 // Must clear any ACMs that have completed.
                 // only other than KErrNone if C32 Server fails
                 (void) iComm.SetSignalsToSpace(i);
                 }
-            LEAVEL(err);
+            OstTrace1( TRACE_ERROR, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP6, "CUsbACMClassController::DoStartL;leave err=%d", err );
+            User::Leave(err);
             }
         }
 
@@ -198,20 +235,23 @@ void CUsbACMClassController::DoStartL()
 
         if ( err != KErrNone )
             {
-            LOGTEXT2(_L8("\tFailed to create ACM function. Error: %d"), err);
+			OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP3, "CUsbACMClassController::DoStartL;\tFailed to create ACM function. Error: %d", err);
+			
             if (i != 0)
                 {
                 //Must clear any ACMs that have been completed
                 iAcmServer.DestroyFunctions(i);
-                LOGTEXT2(_L8("\tDestroyed %d Interfaces"), i);
+                OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP4, "CUsbACMClassController::DoStartL;\tDestroyed %d Interfaces", i );
                 }
-            LEAVEL(err);
+            OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP7, "CUsbACMClassController::DoStartL; leave Error: %d", err);
+            User::Leave(err);
             }
         }
 
 #endif // USE_ACM_REGISTRATION_PORT
 	
-	LOGTEXT2(_L8("\tCreated %d ACM Interfaces"), iNumberOfAcmFunctions);
+	OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTARTL_DUP5, "CUsbACMClassController::DoStartL;\tCreated %d ACM Interfaces", iNumberOfAcmFunctions );
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_DOSTARTL_EXIT );
 	}
 
 /**
@@ -221,15 +261,21 @@ void CUsbACMClassController::DoStartL()
  */
 void CUsbACMClassController::Stop(TRequestStatus& aStatus)
 	{
-	LOG_FUNC;
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_STOP_ENTRY );
 
 	// We should always be started when this function is called (guaranteed by
 	// CUsbSession).
-	__ASSERT_DEBUG( iState == EUsbServiceStarted, _USB_PANIC(KAcmCcPanicCategory, EBadApiCallStop) );
+	//User::Panic(KAcmCcPanicCategory, EBadApiCallStop);
+	if (iState != EUsbServiceStarted)
+		{
+		OstTrace1( TRACE_FATAL, CUSBACMCLASSCONTROLLER_STOP, "CUsbACMClassController::Stop;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmCcPanicCategory, EBadApiCallStop) );
+		}
 
 	TRequestStatus* reportStatus = &aStatus;
 	DoStop();
 	User::RequestComplete(reportStatus, KErrNone);
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_STOP_EXIT );
 	}
 
 /**
@@ -239,10 +285,10 @@ void CUsbACMClassController::Stop(TRequestStatus& aStatus)
  */
 void CUsbACMClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo) const
 	{
-	LOG_FUNC;
-
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_GETDESCRIPTORINFO_ENTRY );
 	aDescriptorInfo.iLength = KAcmDescriptorLength;
 	aDescriptorInfo.iNumInterfaces = KAcmNumberOfInterfacesPerAcmFunction*(iNumberOfAcmFunctions);
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_GETDESCRIPTORINFO_EXIT );
 	}
 
 /**
@@ -250,13 +296,16 @@ Destroys ACM functions we've already brought up.
  */
 void CUsbACMClassController::DoStop()
 	{
-	LOG_FUNC;
-
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_DOSTOP_ENTRY );
 	if (iState == EUsbServiceStarted)
 		{
 #ifdef USE_ACM_REGISTRATION_PORT
 		TInt err = iComm.SetSignalsToSpace(iNumberOfAcmFunctions);
-		__ASSERT_DEBUG(err == KErrNone, User::Invariant());
+		if (err != KErrNone)
+			{
+			OstTrace1( TRACE_FATAL, CUSBACMCLASSCONTROLLER_DOSTOP_DUP1, "CUsbACMClassController::DoStop;err=%d", err );
+			User::Invariant();
+			}
 		//the implementation in CRegistrationPort always return KErrNone
 		(void)err;
 		// If there is an error here, USBSVR will just ignore it, but 
@@ -268,11 +317,10 @@ void CUsbACMClassController::DoStop()
 		// Destroy interfaces. Can't do anything with an error here.
 		static_cast<void>(iAcmServer.DestroyFunctions(iNumberOfAcmFunctions));
 #endif // USE_ACM_REGISTRATION_PORT
-		
-		LOGTEXT2(_L8("\tDestroyed %d Interfaces"), iNumberOfAcmFunctions);
-
+		OstTrace1( TRACE_NORMAL, CUSBACMCLASSCONTROLLER_DOSTOP, "CUsbACMClassController::DoStop;\tDestroyed %d Interfaces", iNumberOfAcmFunctions );
 		iState = EUsbServiceIdle;
 		}
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_DOSTOP_EXIT );
 	}
 
 /**
@@ -281,7 +329,10 @@ void CUsbACMClassController::DoStop()
  */
 void CUsbACMClassController::RunL()
 	{
-	__ASSERT_DEBUG( EFalse, _USB_PANIC(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_RUNL_ENTRY );
+	OstTrace0( TRACE_FATAL, CUSBACMCLASSCONTROLLER_RUNL, "CUsbACMClassController::RunL;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_RUNL_EXIT );
 	}
 
 /**
@@ -290,7 +341,10 @@ void CUsbACMClassController::RunL()
  */
 void CUsbACMClassController::DoCancel()
 	{
-	__ASSERT_DEBUG( EFalse, _USB_PANIC(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_DOCANCEL_ENTRY );
+	OstTrace0( TRACE_FATAL, CUSBACMCLASSCONTROLLER_DOCANCEL, "CUsbACMClassController::DoCancel;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -302,6 +356,9 @@ void CUsbACMClassController::DoCancel()
  */
 TInt CUsbACMClassController::RunError(TInt /*aError*/)
 	{
-	__ASSERT_DEBUG( EFalse, _USB_PANIC(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionEntry0( CUSBACMCLASSCONTROLLER_RUNERROR_ENTRY );
+	OstTrace0( TRACE_FATAL, CUSBACMCLASSCONTROLLER_RUNERROR, "CUsbACMClassController::RunError;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KAcmCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( CUSBACMCLASSCONTROLLER_RUNERROR_EXIT );
 	return KErrNone;
 	}

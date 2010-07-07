@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -19,65 +19,63 @@
  @file
  @internalComponent
 */
-
-#include "fdcproxy.h"
 #include <ecom/ecom.h>
-#include "utils.h"
 #include <usbhost/internal/fdcplugin.h>
 #include <usbhost/internal/fdcinterface.h>
+
+#include "fdcproxy.h"
+#include "utils.h"
 #include "fdf.h"
 #include "utils.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdf      ");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "fdcproxyTraces.h"
 #endif
 
-#ifdef __FLOG_ACTIVE
-#define LOG	Log()
-#else
-#define LOG
-#endif
 
 #ifdef _DEBUG
+#define LOG	Log()
 #define INVARIANT Invariant()
-#else
+#else 
+#define LOG
 #define INVARIANT
 #endif
 
-PANICCATEGORY("fdcproxy");
-
-
+_LIT(KPanicCategory, "fdcproxy");
 
 CFdcProxy* CFdcProxy::NewL(CFdf& aFdf, CImplementationInformation& aImplInfo)
 	{
-	LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CFDCPROXY_NEWL_ENTRY );
 
 	CFdcProxy* self = new(ELeave) CFdcProxy(aFdf);
 	CleanupStack::PushL(self);
 	self->ConstructL(aImplInfo);
-#ifdef __FLOG_ACTIVE
+#ifdef _DEBUG
 	self->INVARIANT;
 #endif
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CFDCPROXY_NEWL_EXIT );
 	return self;
 	}
 
 
 void CFdcProxy::ConstructL(CImplementationInformation& aImplInfo)
 	{
-	LOG_FUNC
-	
-	LOGTEXT2(_L8("\t\tFDC implementation UID: 0x%08x"), aImplInfo.ImplementationUid());
-	LOGTEXT2(_L("\t\tFDC display name: \"%S\""), &aImplInfo.DisplayName());
-	LOGTEXT2(_L8("\t\tFDC default_data: \"%S\""), &aImplInfo.DataType());
-	LOGTEXT2(_L8("\t\tFDC version: %d"), aImplInfo.Version());
-	LOGTEXT2(_L8("\t\tFDC disabled: %d"), aImplInfo.Disabled());
-	TDriveName drvName = aImplInfo.Drive().Name();
- 	LOGTEXT2(_L8("\t\tFDC drive: %S"), &drvName);
-	LOGTEXT2(_L8("\t\tFDC rom only: %d"), aImplInfo.RomOnly());
-	LOGTEXT2(_L8("\t\tFDC rom based: %d"), aImplInfo.RomBased());
-	LOGTEXT2(_L8("\t\tFDC vendor ID: %08x"), (TUint32)aImplInfo.VendorId());
-		
+    OstTraceFunctionEntry0( CFDCPROXY_CONSTRUCTL_ENTRY );
+    
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL, "FDC implementation UID: 0x%08x", aImplInfo.ImplementationUid().iUid );
+    OstTraceExt1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP1, "FDC display name: \"%S\"", aImplInfo.DisplayName() );
+    OstTraceExt1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP2, "FDC default_data: \"%s\"", aImplInfo.DataType() );
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP3, "FDC version: %d", aImplInfo.Version() );
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP4, "FDC disabled: %d", aImplInfo.Disabled());
+    TDriveName drvName = aImplInfo.Drive().Name();
+        
+    OstTraceExt1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP5, "FDC drive: %S", drvName );
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP6, "FDC rom only: %d", aImplInfo.RomOnly() );
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP7, "FDC rom based: %d", aImplInfo.RomBased() );
+    OstTrace1( TRACE_DUMP, CFDCPROXY_CONSTRUCTL_DUP8, "FDC vendor ID: %08x", (TUint32)aImplInfo.VendorId() );
+                        
+    	
 	// Before PREQ2080 a reference to the CImplementationInformation object was held. This is no longer
 	// possible because as soon as REComSession::ListImplementations() is called the reference will be
 	// invalid.		
@@ -85,20 +83,21 @@ void CFdcProxy::ConstructL(CImplementationInformation& aImplInfo)
 	iVersion = aImplInfo.Version();
 	iDefaultData.CreateL(aImplInfo.DataType());
 	iRomBased = aImplInfo.RomBased();
+	OstTraceFunctionExit0( CFDCPROXY_CONSTRUCTL_EXIT );
 	}
 
 CFdcProxy::CFdcProxy(CFdf& aFdf)
 :	iFdf(aFdf),
 	i0thInterface(-1) // -1 means unassigned
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDCPROXY_CFDCPROXY_CONS_ENTRY );
 	}
 
 
 CFdcProxy::~CFdcProxy()
 	{
-	LOG_FUNC
-	INVARIANT;
+    OstTraceFunctionEntry0( CFDCPROXY_CFDCPROXY_DES_ENTRY );
+    INVARIANT;
 
 	// Only executed when the FDF is finally shutting down.
 	// By this time detachment of all devices should have been signalled to
@@ -106,12 +105,22 @@ CFdcProxy::~CFdcProxy()
 	// If is safe to assert this because iPlugin and iDeviceIds are not
 	// allocated on construction so this doesn't have to safe against partial
 	// construction.
-	ASSERT_DEBUG(!iPlugin);
-	ASSERT_DEBUG(iDeviceIds.Count() == 0);
-	iDeviceIds.Close();
+	
+    if(iPlugin)
+        {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_CFDCPROXY_DUP2, "Plugin should empty" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+        }
+    if(!(iDeviceIds.Count() == 0))
+        {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_CFDCPROXY_DUP3, "DeviceCount should be 0" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+        }
+    iDeviceIds.Close();
 	iDefaultData.Close();
 
 	INVARIANT;
+	OstTraceFunctionExit0( CFDCPROXY_CFDCPROXY_DES_EXIT );
 	}
 
 
@@ -120,15 +129,17 @@ TInt CFdcProxy::NewFunction(TUint aDeviceId,
 		const TUsbDeviceDescriptor& aDeviceDescriptor,
 		const TUsbConfigurationDescriptor& aConfigurationDescriptor)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
+	OstTraceFunctionEntry0( CFDCPROXY_NEWFUNCTION_ENTRY );
+
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTION, "aDeviceId = %d", aDeviceId );
 	INVARIANT;
 
 	// Create a plugin object if required, call Mfi1NewFunction on it, and
 	// update our iDeviceIds.
 	TRAPD(err, NewFunctionL(aDeviceId, aInterfaces, aDeviceDescriptor, aConfigurationDescriptor));
 	INVARIANT;
-	LOGTEXT2(_L8("\terr = %d"), err);
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTION_DUP1, "err = %d", err );
+	OstTraceFunctionExit0( CFDCPROXY_NEWFUNCTION_EXIT );
 	return err;
 	}
 
@@ -138,7 +149,7 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 		const TUsbDeviceDescriptor& aDeviceDescriptor,
 		const TUsbConfigurationDescriptor& aConfigurationDescriptor)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDCPROXY_NEWFUNCTIONL_ENTRY );
 
 	// We may already have aDeviceId in our collection of device IDs, if the
 	// device is offering multiple Functions of the same type. In this case we
@@ -159,8 +170,9 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 			break;
 			}
 		}
-	LOGTEXT2(_L8("\talreadyKnowThisDevice = %d"), alreadyKnowThisDevice);
-
+	
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL, "alreadyKnowThisDevice = %d", alreadyKnowThisDevice );
+	
 	TArrayRemove arrayRemove(iDeviceIds, aDeviceId);
 	if ( !alreadyKnowThisDevice )
 		{
@@ -168,7 +180,9 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 		// Logically, it should be done *after* we call Mfi1NewFunction on the
 		// plugin, but we can't have the failable step of adding the device ID
 		// to the array after telling the FDC.
-		LEAVEIFERRORL(iDeviceIds.Append(aDeviceId));
+        TInt error=iDeviceIds.Append(aDeviceId);
+    	LEAVEIFERRORL(error,OstTrace0( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUT1, "iDeviceIds append fails" ););
+         
 		// This cleanup item removes aDeviceId from iDeviceIds on a leave.
 		CleanupRemovePushL(arrayRemove);
 		}
@@ -179,53 +193,75 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 	if ( !plugin )
 		{
 		neededToMakePlugin = ETrue;
-		LOGTEXT2(_L8("\t\tFDC implementation UID: 0x%08x"), iImplementationUid);
+		OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUP2, "FDC implementation UID: 0x%08x", iImplementationUid.iUid );
 		plugin = CFdcPlugin::NewL(iImplementationUid, *this);
 		CleanupStack::PushL(plugin);
 		iface = reinterpret_cast<MFdcInterfaceV1*>(plugin->GetInterface(TUid::Uid(KFdcInterfaceV1)));
 		}
-	ASSERT_DEBUG(iface);
+	
+	if(!iface)
+	    {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_NEWFUNCTIONL_DUP3, "Empty interface" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
+	
 	TInt err = KErrNone;
 
 	// Log the interfaces they're being offered.
-#ifdef __FLOG_ACTIVE
 	const TUint ifCount = aInterfaces.Count();
-	LOGTEXT2(_L8("\toffering %d interfaces:"), ifCount);
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUP4, "offering %d interfaces:", ifCount );
 	for ( TUint ii = 0 ; ii < ifCount ; ++ii )
 		{
-		LOGTEXT2(_L8("\t\tinterface %d"), aInterfaces[ii]);
+        OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUP5, "interface %d", aInterfaces[ii] );
 		}
-#endif
 
 	iInMfi1NewFunction = ETrue;
 	// Check that the FDC always claims the 0th interface.
-	ASSERT_DEBUG(i0thInterface == -1);
+	if(!(i0thInterface == -1))
+	    {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_NEWFUNCTIONL_DUP6, "the FDC not claims the 0th interface" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 	i0thInterface = aInterfaces[0];
 	err = iface->Mfi1NewFunction(   aDeviceId,
 									aInterfaces.Array(), // actually pass them a TArray for const access
 									aDeviceDescriptor,
 									aConfigurationDescriptor);
-	LOGTEXT2(_L8("\terr = %d"), err);
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUP11, "err = %d", err);
 	iInMfi1NewFunction = EFalse;
 	// The implementation of Mfi1NewFunction may not leave.
 //	ASSERT_ALWAYS(leave_err == KErrNone);
 	// This is set back to -1 when the FDC claims the 0th interface.
-	ASSERT_DEBUG(i0thInterface == -1);
-
+	if(!(i0thInterface == -1))
+	    {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_NEWFUNCTIONL_DUP7, "the FDC not claims the 0th interface" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+	
 	// If this leaves, then:
 	// (a) aDeviceId will be removed from iDeviceIds (if we needed to add it).
 	// (b) the FDF will get the leave code.
 	// If this doesn't leave, then iPlugin, iInterface and iDeviceIds are
 	// populated OK and the FDF will get KErrNone.
-	LEAVEIFERRORL(err);
+	LEAVEIFERRORL(err,OstTrace0( TRACE_NORMAL, CFDCPROXY_NEWFUNCTIONL_DUP8,"iface->Mfi1NewFunction function fails"););
 
 	if ( neededToMakePlugin )
 		{
 		CLEANUPSTACK_POP1(plugin);
 		// Now everything failable has been done we can assign iPlugin and
 		// iInterface.
-		ASSERT_DEBUG(plugin);
-		ASSERT_DEBUG(iface);
+		if(!plugin)
+		    {
+            OstTrace0( TRACE_FATAL, CFDCPROXY_NEWFUNCTIONL_DUP9,"Empty plugin");
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
+		if(!iface)
+		    {
+            OstTrace0( TRACE_FATAL, CFDCPROXY_NEWFUNCTIONL_DUP10,"Empty iface");
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
 		iPlugin = plugin;
 		iInterface = iface;
 		}
@@ -233,6 +269,7 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 		{
 		CLEANUPSTACK_POP1(&arrayRemove);
 		}
+	OstTraceFunctionExit0( CFDCPROXY_NEWFUNCTIONL_EXIT );
 	}
 
 
@@ -241,8 +278,9 @@ void CFdcProxy::NewFunctionL(TUint aDeviceId,
 // detachment to the plugin.
 void CFdcProxy::DeviceDetached(TUint aDeviceId)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
+    OstTraceFunctionEntry0( CFDCPROXY_DEVICEDETACHED_ENTRY );
+    OstTrace1( TRACE_NORMAL, CFDCPROXY_DEVICEDETACHED, "aDeviceId = %d", aDeviceId );
+
 	INVARIANT;
 	
 	const TUint count = iDeviceIds.Count();
@@ -250,8 +288,13 @@ void CFdcProxy::DeviceDetached(TUint aDeviceId)
 		{
 		if ( iDeviceIds[ii] == aDeviceId )
 			{
-			LOGTEXT(_L8("\tmatching device id- calling Mfi1DeviceDetached!"));
-			ASSERT_DEBUG(iInterface);
+            OstTrace0( TRACE_FATAL, CFDCPROXY_DEVICEDETACHED_DUP1, "matching device id- calling Mfi1DeviceDetached!");
+            if(!iInterface)
+                {
+                OstTrace0( TRACE_NORMAL, CFDCPROXY_DEVICEDETACHED_DUP2, "Empty iInterface" );
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+                }
+ 
 			iInterface->Mfi1DeviceDetached(aDeviceId);
 			// The implementation of Mfi1DeviceDetached may not leave.
 //			ASSERT_ALWAYS(err == KErrNone);
@@ -259,8 +302,8 @@ void CFdcProxy::DeviceDetached(TUint aDeviceId)
 			break;
 			}
 		}
-
-	LOGTEXT2(_L8("\tiDeviceIds.Count() = %d"), iDeviceIds.Count());
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_DEVICEDETACHED_DUP3, "iDeviceIds.Count() = %d", iDeviceIds.Count() );
+	
 	if ( iDeviceIds.Count() == 0 )
 		{
 		delete iPlugin;
@@ -275,10 +318,10 @@ void CFdcProxy::DeviceDetached(TUint aDeviceId)
 		}
 
 	INVARIANT;
+	OstTraceFunctionExit0( CFDCPROXY_DEVICEDETACHED_EXIT );
 	}
 
 
-#ifdef _DEBUG
 void CFdcProxy::Invariant() const
 	{
 	// If the class invariant fails hopefully it will be clear why from
@@ -288,7 +331,7 @@ void CFdcProxy::Invariant() const
 	// Either these are all 0 or none of them are:
 	// iDeviceIds.Count, iPlugin, iInterface
 	
-	ASSERT_DEBUG(
+	if(!(
 					(
 						iDeviceIds.Count() != 0 && iPlugin && iInterface
 					)
@@ -296,7 +339,12 @@ void CFdcProxy::Invariant() const
 					(
 						iDeviceIds.Count() == 0 && !iPlugin && !iInterface
 					)
-		);
+		))
+	    {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_INVARIANT, "iDeviceIds count error" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 
 	// Each device ID appears only once in the device ID array.
 	const TUint count = iDeviceIds.Count();
@@ -304,7 +352,12 @@ void CFdcProxy::Invariant() const
 		{
 		for ( TUint jj = ii+1 ; jj < count ; ++jj )
 			{
-			ASSERT_DEBUG(iDeviceIds[ii] != iDeviceIds[jj]);
+			if(!(iDeviceIds[ii] != iDeviceIds[jj]))
+			    {
+                OstTrace0( TRACE_FATAL, CFDCPROXY_INVARIANT_DUP1, "Repeated iDeviceIDs" );
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+			    }
+
 			}
 		}
 	}
@@ -312,17 +365,17 @@ void CFdcProxy::Invariant() const
 
 void CFdcProxy::Log() const
 	{
-	LOGTEXT2(_L8("\tLogging CFdcProxy 0x%08x:"), this);
+    OstTrace1( TRACE_DUMP, CFDCPROXY_LOG, "Logging CFdcProxy 0x%08x:", this );
 	const TUint count = iDeviceIds.Count();
-	LOGTEXT2(_L8("\t\tiDeviceIds.Count() = %d"), count);
+	OstTrace1( TRACE_DUMP, CFDCPROXY_LOG_DUP1, "iDeviceIds.Count() = %d", count );
+
 	for ( TUint i = 0 ; i < count ; ++i )
 		{
-		LOGTEXT3(_L8("\t\t\tiDeviceIds[%d] = %d"), i, iDeviceIds[i]);
+        OstTraceExt2( TRACE_DUMP, CFDCPROXY_LOG_DUP2, "iDeviceIds[%u] = %u", i, iDeviceIds[i] );
 		}
-	LOGTEXT2(_L8("\t\tiPlugin = 0x%08x"), iPlugin);
-	LOGTEXT2(_L8("\t\tiInterface = 0x%08x"), iInterface);
+	OstTrace1( TRACE_DUMP, CFDCPROXY_LOG_DUP3, "iPlugin = 0x%08x", iPlugin );
+	OstTrace1( TRACE_DUMP, CFDCPROXY_LOG_DUP4, "iInterface = 0x%08x", iInterface );
 	}
-#endif // _DEBUG
 
 
 const TDesC8& CFdcProxy::DefaultDataField() const
@@ -384,11 +437,16 @@ TBool CFdcProxy::RomBased() const
 	
 TUint32 CFdcProxy::MfpoTokenForInterface(TUint8 aInterface)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDCPROXY_MFPOTOKENFORINTERFACE_ENTRY );
 
 	// This function must only be called from an implementation of
 	// Mfi1NewInterface.
-	ASSERT_ALWAYS(iInMfi1NewFunction);
+	if(!iInMfi1NewFunction)
+	    {
+        OstTrace0( TRACE_FATAL, CFDCPROXY_MFPOTOKENFORINTERFACE, "Empty iInMfi1NewFunction" );
+        User::Panic(KPanicCategory,__LINE__);
+	    }
+
 	// Support our check that the FDC claims the 0th interface.
 	if ( aInterface == i0thInterface )
 		{
@@ -401,8 +459,8 @@ TUint32 CFdcProxy::MfpoTokenForInterface(TUint8 aInterface)
 
 const RArray<TUint>& CFdcProxy::MfpoGetSupportedLanguagesL(TUint aDeviceId)
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CFDCPROXY_MFPOGETSUPPORTEDLANGUAGESL_ENTRY );
+	
 	CheckDeviceIdL(aDeviceId);
 
 	return iFdf.GetSupportedLanguagesL(aDeviceId);
@@ -411,60 +469,61 @@ const RArray<TUint>& CFdcProxy::MfpoGetSupportedLanguagesL(TUint aDeviceId)
 
 TInt CFdcProxy::MfpoGetManufacturerStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDCPROXY_MFPOGETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
 
 	TRAPD(err,
 		CheckDeviceIdL(aDeviceId);
 		iFdf.GetManufacturerStringDescriptorL(aDeviceId, aLangId, aString)
 		);
 
-#ifdef __FLOG_ACTIVE
 	if ( !err )
 		{
-		LOGTEXT2(_L("\taString = \"%S\""), &aString);
-		}
-#endif
-	LOGTEXT2(_L8("\terr = %d"), err);
+        OstTraceExt1( TRACE_NORMAL, CFDCPROXY_MFPOGETMANUFACTURERSTRINGDESCRIPTOR, "aString = \"%S\"", aString );
+ 		}
+
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_MFPOGETMANUFACTURERSTRINGDESCRIPTOR_DUP1, "err = %d", err );
+	
+	OstTraceFunctionExit0( CFDCPROXY_MFPOGETMANUFACTURERSTRINGDESCRIPTOR_EXIT );
 	return err;
 	}
 
 
 TInt CFdcProxy::MfpoGetProductStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CFDCPROXY_MFPOGETPRODUCTSTRINGDESCRIPTOR_ENTRY );
+	
 	TRAPD(err,
 		CheckDeviceIdL(aDeviceId);
 		iFdf.GetProductStringDescriptorL(aDeviceId, aLangId, aString)
 		);
 
-#ifdef __FLOG_ACTIVE
 	if ( !err )
 		{
-		LOGTEXT2(_L("\taString = \"%S\""), &aString);
+		OstTraceExt1( TRACE_NORMAL, CFDCPROXY_MFPOGETPRODUCTSTRINGDESCRIPTOR, "aString = \"%S\"", aString );
 		}
-#endif
-	LOGTEXT2(_L8("\terr = %d"), err);
+
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_MFPOGETPRODUCTSTRINGDESCRIPTOR_DUP1, "err = %d", err );
+	OstTraceFunctionExit0( CFDCPROXY_MFPOGETPRODUCTSTRINGDESCRIPTOR_EXIT );
 	return err;
 	}
 
 
 TInt CFdcProxy::MfpoGetSerialNumberStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDCPROXY_MFPOGETSERIALNUMBERSTRINGDESCRIPTOR_ENTRY );
 
 	TRAPD(err,
 		CheckDeviceIdL(aDeviceId);
 		iFdf.GetSerialNumberStringDescriptorL(aDeviceId, aLangId, aString)
 		);
 
-#ifdef __FLOG_ACTIVE
 	if ( !err )
 		{
-		LOGTEXT2(_L("\taString = \"%S\""), &aString);
-		}
-#endif
-	LOGTEXT2(_L8("\terr = %d"), err);
+        OstTraceExt1( TRACE_NORMAL, CFDCPROXY_MFPOGETSERIALNUMBERSTRINGDESCRIPTOR, "aString = \"%S\"", aString );
+ 		}
+
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_MFPOGETSERIALNUMBERSTRINGDESCRIPTOR_DUP1, "err = %d", err );
+	OstTraceFunctionExit0( CFDCPROXY_MFPOGETSERIALNUMBERSTRINGDESCRIPTOR_EXIT );
 	return err;
 	}
 
@@ -475,9 +534,9 @@ Used to ensure that FDCs can only request strings etc from devices that are
 */
 void CFdcProxy::CheckDeviceIdL(TUint aDeviceId) const
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
-
+	OstTraceFunctionEntry0( CFDCPROXY_CHECKDEVICEIDL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDCPROXY_CHECKDEVICEIDL, "aDeviceId = %d", aDeviceId );
+	
 	TBool found = EFalse;
 	const TUint count = iDeviceIds.Count();
 	for ( TUint i = 0 ; i < count ; ++i )
@@ -490,8 +549,10 @@ void CFdcProxy::CheckDeviceIdL(TUint aDeviceId) const
 		}
 	if ( !found )
 		{
-		LEAVEL(KErrNotFound);
+        OstTrace1( TRACE_NORMAL, CFDCPROXY_CHECKDEVICEIDL_DUP1, "DeviceId=%d not found", aDeviceId);
+        User::Leave(KErrNotFound);
 		}
+	OstTraceFunctionExit0( CFDCPROXY_CHECKDEVICEIDL_EXIT );
 	}
 
 

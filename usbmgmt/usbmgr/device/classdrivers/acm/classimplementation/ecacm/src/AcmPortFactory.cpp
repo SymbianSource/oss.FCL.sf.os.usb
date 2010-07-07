@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,19 +15,19 @@
 *
 */
 
+#include <acminterface.h>
 #include "AcmPortFactory.h"
 #include "AcmUtils.h"
-#include <acminterface.h>
 #include "AcmPort.h"
 #include "AcmPanic.h"
 #include "acmserver.h"
 #include "CdcAcmClass.h"
-#include <usb/usblogger.h>
 #include "c32comm_internal.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "AcmPortFactoryTraces.h"
 #endif
+
 
 // Do not move this into a header file. It must be kept private to the CSY. It 
 // is the secret information that enables the old (registration port) 
@@ -41,12 +41,12 @@ CAcmPortFactory* CAcmPortFactory::NewL()
  * @return Ownership of a newly created CAcmPortFactory object
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CACMPORTFACTORY_NEWL_ENTRY );
 	CAcmPortFactory* self = new(ELeave) CAcmPortFactory;
 	CleanupClosePushL(*self);
 	self->ConstructL();
 	CleanupStack::Pop();
+	OstTraceFunctionExit0( CACMPORTFACTORY_NEWL_EXIT );
 	return self;
 	}
 	
@@ -55,12 +55,14 @@ CAcmPortFactory::CAcmPortFactory()
  * Constructor.
  */
 	{
+	OstTraceFunctionEntry0( CACMPORTFACTORY_CACMPORTFACTORY_ENTRY );
 	iVersion = TVersion(
 		KEC32MajorVersionNumber, 
 		KEC32MinorVersionNumber, 
 		KEC32BuildVersionNumber);
 	iConfigBuf().iAcmConfigVersion = 1;
 	iOwned = EFalse;
+	OstTraceFunctionExit0( CACMPORTFACTORY_CACMPORTFACTORY_EXIT );
 	}
 
 void CAcmPortFactory::ConstructL()
@@ -68,29 +70,58 @@ void CAcmPortFactory::ConstructL()
  * Second phase constructor.
  */
 	{
-	LEAVEIFERRORL(SetName(&KAcmSerialName)); 
+	OstTraceFunctionEntry0( CACMPORTFACTORY_CONSTRUCTL_ENTRY );
+	TInt	aReason	= SetName(&KAcmSerialName);
+	if (aReason < 0)
+		{
+		OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CONSTRUCTL, "CAcmPortFactory::ConstructL;aReason=%d", aReason );
+		User::Leave(aReason);
+		}
+	
 	iAcmServer = CAcmServer::NewL(*this);
 	
 	TInt err = RProperty::Define(KUidSystemCategory, KAcmKey, RProperty::EByteArray, TPublishedAcmConfigs::KAcmMaxFunctions);
 	if(err == KErrAlreadyExists)
 		{	
-		LEAVEIFERRORL(iAcmProperty.Attach(KUidSystemCategory, KAcmKey, EOwnerThread));
+		aReason = iAcmProperty.Attach(KUidSystemCategory, KAcmKey, EOwnerThread);
+		if (aReason < 0)
+			{
+			OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CONSTRUCTL_DUP1, "CAcmPortFactory::ConstructL;aReason=%d", aReason );
+			User::Leave(aReason);
+			}
+	
 		//Since the P&S data already exists we need to retrieve it
-		LEAVEIFERRORL(iAcmProperty.Get(iConfigBuf));
+		aReason = iAcmProperty.Get(iConfigBuf);
+		if (aReason < 0)
+			{
+			OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CONSTRUCTL_DUP2, "CAcmPortFactory::ConstructL;aReason=%d", aReason );
+			User::Leave(aReason);
+			}
 		}
 	else if(err == KErrNone)
 		{
 		//A blank iConfigBuf already exists at this point to we don't need to do anything to it
 		//before publishing the P&S data
-		LEAVEIFERRORL(iAcmProperty.Attach(KUidSystemCategory, KAcmKey, EOwnerThread));
+		aReason = iAcmProperty.Attach(KUidSystemCategory, KAcmKey, EOwnerThread);
+		if (aReason < 0)
+			{
+			OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CONSTRUCTL_DUP3, "CAcmPortFactory::ConstructL;aReason=%d", aReason );
+			User::Leave(aReason);
+			}
 		PublishAcmConfig();
 		iOwned = ETrue;
 		}
 	else
 		{
-		LEAVEIFERRORL(err); //This will always leave, but a log will be created at least.	
+		if (err < 0)
+			{
+			OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CONSTRUCTL_DUP4, "CAcmPortFactory::ConstructL;err=%d", err );
+			User::Leave(err);
+			}
+		//Here will always leave, but a log will be created at least.	
 		}
 		
+	OstTraceFunctionExit0( CACMPORTFACTORY_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -101,7 +132,14 @@ void CAcmPortFactory::PublishAcmConfig()
 	{
 	// Update the publish and subscribe info
 	TInt err = iAcmProperty.Set(iConfigBuf);
-	__ASSERT_DEBUG(err == KErrNone, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (err != KErrNone)
+		{	
+		OstTraceExt3( TRACE_NORMAL, CACMPORTFACTORY_PUBLISHACMCONFIG, 
+				"CAcmPortFactory::PublishAcmConfig;code=%d;name=%S;line = %d", 
+				(TInt)EPanicInternalError, KAcmPanicCat, (TInt)__LINE__);
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
+	
 	(void)err;
 	}
 
@@ -115,8 +153,7 @@ TSecurityPolicy CAcmPortFactory::PortPlatSecCapability (TUint aPort) const
  */
 	//return the security policy for the given port number, aPort.  
 	{
-	LOG_FUNC
-	
+	OstTraceFunctionEntry0( CACMPORTFACTORY_PORTPLATSECCAPABILITY_ENTRY );
 	TSecurityPolicy securityPolicy; 
 	if ( aPort == KRegistrationPortUnit ) 
 		{
@@ -126,6 +163,7 @@ TSecurityPolicy CAcmPortFactory::PortPlatSecCapability (TUint aPort) const
 		{
 		securityPolicy = TSecurityPolicy(ECapabilityLocalServices);	
 		}
+	OstTraceFunctionExit0( CACMPORTFACTORY_PORTPLATSECCAPABILITY_EXIT );
 	return securityPolicy;	 	
 	}
 
@@ -136,9 +174,8 @@ void CAcmPortFactory::AcmPortClosed(const TUint aUnit)
  * @param aUnit The port number of the closing port.
  */
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taUnit = %d"), aUnit);
-
+	OstTraceFunctionEntry0( CACMPORTFACTORY_ACMPORTCLOSED_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_ACMPORTCLOSED, "CAcmPortFactory::AcmPortClosed;aUnit=%d", aUnit );
 	// I would assert that the calling port is stored in our array, but if we 
 	// ran out of memory during CAcmPort::NewL, this function would be called 
 	// from the port's destructor, but the slot in the port array would still 
@@ -151,6 +188,7 @@ void CAcmPortFactory::AcmPortClosed(const TUint aUnit)
 #ifdef _DEBUG
 	LogPortsAndFunctions();
 #endif
+	OstTraceFunctionExit0( CACMPORTFACTORY_ACMPORTCLOSED_EXIT );
 	}
 
 CAcmPortFactory::~CAcmPortFactory()
@@ -158,8 +196,7 @@ CAcmPortFactory::~CAcmPortFactory()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( DUP1_CACMPORTFACTORY_CACMPORTFACTORY_ENTRY );
 	// Delete ACM instances. We could assert that the ACM Class Controller has 
 	// caused them all to be destroyed, but if we do that, and USBSVR panics 
 	// while it's Started, it will result in C32 panicking too, which is 
@@ -180,6 +217,7 @@ CAcmPortFactory::~CAcmPortFactory()
 		}
 	
 	delete iAcmServer;
+	OstTraceFunctionExit0( DUP1_CACMPORTFACTORY_CACMPORTFACTORY_EXIT );
 	}
 
 CPort* CAcmPortFactory::NewPortL(const TUint aUnit)
@@ -189,11 +227,9 @@ CPort* CAcmPortFactory::NewPortL(const TUint aUnit)
  * @param aUnit Port unit number
  */
 	{
-	LOG_LINE
-	LOGTEXT2(_L8(">>CAcmPortFactory::NewPortL aUnit=%d"), aUnit);
-
+	OstTraceFunctionEntry0( CACMPORTFACTORY_NEWPORTL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_NEWPORTL, "CAcmPortFactory::NewPortL;aUnit=%d", aUnit );
 	CPort* port = NULL;
-
 	TUint lowerLimit = KAcmLowUnit; // This non-const TUint avoids compiler remarks (low-level warnings) for the following comparisons..
 	// ACM ports
 	if ( (aUnit >= lowerLimit) && aUnit < static_cast<TUint>( iAcmClassArray.Count()) + KAcmLowUnit)
@@ -204,7 +240,12 @@ CPort* CAcmPortFactory::NewPortL(const TUint aUnit)
 		const TUint index = aUnit - KAcmLowUnit;
 		if ( iAcmPortArray[index] )
 			{
-			LEAVEIFERRORL(KErrInUse); // TODO: is this ever executed?
+			if (KErrInUse < 0)
+				{
+				OstTrace1( TRACE_ERROR, CACMPORTFACTORY_NEWPORTL_DUP2, "CAcmPortFactory::NewPortL;KErrInUse=%d", KErrInUse );
+				User::Leave(KErrInUse);
+				}
+				// TODO: is this ever executed?
 			}						   
 		iAcmPortArray[index] = CAcmPort::NewL(aUnit, *this);
 		iAcmPortArray[index]->SetAcm( iAcmClassArray[index]);
@@ -217,14 +258,18 @@ CPort* CAcmPortFactory::NewPortL(const TUint aUnit)
 		}
 	else 
 		{
-		LEAVEIFERRORL(KErrAccessDenied);
+		if (KErrAccessDenied < 0)
+			{
+			OstTrace1( TRACE_ERROR, CACMPORTFACTORY_NEWPORTL_DUP3, "CAcmPortFactory::NewPortL;KErrAccessDenied=%d", KErrAccessDenied );
+			User::Leave(KErrAccessDenied);
+			}
 		}
 
 #ifdef _DEBUG
 	LogPortsAndFunctions();
 #endif
-
-	LOGTEXT2(_L8("<<CAcmPortFactory::NewPortL port=0x%08x"), port);
+	OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_NEWPORTL_DUP1, "CAcmPortFactory::NewPortL;port=0x%08x", port );
+	OstTraceFunctionExit0( CACMPORTFACTORY_NEWPORTL_EXIT );
 	return port;
 	}
 
@@ -237,8 +282,8 @@ void CAcmPortFactory::DestroyFunctions(const TUint aNoAcms)
  * @param aNoAcms Number of ACM interfaces to destroy.
  */
 	{
-	LOGTEXT2(_L8(">>CAcmPortFactory::DestroyFunctions aNoAcms = %d"), aNoAcms);
-
+	OstTraceFunctionEntry0( CACMPORTFACTORY_DESTROYFUNCTIONS_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_DESTROYFUNCTIONS, "CAcmPortFactory::DestroyFunctions;aNoAcms=%d", aNoAcms );
 #ifdef _DEBUG
 	CheckAcmArray();
 #endif
@@ -270,8 +315,8 @@ void CAcmPortFactory::DestroyFunctions(const TUint aNoAcms)
 	CheckAcmArray();
 	LogPortsAndFunctions();
 #endif
-
-	LOGTEXT(_L8("<<CAcmPortFactory::DestroyFunctions"));
+	OstTrace0( TRACE_NORMAL, CACMPORTFACTORY_DESTROYFUNCTIONS_DUP1, "CAcmPortFactory::DestroyFunctions;<<CAcmPortFactory::DestroyFunctions" );
+	OstTraceFunctionExit0( CACMPORTFACTORY_DESTROYFUNCTIONS_EXIT );
 	}
 
 void CAcmPortFactory::CheckAcmArray()
@@ -280,12 +325,16 @@ void CAcmPortFactory::CheckAcmArray()
  * something valid. NB It is the ACM port array which may contain empty slots.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORTFACTORY_CHECKACMARRAY_ENTRY );
 	for ( TUint ii  = 0; ii < static_cast<TUint>( iAcmClassArray.Count()) ; ii++ )
 		{
-		__ASSERT_DEBUG( iAcmClassArray[ii], _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (!iAcmClassArray[ii])
+			{			
+			OstTraceExt2( TRACE_NORMAL, CACMPORTFACTORY_CHECKACMARRAY, "CAcmPortFactory::CheckAcmArray;code=%d;name=%S", (TInt)EPanicInternalError, KAcmPanicCat);
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		}
+	OstTraceFunctionExit0( CACMPORTFACTORY_CHECKACMARRAY_EXIT );
 	}
 
 TInt CAcmPortFactory::CreateFunctions(const TUint aNoAcms, const TUint8 aProtocolNum, const TDesC16& aAcmControlIfcName, const TDesC16& aAcmDataIfcName)
@@ -298,8 +347,8 @@ TInt CAcmPortFactory::CreateFunctions(const TUint aNoAcms, const TUint8 aProtoco
  * @param aAcmDataIfcName Data Interface Name or a null descriptor
  */
 	{
-	LOGTEXT5(_L("\taNoAcms = %d, aProtocolNum = %d, Control Ifc Name = %S, Data Ifc Name = %S"),
-			aNoAcms, aProtocolNum, &aAcmControlIfcName, &aAcmDataIfcName);
+	OstTraceFunctionEntry0( CACMPORTFACTORY_CREATEFUNCTIONS_ENTRY );
+	OstTraceExt4( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONS, "CAcmPortFactory::CreateFunctions;aNoAcms=%d;aProtocolNum=%d;aAcmControlIfcName=%S;aAcmDataIfcName=%S", (TInt)aNoAcms, (TInt)aProtocolNum, aAcmControlIfcName, aAcmDataIfcName );
 
 #ifdef _DEBUG
 	CheckAcmArray();
@@ -310,7 +359,7 @@ TInt CAcmPortFactory::CreateFunctions(const TUint aNoAcms, const TUint8 aProtoco
 	// Create the ACM class instances.
 	for ( TUint ii = 0 ; ii < aNoAcms ; ii++ )
 		{
-		LOGTEXT2(_L8("\tabout to create ACM instance %d"), ii);
+		OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONS_DUP1, "CAcmPortFactory::CreateFunctions;\tabout to create ACM instance %d", ii );
 		TRAP(ret, CreateFunctionL(aProtocolNum, aAcmControlIfcName, aAcmDataIfcName));
 		if ( ret != KErrNone )
 			{
@@ -328,7 +377,8 @@ TInt CAcmPortFactory::CreateFunctions(const TUint aNoAcms, const TUint8 aProtoco
 	LogPortsAndFunctions();
 #endif
 
-	LOGTEXT2(_L8("<<CAcmPortFactory::CreateFunctions ret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONS_DUP2, "CAcmPortFactory::CreateFunctions;ret=%d", ret );
+	OstTraceFunctionExit0( CACMPORTFACTORY_CREATEFUNCTIONS_EXIT );
 	return ret;
 	}
 
@@ -337,26 +387,40 @@ void CAcmPortFactory::CreateFunctionL(const TUint8 aProtocolNum, const TDesC16& 
  * Creates a single ACM function, appending it to the  iAcmClassArray array.
  */
 	{
-	LOG_FUNC
-
-	LOGTEXT3(_L8("\tiAcmPortArray.Count() = %d,  iAcmClassArray.Count() = %d"), 
-		iAcmPortArray.Count(),  iAcmClassArray.Count());
-
-	LOGTEXT4(_L("\taProtocolNum = %d, Control Ifc Name = %S, Data Ifc Name = %S"),
-			aProtocolNum, &aAcmControlIfcName, &aAcmDataIfcName);
+	OstTraceFunctionEntry0( CACMPORTFACTORY_CREATEFUNCTIONL_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONL, 
+			"CAcmPortFactory::CreateFunctionL;\tiAcmPortArray.Count()=%d;iAcmClassArray.Count()=%d", 
+			iAcmPortArray.Count(), iAcmClassArray.Count() );
+	
+	OstTraceExt3( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONL_DUP1, 
+			"CAcmPortFactory::CreateFunctionL;aProtocolNum=%d;aAcmControlIfcName=%S;aAcmDataIfcName=%S", 
+			aProtocolNum, aAcmControlIfcName, aAcmDataIfcName );
 
 	CCdcAcmClass* acm = CCdcAcmClass::NewL(aProtocolNum, aAcmControlIfcName, aAcmDataIfcName);
 	CleanupStack::PushL(acm);
 
 	// If there isn't already a slot in the ACM port array corresponding to 
 	// this ACM interface instance, create one. 
+	TInt	err;
 	if ( iAcmPortArray.Count() <  iAcmClassArray.Count() + 1 )
 		{
-		LOGTEXT(_L8("\tappending a slot to the ACM port array"));
-		LEAVEIFERRORL(iAcmPortArray.Append(NULL));
+		OstTrace0( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONL_DUP2, 
+				"CAcmPortFactory::CreateFunctionL;\tappending a slot to the ACM port array" );
+		err = iAcmPortArray.Append(NULL);
+		if (err < 0)
+			{
+			OstTrace1( TRACE_ERROR, CACMPORTFACTORY_CREATEFUNCTIONL_DUP4, "CAcmPortFactory::CreateFunctionL;err=%d", err );
+			User::Leave(err);
+			}
 		}
 
-	LEAVEIFERRORL(iAcmClassArray.Append(acm));
+	err = iAcmClassArray.Append(acm);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_ERROR, CACMPORTFACTORY_CREATEFUNCTIONL_DUP5, "CAcmPortFactory::CreateFunctionL;err=%d", err );
+		User::Leave(err);
+		}
+
 	CleanupStack::Pop(acm);
 	
 	// If there's an ACM port at the relevant index (held open from when USB 
@@ -364,7 +428,9 @@ void CAcmPortFactory::CreateFunctionL(const TUint8 aProtocolNum, const TDesC16& 
 	// interface.
 	if ( iAcmPortArray[iAcmClassArray.Count() - 1] )
 		{
-		LOGTEXT3(_L8("\tinforming CAcmPort instance %d of acm 0x%08x"),  iAcmClassArray.Count() - 1, acm);
+		OstTraceExt2( TRACE_NORMAL, CACMPORTFACTORY_CREATEFUNCTIONL_DUP3, 
+				"CAcmPortFactory::CreateFunctionL;\tinforming CAcmPort instance %d of acm 0x%p", 
+				iAcmClassArray.Count() - 1, acm );
 		iAcmPortArray[iAcmClassArray.Count() - 1]->SetAcm(acm);
 		}
  
@@ -373,6 +439,7 @@ void CAcmPortFactory::CreateFunctionL(const TUint8 aProtocolNum, const TDesC16& 
 	iConfigBuf().iAcmCount++;
 	//don't update the p&s data here, do it in CreateFunctions after the construction of 
 	//all the requested functions
+	OstTraceFunctionExit0( CACMPORTFACTORY_CREATEFUNCTIONL_EXIT );
 	}
 
 void CAcmPortFactory::Info(TSerialInfo& aSerialInfo)
@@ -382,16 +449,17 @@ void CAcmPortFactory::Info(TSerialInfo& aSerialInfo)
  * @param aSerialInfo where info will be written to
  */
 	{
+	OstTraceFunctionEntry0( CACMPORTFACTORY_INFO_ENTRY );
 	// NB Our TSerialInfo does not advertise the existence of the registration 
 	// port.
-	LOG_FUNC
-
+	
 	_LIT(KSerialDescription, "USB Serial Port Emulation via ACM");	
 	aSerialInfo.iDescription = KSerialDescription;
 	aSerialInfo.iName = KAcmSerialName;
 	aSerialInfo.iLowUnit = KAcmLowUnit;
 	aSerialInfo.iHighUnit = (iAcmPortArray.Count()==0) ? 0 : (iAcmPortArray.Count()-1);
 	// See comments in AcmInterface.h 
+	OstTraceFunctionExit0( CACMPORTFACTORY_INFO_EXIT );
 	}
 
 void CAcmPortFactory::LogPortsAndFunctions()
@@ -411,18 +479,24 @@ void CAcmPortFactory::LogPortsAndFunctions()
  * port open/closed history of the CSY.
  */
 	{
+	OstTraceFunctionEntry0( CACMPORTFACTORY_LOGPORTSANDFUNCTIONS_ENTRY );
 	TUint ii;
 
 	// Log ACM functions and corresponding ports.
 	for ( ii = 0 ; ii < static_cast<TUint>( iAcmClassArray.Count()) ; ii++ )
 		{
-		LOGTEXT5(_L8("\t iAcmClassArray[%d] = 0x%08x, iAcmPortArray[%d] = 0x%08x"), ii,  iAcmClassArray[ii], ii, iAcmPortArray[ii]);
+		OstTraceExt4( TRACE_NORMAL, CACMPORTFACTORY_LOGPORTSANDFUNCTIONS, 
+				"CAcmPortFactory::LogPortsAndFunctions;\t iAcmClassArray[%d] = %p, iAcmPortArray[%d] = %p", 
+				(TInt)ii, iAcmClassArray[ii], (TInt)ii, iAcmPortArray[ii] );	
 		}
 	// Log any ports extending beyond where we currently have ACM interfaces.
 	for ( ; ii < static_cast<TUint>(iAcmPortArray.Count()) ; ii++ )
 		{
-		LOGTEXT4(_L8("\t iAcmClassArray[%d] = <no slot>, iAcmPortArray[%d] = 0x%08x"), ii, ii, iAcmPortArray[ii]);
+		OstTraceExt3( TRACE_NORMAL, CACMPORTFACTORY_LOGPORTSANDFUNCTIONS_DUP1, 
+				"CAcmPortFactory::LogPortsAndFunctions;\t iAcmClassArray[%d] = <no slot>, iAcmPortArray[%d] = %p", 
+				(TInt)ii, (TInt)ii, iAcmPortArray[ii] );
 		}
+	OstTraceFunctionExit0( CACMPORTFACTORY_LOGPORTSANDFUNCTIONS_EXIT );
 	}
 
 //

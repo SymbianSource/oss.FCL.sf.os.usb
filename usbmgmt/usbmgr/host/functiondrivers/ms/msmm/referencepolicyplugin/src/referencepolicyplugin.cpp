@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -27,10 +27,12 @@
 #include <usb/hostms/msmm_policy_def.h>
 #include "refppnotificationman.h"
 #include "srvpanic.h"
- 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmRefPP");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "referencepolicypluginTraces.h"
 #endif
+
+ 
 
 //  Global Variables
 const TUid KHostMsRepositoryUid = {0x10285c46};
@@ -47,29 +49,34 @@ const TUint KPermittedDrvRangeBufLen = 0x3;
 
 CReferencePolicyPlugin::~CReferencePolicyPlugin()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CREFERENCEPOLICYPLUGIN_DES_ENTRY );
+    
     Cancel();
     ClearHistory(); // Remove all buffered history record.
     delete iRepository;
     delete iNotificationMan;
     iFs.Close();
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CREFERENCEPOLICYPLUGIN_DES_EXIT );
     }
 
 CReferencePolicyPlugin* CReferencePolicyPlugin::NewL()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_NEWL_ENTRY );
+    
     CReferencePolicyPlugin* self = new (ELeave) CReferencePolicyPlugin;
     CleanupStack::PushL(self);
     self->ConstructL();
     CleanupStack::Pop(self);
     
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_NEWL_EXIT );
     return self;
     }
 
 void CReferencePolicyPlugin::RetrieveDriveLetterL(TText& aDriveName,
         const TPolicyRequestData& aData, TRequestStatus& aStatus)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEDRIVELETTERL_TTEXT_TPOLICYREQUESTDATA_TREQUESTSTATUS_ENTRY );
+    
     Cancel();
     aStatus = KRequestPending;
     iClientStatus = &aStatus;    
@@ -78,18 +85,22 @@ void CReferencePolicyPlugin::RetrieveDriveLetterL(TText& aDriveName,
     // In a licensee owned policy plugin, it shall complete client 
     // request in RunL() in general 
     Complete(KErrNone);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEDRIVELETTERL_TTEXT_TPOLICYREQUESTDATA_TREQUESTSTATUS_EXIT );
     }
 
 void CReferencePolicyPlugin::CancelRetrieveDriveLetter()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CANCELRETRIEVEDRIVELETTER_ENTRY );
+    
     Cancel();
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CANCELRETRIEVEDRIVELETTER_EXIT );
     }
 
 void CReferencePolicyPlugin::SaveLatestMountInfoL(
         const TPolicyMountRecord& aData, TRequestStatus& aStatus)
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_SAVELATESTMOUNTINFOL_TPOLICYMOUNTRECORD_TREQUESTSTATUS_ENTRY );
+    
     Cancel();
     aStatus = KRequestPending;
     iClientStatus = &aStatus;
@@ -98,56 +109,70 @@ void CReferencePolicyPlugin::SaveLatestMountInfoL(
     // In a licensee owned policy plugin, it shall complete client 
     // request in RunL() in general 
     Complete(KErrNone);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SAVELATESTMOUNTINFOL_TPOLICYMOUNTRECORD_TREQUESTSTATUS_EXIT );
     }
 
 void CReferencePolicyPlugin::CancelSaveLatestMountInfo()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CANCELSAVELATESTMOUNTINFO_ENTRY );
+    
     Cancel();
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CANCELSAVELATESTMOUNTINFO_EXIT );
     }
 
 void CReferencePolicyPlugin::SendErrorNotificationL(
         const THostMsErrData& aErrData)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_SENDERRORNOTIFICATIONL_ENTRY );
+    
     iNotificationMan->SendErrorNotificationL(aErrData);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SENDERRORNOTIFICATIONL_EXIT );
     }
 
 void CReferencePolicyPlugin::GetSuspensionPolicy(TSuspensionPolicy& aPolicy)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_GETSUSPENSIONPOLICY_ENTRY );
+    
     aPolicy = iSuspensionPolicy;
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_GETSUSPENSIONPOLICY_EXIT );
     }
 
 void CReferencePolicyPlugin::DoCancel()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_DOCANCEL_ENTRY );
+    
     // No more work need to do in current implementation of reference
     // policy plugin. 
     // In a licensee owned policy plugin, it shall complete client 
     // request here with KErrCancel.
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_DOCANCEL_EXIT );
     }
 
 void CReferencePolicyPlugin::RunL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_RUNL_ENTRY );
+    
     // No more work need to do in current implementation of reference
     // policy plugin. 
     // In a licensee owned policy plugin, it shall complete client 
     // request here with a proper error code.
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_RUNL_EXIT );
     }
 
 CReferencePolicyPlugin::CReferencePolicyPlugin() :
 CMsmmPolicyPluginBase(),
 iHistory(KHistoryGranularity)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CREFERENCEPOLICYPLUGIN_CONS_ENTRY );
+    
     CActiveScheduler::Add(this);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CREFERENCEPOLICYPLUGIN_CONS_EXIT );
     }
 
 void CReferencePolicyPlugin::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CONSTRUCTL_ENTRY );
+    
     iRepository = CRepository::NewL(KHostMsRepositoryUid);
     User::LeaveIfError(iFs.Connect());
     iNotificationMan = CMsmmPolicyNotificationManager::NewL();
@@ -160,13 +185,14 @@ void CReferencePolicyPlugin::ConstructL()
     User::LeaveIfError(iRepository->Get(
             KMediaPollingTimeUid, value));
     iSuspensionPolicy.iStatusPollingInterval = value;
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CONSTRUCTL_EXIT );
     }
 
 void CReferencePolicyPlugin::RetrieveDriveLetterL(TText& aDriveName,
         const TPolicyRequestData& aData)
     {
-    LOG_FUNC
-
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEDRIVELETTERL_TTEXT_TPOLICYREQUESTDATA_ENTRY );
+    
     TDriveList availableNames;
     FilterFsForbiddenDriveListL(availableNames);
 
@@ -201,15 +227,17 @@ void CReferencePolicyPlugin::RetrieveDriveLetterL(TText& aDriveName,
             aDriveName = history.iDriveName;
             }
         }
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEDRIVELETTERL_TTEXT_TPOLICYREQUESTDATA_EXIT );
     }
 
 void CReferencePolicyPlugin::SaveLatestMountInfoL(
         const TPolicyMountRecord& aData)
     {
-    LOG_FUNC
-
+  OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_SAVELATESTMOUNTINFOL_TPOLICYMOUNTRECORD_ENTRY );
+  
     if (iMaxHistoryRecCount == 0) // This policy disable history
         {
+        OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SAVELATESTMOUNTINFOL_TPOLICYMOUNTRECORD_EXIT );
         return;
         }
     
@@ -243,24 +271,30 @@ void CReferencePolicyPlugin::SaveLatestMountInfoL(
         TPckg<TPolicyMountRecord> historyPckg(*iHistory[index]);
         User::LeaveIfError(iRepository->Set(historyRecordUid++, historyPckg));
         }
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SAVELATESTMOUNTINFOL_TPOLICYMOUNTRECORD_EXIT_DUP1 );
     }
 
 void CReferencePolicyPlugin::Complete(TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_COMPLETE_ENTRY );
+    
     User::RequestComplete(iClientStatus, aError);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_COMPLETE_EXIT );
     }
 
 void CReferencePolicyPlugin::PrepareAvailableDriveList()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_PREPAREAVAILABLEDRIVELIST_ENTRY );
+    
     iAvailableDrvList.SetLength(KMaxDrives);
     iAvailableDrvList.Fill(0, KMaxDrives);
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_PREPAREAVAILABLEDRIVELIST_EXIT );
     }
 
 void CReferencePolicyPlugin::AvailableDriveListL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_AVAILABLEDRIVELISTL_ENTRY );
+    
     TBuf8<KPermittedDrvRangeBufLen> permittedRange;
     TDriveList forbiddenList;
 
@@ -280,12 +314,14 @@ void CReferencePolicyPlugin::AvailableDriveListL()
                 }
             }
         }
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_AVAILABLEDRIVELISTL_EXIT );
     }
 
 void CReferencePolicyPlugin::FilterFsForbiddenDriveListL(
         TDriveList& aAvailableNames)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_FILTERFSFORBIDDENDRIVELISTL_ENTRY );
+    
     TDriveList names;
     names.SetLength(KMaxDrives);
 
@@ -302,13 +338,15 @@ void CReferencePolicyPlugin::FilterFsForbiddenDriveListL(
         }
     names.SetLength(count);
     aAvailableNames = names;
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_FILTERFSFORBIDDENDRIVELISTL_EXIT );
     }
 
 void CReferencePolicyPlugin::FindFirstNotUsedDriveLetter(
         const TDriveList& aAvailableNames,
         TText& aDriveName)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_FINDFIRSTNOTUSEDDRIVELETTER_ENTRY );
+    
     TDriveList usedLetter;
     TUint index = 0;
     for (index = 0; index < iHistory.Count(); index++)
@@ -321,15 +359,18 @@ void CReferencePolicyPlugin::FindFirstNotUsedDriveLetter(
         if (usedLetter.Locate(aAvailableNames[index]) == KErrNotFound)
             {
             aDriveName = aAvailableNames[index];
+            OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_FINDFIRSTNOTUSEDDRIVELETTER_EXIT );
             return; // A unused drive letter found out
             }
         }
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_FINDFIRSTNOTUSEDDRIVELETTER_EXIT_DUP1 );
     }
 
 // Retrieve history from CR
 void CReferencePolicyPlugin::RetrieveHistoryL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEHISTORYL_ENTRY );
+    
     // Read history record number from CR
     TInt historyCount(0);
     User::LeaveIfError(
@@ -352,21 +393,25 @@ void CReferencePolicyPlugin::RetrieveHistoryL()
             CleanupStack::Pop(record);
             }
         }
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_RETRIEVEHISTORYL_EXIT );
     }
 
 // Remove all buffered history
 void CReferencePolicyPlugin::ClearHistory()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_CLEARHISTORY_ENTRY );
+    
     iHistory.ResetAndDestroy();
     iHistory.Close();
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_CLEARHISTORY_EXIT );
     }
 
 // Search in history for a logic unit	
 TInt CReferencePolicyPlugin::SearchHistoryByLogicUnit(
         const TPolicyRequestData& aLogicUnit) const
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( REF_CREFERENCEPOLICYPLUGIN_SEARCHHISTORYBYLOGICUNIT_ENTRY );
+    
     TInt ret(KErrNotFound);
     TUint count = iHistory.Count();
     for (TUint index = 0; index < count; index ++)
@@ -383,10 +428,12 @@ TInt CReferencePolicyPlugin::SearchHistoryByLogicUnit(
                 (logicalUnit.iOtgInformation == aLogicUnit.iOtgInformation))
             {
             // Matched
+            OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SEARCHHISTORYBYLOGICUNIT_EXIT );
             return index;
             }
         }
     // Can't find any matched records
+    OstTraceFunctionExit0( REF_CREFERENCEPOLICYPLUGIN_SEARCHHISTORYBYLOGICUNIT_EXIT_DUP1 );
     return ret;
     }
 

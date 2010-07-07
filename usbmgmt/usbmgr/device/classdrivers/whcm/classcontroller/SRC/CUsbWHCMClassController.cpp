@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -20,18 +20,16 @@
  @file
 */
 
-#include "CUsbWHCMClassController.h"
 #include <usb_std.h>
 #include <cusbclasscontrolleriterator.h>
 #include <musbclasscontrollernotify.h>
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "WHCMCC");
+#include "CUsbWHCMClassController.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CUsbWHCMClassControllerTraces.h"
 #endif
 
 _LIT(KUsbLDDName, "eusbc");
-
 _LIT( KWhcmCcPanicCategory, "UsbWhcmCc" );
 
 /**
@@ -56,7 +54,7 @@ enum TWhcmCcPanic
 CUsbWHCMClassController* CUsbWHCMClassController::NewL(
 	MUsbClassControllerNotify& aOwner)
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_NEWL_ENTRY );
 
 	CUsbWHCMClassController* self =
 		new (ELeave) CUsbWHCMClassController(aOwner);
@@ -64,6 +62,7 @@ CUsbWHCMClassController* CUsbWHCMClassController::NewL(
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop();
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_NEWL_EXIT );
 	return self;
 	}
 
@@ -76,7 +75,9 @@ CUsbWHCMClassController::CUsbWHCMClassController(
 		MUsbClassControllerNotify& aOwner)
 	: CUsbClassControllerPlugIn(aOwner, KWHCMPriority)
 	{
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_CUSBWHCMCLASSCONTROLLER_CONS_ENTRY );
 	iState = EUsbServiceIdle;
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_CUSBWHCMCLASSCONTROLLER_CONS_EXIT );
 	}
 
 /**
@@ -84,14 +85,25 @@ CUsbWHCMClassController::CUsbWHCMClassController(
  */
 void CUsbWHCMClassController::ConstructL()
 	{
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_CONSTRUCTL_ENTRY );
 	// Load the device driver
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
 	if (err != KErrNone && err != KErrAlreadyExists) 
 		{
-		LEAVEL(err);      
+		OstTrace1( TRACE_NORMAL, CUSBWHCMCLASSCONTROLLER_CONSTRUCTL, 
+					"CUsbWHCMClassController::ConstructL;err=%d", err );   
+		User::Leave(err);
 		} 
 
-	LEAVEIFERRORL(iLdd.Open(0));
+	
+	err = iLdd.Open(0);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_NORMAL, CUSBWHCMCLASSCONTROLLER_CONSTRUCTL_DUP1, 
+					"CUsbWHCMClassController::ConstructL;err=%d", err );
+		User::Leave(err);
+		}
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -99,14 +111,15 @@ void CUsbWHCMClassController::ConstructL()
  */
 CUsbWHCMClassController::~CUsbWHCMClassController()
 	{
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_CUSBWHCMCLASSCONTROLLER_DES_ENTRY );
 	Cancel();
-
 	if (iState == EUsbServiceStarted)
 		{
 		// Must release all interfaces before closing the LDD to avoid a crash.
 		iLdd.ReleaseInterface(0);
 		}
 	iLdd.Close();
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_CUSBWHCMCLASSCONTROLLER_DES_EXIT );
 	}
 
 /**
@@ -116,25 +129,29 @@ CUsbWHCMClassController::~CUsbWHCMClassController()
  */
 void CUsbWHCMClassController::Start(TRequestStatus& aStatus)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_START_ENTRY );
 		
 	//Start() should never be called if started, starting or stopping (or in state EUsbServiceFatalError)
-	__ASSERT_DEBUG( iState == EUsbServiceIdle, _USB_PANIC(KWhcmCcPanicCategory, EBadApiCallStart) );
+	if (iState != EUsbServiceIdle)
+		{
+		OstTrace1( TRACE_FATAL, CUSBWHCMCLASSCONTROLLER_START, "CUsbWHCMClassController::Start;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KWhcmCcPanicCategory, EBadApiCallStart) );
+		}
 	
 	TRequestStatus* reportStatus = &aStatus;
 
 	iState = EUsbServiceStarting;
-
 	TRAPD(err, SetUpWHCMDescriptorL());
-
 	if (err != KErrNone) 
 		{
 		iState = EUsbServiceIdle;
 		User::RequestComplete(reportStatus, err);
+		OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_START_EXIT );
 		return;
 		}
 	iState = EUsbServiceStarted;
 	User::RequestComplete(reportStatus, KErrNone);
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_START_EXIT_DUP1 );
 	}
 
 /**
@@ -144,10 +161,14 @@ void CUsbWHCMClassController::Start(TRequestStatus& aStatus)
  */
 void CUsbWHCMClassController::Stop(TRequestStatus& aStatus)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_STOP_ENTRY );
 
 	//Stop() should never be called if stopping, idle or starting (or in state EUsbServiceFatalError)
-	__ASSERT_DEBUG( iState == EUsbServiceStarted, _USB_PANIC(KWhcmCcPanicCategory, EBadApiCallStop) );
+	if (iState != EUsbServiceStarted)
+		{
+		OstTrace1( TRACE_FATAL, CUSBWHCMCLASSCONTROLLER_STOP, "CUsbWHCMClassController::Stop;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KWhcmCcPanicCategory, EBadApiCallStart) );
+		}
 
 	TRequestStatus* reportStatus = &aStatus;
 
@@ -159,6 +180,7 @@ void CUsbWHCMClassController::Stop(TRequestStatus& aStatus)
 	aStatus = KRequestPending;
 
 	User::RequestComplete(reportStatus, KErrNone);
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_STOP_EXIT );
 	}
 
 /**
@@ -169,6 +191,8 @@ void CUsbWHCMClassController::Stop(TRequestStatus& aStatus)
 void CUsbWHCMClassController::GetDescriptorInfo(
 	TUsbDescriptor& /*aDescriptorInfo*/) const
 	{
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_GETDESCRIPTORINFO_ENTRY );
+	OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_GETDESCRIPTORINFO_EXIT );
 	}
 
 /**
@@ -177,7 +201,8 @@ void CUsbWHCMClassController::GetDescriptorInfo(
 void CUsbWHCMClassController::RunL()
 	{
 	// This function should never be called.
-	_USB_PANIC(KWhcmCcPanicCategory, EUnusedFunction);
+	OstTrace0( TRACE_FATAL, CUSBWHCMCLASSCONTROLLER_RUNL, "CUsbWHCMClassController::RunL;EUnusedFunction");
+	User::Panic(KWhcmCcPanicCategory, EUnusedFunction);
 	}
 
 /**
@@ -187,7 +212,8 @@ void CUsbWHCMClassController::RunL()
 void CUsbWHCMClassController::DoCancel()
 	{
 	// This function should never be called.
-	_USB_PANIC(KWhcmCcPanicCategory, EUnusedFunction);
+	OstTrace0( TRACE_FATAL, CUSBWHCMCLASSCONTROLLER_DOCANCEL, "CUsbWHCMClassController::DoCancel;EUnusedFunction");
+	User::Panic(KWhcmCcPanicCategory, EUnusedFunction);
 	}
 
 /**
@@ -197,8 +223,8 @@ void CUsbWHCMClassController::DoCancel()
 TInt CUsbWHCMClassController::RunError(TInt /*aError*/)
 	{
 	// This function should never be called.
-	_USB_PANIC(KWhcmCcPanicCategory, EUnusedFunction);
-
+	OstTrace0( TRACE_FATAL, CUSBWHCMCLASSCONTROLLER_RUNERROR, "CUsbWHCMClassController::RunError;EUnusedFunction");
+	User::Panic(KWhcmCcPanicCategory, EUnusedFunction);
 	return KErrNone;
 	}
 
@@ -208,6 +234,8 @@ void CUsbWHCMClassController::SetUpWHCMDescriptorL()
  * Setup the WHCM Class Descriptors.
  */
     {
+	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_SETUPWHCMDESCROPTORL_ENTRY );
+	
 	// Set up and register the WHCM interface descriptor
 
     TUsbcInterfaceInfoBuf ifc;
@@ -221,11 +249,23 @@ void CUsbWHCMClassController::SetUpWHCMDescriptorL()
 	// from EP0.
 	ifc().iFeatureWord |= KUsbcInterfaceInfo_NoEp0RequestsPlease;
 
-	LEAVEIFERRORL(iLdd.SetInterface(0, ifc));
+	TInt	err = iLdd.SetInterface(0, ifc);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_NORMAL, CUSBWHCMCLASSCONTROLLER_SETUPWHCMDESCROPTORL, 
+					"CUsbWHCMClassController::SetUpWHCMDescriptorL;err=%d", (TInt)err );
+		User::Leave(err);
+		}
 
 	// Get the interface number from the LDD for later reference
 	TBuf8<100> interface_descriptor;
-	LEAVEIFERRORL(iLdd.GetInterfaceDescriptor(0, interface_descriptor));
+	err = iLdd.GetInterfaceDescriptor(0, interface_descriptor);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_NORMAL, CUSBWHCMCLASSCONTROLLER_SETUPWHCMDESCROPTORL_DUP1, 
+					"CUsbWHCMClassController::SetUpWHCMDescriptorL;err=%d", (TInt)err );
+		User::Leave(err);
+		}
 	
 		
 	TUint8 WHCM_int_no = interface_descriptor[2];
@@ -279,5 +319,12 @@ void CUsbWHCMClassController::SetUpWHCMDescriptorL()
 	desc[10] = union_len;
 
 	// Register the whole class-specific interface block
-    LEAVEIFERRORL(iLdd.SetCSInterfaceDescriptorBlock(0, desc));	
+	err = iLdd.SetCSInterfaceDescriptorBlock(0, desc);
+    if (err < 0)
+    	{
+		OstTrace1( TRACE_NORMAL, CUSBWHCMCLASSCONTROLLER_SETUPWHCMDESCROPTORL_DUP2, 
+					"CUsbWHCMClassController::SetUpWHCMDescriptorL;err=%d", (TInt)err );
+		User::Leave(err);
+    	}
+    OstTraceFunctionExit0( CUSBWHCMCLASSCONTROLLER_SETUPWHCMDESCROPTORL_EXIT );
 	}

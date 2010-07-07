@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,45 +15,46 @@
 *
 */
 
-#include "event.h"
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdf      ");
+#include "event.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "eventTraces.h"
 #endif
+
 
 TDeviceEvent::TDeviceEvent()
 	{
-	LOG_FUNC
-	}
+    OstTraceFunctionEntry0( TDEVICEEVENT_TDEVICEEVENT_CONS_ENTRY );
+ 	}
 
 TDeviceEvent::~TDeviceEvent()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( TDEVICEEVENT_TDEVICEEVENT_DES_ENTRY );
 	}
-
-#ifdef __FLOG_ACTIVE
 
 void TDeviceEvent::Log() const
 	{
-	LOGTEXT2(_L8("\tLogging event 0x%08x"), this);
-	LOGTEXT2(_L8("\t\tdevice ID = %d"), iInfo.iDeviceId);
-	LOGTEXT2(_L8("\t\tevent type = %d"), iInfo.iEventType);
-
+    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG, "\tLogging event 0x%08x", this );
+    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP1, "\t\tdevice ID = %d", iInfo.iDeviceId );
+    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP2, "\t\tevent type = %d", iInfo.iEventType );
+        
 	switch ( iInfo.iEventType )
 		{
 	case EDeviceAttachment:
-		LOGTEXT2(_L8("\t\terror = %d"), iInfo.iError);
-		if ( !iInfo.iError )
+	    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP3, "\t\terror = %d", iInfo.iError );
+	        
+	    if ( !iInfo.iError )
 			{
-			LOGTEXT2(_L8("\t\tVID = 0x%04x"), iInfo.iVid);
-			LOGTEXT2(_L8("\t\tPID = 0x%04x"), iInfo.iPid);
+            OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP4, "\t\tVID = 0x%04x", iInfo.iVid );
+            OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP5, "\t\tPID = 0x%04x", iInfo.iPid );
 			}
 		break;
 
 	case EDriverLoad:
-		LOGTEXT2(_L8("\t\terror = %d"), iInfo.iError);
-		LOGTEXT2(_L8("\t\t\tdriver load status = %d"), iInfo.iDriverLoadStatus);
+	    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP6, "\t\terror = %d", iInfo.iError );
+	    OstTrace1( TRACE_DUMP, TDEVICEEVENT_LOG_DUP7, "\t\t\tdriver load status = %d", iInfo.iDriverLoadStatus);
+	                
 		break;
 
 	case EDeviceDetachment: // No break deliberate.
@@ -62,4 +63,3 @@ void TDeviceEvent::Log() const
 		}
 	}
 
-#endif // __FLOG_ACTIVE

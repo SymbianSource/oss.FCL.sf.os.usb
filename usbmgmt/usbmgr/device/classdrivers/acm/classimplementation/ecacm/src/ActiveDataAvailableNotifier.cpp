@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,11 +22,12 @@
 #include "AcmPanic.h"
 #include "AcmUtils.h"
 #include "NotifyDataAvailableObserver.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "ActiveDataAvailableNotifierTraces.h"
 #endif
+
+
 
 CActiveDataAvailableNotifier::CActiveDataAvailableNotifier(
 								MNotifyDataAvailableObserver& aParent, 
@@ -46,7 +47,9 @@ CActiveDataAvailableNotifier::CActiveDataAvailableNotifier(
  * @param aEndpoint The endpoint to read from.
  */
 	{
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_CACTIVEDATAAVAILABLENOTIFIER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_CACTIVEDATAAVAILABLENOTIFIER_CONS_EXIT );
 	}
 
 CActiveDataAvailableNotifier::~CActiveDataAvailableNotifier()
@@ -54,9 +57,9 @@ CActiveDataAvailableNotifier::~CActiveDataAvailableNotifier()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_CACTIVEDATAAVAILABLENOTIFIER_DES_ENTRY );
 	Cancel();
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_CACTIVEDATAAVAILABLENOTIFIER_DES_EXIT );
 	}
 
 CActiveDataAvailableNotifier* CActiveDataAvailableNotifier::NewL(
@@ -74,10 +77,10 @@ CActiveDataAvailableNotifier* CActiveDataAvailableNotifier::NewL(
  * @return Ownership of a new CActiveReadOneOrMoreReader object.
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_NEWL_ENTRY );
 	CActiveDataAvailableNotifier* self = 
 		new(ELeave) CActiveDataAvailableNotifier(aParent, aLdd, aEndpoint);
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_NEWL_EXIT );
 	return self;
 	}
 
@@ -86,12 +89,10 @@ void CActiveDataAvailableNotifier::NotifyDataAvailable()
  * When incoming data arrives at the LDD notify the caller.
  */
 	{
-	LOGTEXT(_L8(">>CActiveDataAvailableNotifier::NotifyDataAvailable"));
-
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_NOTIFYDATAAVAILABLE_ENTRY );
 	iLdd.ReadOneOrMore(iStatus, iEndpoint, iUnusedBuf, 0);
 	SetActive();
-
-	LOGTEXT(_L8("<<CActiveDataAvailableNotifier::NotifyDataAvailable"));
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_NOTIFYDATAAVAILABLE_EXIT );
 	}
 
 void CActiveDataAvailableNotifier::DoCancel()
@@ -99,9 +100,9 @@ void CActiveDataAvailableNotifier::DoCancel()
  * Cancel an outstanding request.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_DOCANCEL_ENTRY );
 	iLdd.ReadCancel(iEndpoint);
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_DOCANCEL_EXIT );
 	}
 
 void CActiveDataAvailableNotifier::RunL()
@@ -114,10 +115,8 @@ void CActiveDataAvailableNotifier::RunL()
  * been detached.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT2(_L8("\tiStatus = %d"), iStatus.Int());
-	
+	OstTraceFunctionEntry0( CACTIVEDATAAVAILABLENOTIFIER_RUNL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACTIVEDATAAVAILABLENOTIFIER_RUNL, "CActiveDataAvailableNotifier::RunL;iStatus=%d", iStatus.Int() );
 	TBool complete = EFalse;
 	TInt completeErr = KErrNone;
 
@@ -162,6 +161,7 @@ void CActiveDataAvailableNotifier::RunL()
 		{
 		iParent.NotifyDataAvailableCompleted(completeErr);
 		}
+	OstTraceFunctionExit0( CACTIVEDATAAVAILABLENOTIFIER_RUNL_EXIT );
 	}
 
 //

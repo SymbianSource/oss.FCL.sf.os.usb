@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,17 +23,16 @@
 #include "CUsbObexClassController.h"
 #include <usb_std.h>
 #include <d32usbc.h>
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "OBEXCC");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CUsbObexClassControllerTraces.h"
 #endif
 
-
-// Panic category only used in debug builds
 #ifdef _DEBUG
+// Panic category only used in debug builds
 _LIT( KObexCcPanicCategory, "UsbObexCc" );
 #endif
+
 
 /**
  * Panic codes for the USB OBEX Class Controller.
@@ -59,10 +58,10 @@ const TInt KMaxPacketTypeBulk=64;
 CUsbObexClassController* CUsbObexClassController::NewL(
 	MUsbClassControllerNotify& aOwner)
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_NEWL_ENTRY );
 	CUsbObexClassController* self =
 		new (ELeave) CUsbObexClassController(aOwner);
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_NEWL_EXIT );
 	return self;
 	}
 
@@ -75,7 +74,9 @@ CUsbObexClassController::CUsbObexClassController(
 		MUsbClassControllerNotify& aOwner)
 	: CUsbClassControllerPlugIn(aOwner, KObexClassPriority)
 	{
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_CUSBOBEXCLASSCONTROLLER_CONS_ENTRY );
 	iState = EUsbServiceIdle;
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_CUSBOBEXCLASSCONTROLLER_CONS_EXIT );
 	}
 
 /**
@@ -83,6 +84,8 @@ CUsbObexClassController::CUsbObexClassController(
  */
 CUsbObexClassController::~CUsbObexClassController()
 	{
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_CUSBOBEXCLASSCONTROLLER_DES_ENTRY );
+	
 	Cancel();
 	if (iState == EUsbServiceStarted) 
 		{
@@ -92,6 +95,7 @@ CUsbObexClassController::~CUsbObexClassController()
 		iLdd2.ReleaseInterface(0);
 		iLdd2.Close();
 		}
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_CUSBOBEXCLASSCONTROLLER_DES_EXIT );
 	}
 
 /**
@@ -104,12 +108,16 @@ CUsbObexClassController::~CUsbObexClassController()
 
 TInt CUsbObexClassController::SetUpClassAndInterface()
 	{
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_ENTRY );
+	
 	TUsbcInterfaceInfoBuf ifc;
 	
 	HBufC16* string = KUsbObexIfc().Alloc();
 	if (!string)
+		{
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT );
 		return KErrNoMemory;
-	
+		}
 	ifc().iString = string;
 	ifc().iClass.iClassNum = KObexClassNumber;		
 	ifc().iClass.iSubClassNum = KObexSubClassNumber;
@@ -131,6 +139,7 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
 
 	if (err != KErrNone) 
 		{ 
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP1 );
 		return err;
 		}
 
@@ -164,12 +173,14 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
 	err= iLdd.SetCSInterfaceDescriptorBlock(0, desc);
 	if (err!= KErrNone)
 		{
+        OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP2 );
         return err;
         }
 
 	err = iLdd2.Open(0);
 	if (err != KErrNone)
 		{
+        OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP3 );
         return err;
         }
 
@@ -190,26 +201,33 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
 	if (err != KErrNone) 
 		{
 		iLdd2.Close();
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP4 );
 		return err;
 		}
 
 	TUsbDeviceCaps dCaps;
 	TInt ret = iLdd.DeviceCaps(dCaps);
-	if (ret != KErrNone) 
+	if (ret != KErrNone)
+		{
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP5 );
 		return ret;
-	
+		}
 	
 	TInt n = dCaps().iTotalEndpoints;
-	if (n < KObexMinNumEndpoints) 
+	if (n < KObexMinNumEndpoints)
+		{
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP6 );
 		return KErrGeneral;
-	
+		}
 	// Endpoints
 	TUsbcEndpointData data[KUsbcMaxEndpoints];
 	TPtr8 dataptr(REINTERPRET_CAST(TUint8*, data), sizeof(data), sizeof(data));
 	ret = iLdd.EndpointCaps(dataptr);
-	if (ret!= KErrNone) 
+	if (ret!= KErrNone)
+		{
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP7 );
 		return ret;
-
+		}
 	// Set the active interface
 	
     TUsbcInterfaceInfoBuf dataifc2;
@@ -248,7 +266,10 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
 		}
 		
     if (!(foundIn && foundOut)) 
+    	{
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP8 );
 		return KErrGeneral;
+    	}
 	
 	dataifc2().iString = NULL;
 	dataifc2().iClass.iClassNum = KObexDataClass;		
@@ -265,9 +286,12 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
 		{
 		iLdd2.ReleaseInterface(0);
 		iLdd2.Close();
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP9 );
 		return err;
 
 		}
+
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_SETUPCLASSANDINTERFACE_EXIT_DUP10 );
 	return KErrNone;
 	}
 
@@ -278,10 +302,14 @@ TInt CUsbObexClassController::SetUpClassAndInterface()
  */
 void CUsbObexClassController::Start(TRequestStatus& aStatus)
 	{	
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_START_ENTRY );
+	
 	//Start() should never be called if started, starting or stopping (or in state EUsbServiceFatalError)
-	__ASSERT_DEBUG( iState == EUsbServiceIdle, _USB_PANIC(KObexCcPanicCategory, EBadApiCallStart) );
+	if (iState != EUsbServiceIdle)
+		{	
+		OstTrace1( TRACE_FATAL, CUSBOBEXCLASSCONTROLLER_START, "CUsbObexClassController::Start;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KObexCcPanicCategory, EBadApiCallStart) );
+		}
 	
 	TRequestStatus* reportStatus = &aStatus;
 	
@@ -292,6 +320,7 @@ void CUsbObexClassController::Start(TRequestStatus& aStatus)
 		{
 		User::RequestComplete(reportStatus, err);
 		iState = EUsbServiceIdle;
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_START_EXIT );
 		return;      
 		} 
 		
@@ -301,6 +330,7 @@ void CUsbObexClassController::Start(TRequestStatus& aStatus)
 		iState = EUsbServiceIdle;
 		User::RequestComplete(reportStatus, err);
 
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_START_EXIT_DUP1 );
 		return;	
 		}
 
@@ -311,11 +341,13 @@ void CUsbObexClassController::Start(TRequestStatus& aStatus)
 		iState = EUsbServiceIdle;
 		User::RequestComplete(reportStatus, err);
 		
+		OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_START_EXIT_DUP2 );
 		return;
 		}
 		
 	iState = EUsbServiceStarted;
 	User::RequestComplete(reportStatus, KErrNone);
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_START_EXIT_DUP3 );
 	}
 
 
@@ -326,10 +358,13 @@ void CUsbObexClassController::Start(TRequestStatus& aStatus)
  */
 void CUsbObexClassController::Stop(TRequestStatus& aStatus)
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_STOP_ENTRY );
 	//Stop() should never be called if stopping, idle or starting (or in state EUsbServiceFatalError)
-	__ASSERT_DEBUG( iState == EUsbServiceStarted, _USB_PANIC(KObexCcPanicCategory, EBadApiCallStop) );
+	if (iState != EUsbServiceStarted)
+		{
+		OstTrace1( TRACE_FATAL, REF_CUSBOBEXCLASSCONTROLLER_STOP, "CUsbObexClassController::Stop;iState=%d", (TInt)iState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KObexCcPanicCategory, EBadApiCallStop) );
+		}
 
 	TRequestStatus* ReportStatus = &aStatus;
 
@@ -346,6 +381,7 @@ void CUsbObexClassController::Stop(TRequestStatus& aStatus)
 	iState = EUsbServiceIdle;
 
 	User::RequestComplete(ReportStatus, KErrNone);
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_STOP_EXIT );
 	}
 
 
@@ -356,8 +392,10 @@ void CUsbObexClassController::Stop(TRequestStatus& aStatus)
  */
 void CUsbObexClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo) const
 	{
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_GETDESCRIPTORINFO_ENTRY );
 	aDescriptorInfo.iNumInterfaces = KObexNumInterfaces;
 	aDescriptorInfo.iLength = KObexDescriptorLength;
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_GETDESCRIPTORINFO_EXIT );
 	}
 
 /**
@@ -367,7 +405,10 @@ void CUsbObexClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo)
  */
 void CUsbObexClassController::RunL()
 	{
-	__ASSERT_DEBUG(EFalse, _USB_PANIC(KObexCcPanicCategory, EUnusedFunction));
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_RUNL_ENTRY );
+	OstTrace0( TRACE_FATAL, REF_CUSBOBEXCLASSCONTROLLER_RUNL, "CUsbObexClassController::RunL;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KObexCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_RUNL_EXIT );
 	}
 
 /**
@@ -377,7 +418,10 @@ void CUsbObexClassController::RunL()
  */
 void CUsbObexClassController::DoCancel()
 	{
-	__ASSERT_DEBUG(EFalse, _USB_PANIC(KObexCcPanicCategory, EUnusedFunction));
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_DOCANCEL_ENTRY );
+	OstTrace0( TRACE_FATAL, REF_CUSBOBEXCLASSCONTROLLER_DOCANCEL, "CUsbObexClassController::DoCancel;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KObexCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -389,6 +433,9 @@ void CUsbObexClassController::DoCancel()
 
 TInt CUsbObexClassController::RunError(TInt /*aError*/)
 	{
-	__ASSERT_DEBUG(EFalse, _USB_PANIC(KObexCcPanicCategory, EUnusedFunction));
+	OstTraceFunctionEntry0( REF_CUSBOBEXCLASSCONTROLLER_RUNERROR_ENTRY );
+	OstTrace0( TRACE_FATAL, REF_CUSBOBEXCLASSCONTROLLER_RUNERROR, "CUsbObexClassController::RunError;EUnusedFunction" );
+	__ASSERT_DEBUG( EFalse, User::Panic(KObexCcPanicCategory, EUnusedFunction) );
+	OstTraceFunctionExit0( REF_CUSBOBEXCLASSCONTROLLER_RUNERROR_EXIT );
 	return KErrNone;
 	}

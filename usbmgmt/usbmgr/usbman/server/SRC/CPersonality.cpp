@@ -21,11 +21,11 @@
  @internalAll
 */
 
-#include <usb/usblogger.h>
 #include "CPersonality.h"
 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBSVR");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CPersonalityTraces.h"
 #endif
 
 // Panic category only used in debug builds
@@ -48,12 +48,13 @@ enum TUsbPersonalityPanic
  */
 CPersonality* CPersonality::NewL()
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CPERSONALITY_NEWL_ENTRY );
 
 	CPersonality* self = new(ELeave) CPersonality;
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CPERSONALITY_NEWL_EXIT );
 	return self;
 	}
 
@@ -62,8 +63,9 @@ CPersonality* CPersonality::NewL()
  */	
 void CPersonality::ConstructL()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CPERSONALITY_CONSTRUCTL_ENTRY );
 	iDescription	= HBufC::NewL(KUsbStringDescStringMaxSize);
+	OstTraceFunctionExit0( CPERSONALITY_CONSTRUCTL_EXIT );
 	}
 	
 /**
@@ -78,9 +80,11 @@ CPersonality::CPersonality()
  */
 CPersonality::~CPersonality()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CPERSONALITY_CPERSONALITY_DES_ENTRY );
+	
 	iPersonalityConfigs.ResetAndDestroy();
 	delete iDescription;
+	OstTraceFunctionExit0( CPERSONALITY_CPERSONALITY_DES_EXIT );
 	}
 
 /**
@@ -89,7 +93,11 @@ CPersonality::~CPersonality()
 const RArray<CPersonalityConfigurations::TUsbClasses>& CPersonality::SupportedClasses() const
     {
     //we only support configuration 0 now
-    __ASSERT_DEBUG( iPersonalityConfigs.Count() != 0, _USB_PANIC(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+    if(iPersonalityConfigs.Count() == 0)
+        {
+        OstTrace1( TRACE_FATAL, CPERSONALITY_SUPPORTEDCLASSES, "CPersonality::SupportedClasses;Panic error=%d", EPersonalityConfigsArrayEmpty );
+        __ASSERT_DEBUG( EFalse, User::Panic(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+        }
     return iPersonalityConfigs[0]->Classes();
     }
 
@@ -100,7 +108,11 @@ const RArray<CPersonalityConfigurations::TUsbClasses>& CPersonality::SupportedCl
 TBool CPersonality::ClassSupported(TUid aClassUid) const
 	{
     //we only support configuration 0 now
-    __ASSERT_DEBUG( iPersonalityConfigs.Count() != 0, _USB_PANIC(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+    if(iPersonalityConfigs.Count() == 0)
+        {
+        OstTrace1( TRACE_FATAL, CPERSONALITY_CLASSSUPPORTED, "CPersonality::ClassSupported;Panic error=%d", EPersonalityConfigsArrayEmpty );
+        __ASSERT_DEBUG( EFalse, User::Panic(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+        }
     const RArray<CPersonalityConfigurations::TUsbClasses> &classes = iPersonalityConfigs[0]->Classes();
     TInt classesCount = classes.Count();
     for(TInt classesIndex = 0; classesIndex < classesCount; ++classesIndex)
@@ -249,6 +261,7 @@ void CPersonalityConfigurations::AppendClassesL(const TUsbClasses &aClasses )
  */
 CPersonalityConfigurations::~CPersonalityConfigurations()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CPERSONALITYCONFIGURATIONS_CPERSONALITYCONFIGURATIONS_DES_ENTRY );
     iClasses.Close();
+    OstTraceFunctionExit0( CPERSONALITYCONFIGURATIONS_CPERSONALITYCONFIGURATIONS_DES_EXIT );
     }

@@ -49,11 +49,6 @@ file=ABI_DIR\USB_DIR\usbman.dll			usbman.dll
 // The main backup registration file. Plug-ins should use its own backup registration file in order to back its perfered data.
 data=ZPRIVATE\101fe1db\backup_registration.xml	private\101fe1db\backup_registration.xml
 
-// *** USB logger. This is not dependent on EUSBC as it is used by 
-// *** usbman.dll. It compiles down to next to nothing when __FLOG_ACTIVE is 
-// *** undefined, and we cannot remove it altogether because things link 
-// *** against it.
-file=ABI_DIR\USB_DIR\usblogger.dll		usblogger.dll
 
 #if defined(_DEBUG) || defined (__USB_DEBUG__)
 #include "commsdebugutility.iby"

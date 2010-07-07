@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,11 +22,11 @@
 #include "AcmUtils.h"
 #include "CdcControlInterfaceRequestHandler.h"
 #include "AcmConstants.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CdcControlInterfaceReaderTraces.h"
 #endif
+
 
 CCdcControlInterfaceReader::CCdcControlInterfaceReader(
 				MCdcCommsClassRequestHandler& aParent, 
@@ -41,8 +41,10 @@ CCdcControlInterfaceReader::CCdcControlInterfaceReader(
  * @param aLdd		The USB LDD handle to be used.
  */
 	{
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_CCDCCONTROLINTERFACEREADER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
 	ReadMessageHeader();
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_CCDCCONTROLINTERFACEREADER_CONS_EXIT );
 	}
 
 CCdcControlInterfaceReader::~CCdcControlInterfaceReader()
@@ -50,9 +52,9 @@ CCdcControlInterfaceReader::~CCdcControlInterfaceReader()
  * Destructor
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_CCDCCONTROLINTERFACEREADER_DES_ENTRY );
 	Cancel(); //Call CActive::Cancel()	 
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_CCDCCONTROLINTERFACEREADER_DES_EXIT );
 	}
 
 CCdcControlInterfaceReader* CCdcControlInterfaceReader::NewL(
@@ -65,11 +67,11 @@ CCdcControlInterfaceReader* CCdcControlInterfaceReader::NewL(
  * @param aLdd		The USB LDD handle to be used.
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_NEWL_ENTRY );
 	CCdcControlInterfaceReader* self = new(ELeave) CCdcControlInterfaceReader(
 		aParent, 
 		aLdd);
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_NEWL_EXIT );
 	return self;
 	}
 
@@ -78,9 +80,10 @@ void CCdcControlInterfaceReader::RunL()
  * This function will be called when a read completes.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcControlInterfaceReader::RunL iStatus=%d"), iStatus.Int());
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_RUNL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_RUNL, "CCdcControlInterfaceReader::RunL;iStatus=%d", iStatus.Int() );
 	HandleReadCompletion(iStatus.Int());
-	LOGTEXT(_L8("<<CCdcControlInterfaceReader::RunL"));
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_RUNL_EXIT );
 	}
 
 void CCdcControlInterfaceReader::DoCancel()
@@ -88,8 +91,9 @@ void CCdcControlInterfaceReader::DoCancel()
  * Cancel an outstanding read.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_DOCANCEL_ENTRY );
 	iLdd.ReadCancel(EEndpoint0);
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_DOCANCEL_EXIT );
 	}
 
 void CCdcControlInterfaceReader::HandleReadCompletion(TInt aError)
@@ -103,17 +107,22 @@ void CCdcControlInterfaceReader::HandleReadCompletion(TInt aError)
  * @param aError Error
  */
 	{
-	LOGTEXT2(_L8(">>CCdcControlInterfaceReader::HandleReadCompletion "
-		"aError=%d"), aError);
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION, 
+			"CCdcControlInterfaceReader::HandleReadCompletion;aError=%d", aError );
 
 	if ( aError )
 		{
-		ReadMessageHeader();			  
-		LOGTEXT(_L8("<<CCdcControlInterfaceReader::HandleReadCompletion"));
+		ReadMessageHeader();		
+		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_DUP1, 
+				"CCdcControlInterfaceReader::HandleReadCompletion" );
+		OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_EXIT );
 		return;
 		}
 
-	LOGTEXT2(_L8("\tcompleted with iState=%d"),iState);
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_DUP2, 
+			"CCdcControlInterfaceReader::HandleReadCompletion;iState=%d", (TInt)iState );
+
 	switch ( iState)
 		{
 	case EWaitingForHeader:
@@ -130,12 +139,14 @@ void CCdcControlInterfaceReader::HandleReadCompletion(TInt aError)
 
 	default:
 		{
-		_USB_PANIC(KAcmPanicCat, EPanicIllegalState);
+		OstTrace1( TRACE_FATAL, CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_DUP3, 
+					"CCdcControlInterfaceReader::HandleReadCompletion;iState=%d", (TInt)iState );
+		User::Panic(KAcmPanicCat, EPanicIllegalState);
 		}
 		break;
 		}
 
-	LOGTEXT(_L8("<<CCdcControlInterfaceReader::HandleReadCompletion"));
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_HANDLEREADCOMPLETION_EXIT_DUP1 );
 	}
 
 void CCdcControlInterfaceReader::DecodeMessageHeader()
@@ -144,20 +155,23 @@ void CCdcControlInterfaceReader::DecodeMessageHeader()
  * requires some data in response and dispatches the request appropriately.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEHEADER_ENTRY );
 	if ( TUsbRequestHdr::Decode(iMessageHeader, iRequestHeader) != KErrNone )
 		{
-		LOGTEXT(_L8("\t- Unable to decode request header!"));
+		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEHEADER, 
+				"CCdcControlInterfaceReader::DecodeMessageHeader;\t- Unable to decode request header!" );
+		
 		// Stall bus- unknown message. If this fails, there's nothing we can 
 		// do.
 		static_cast<void>(iLdd.EndpointZeroRequestError()); 
 		ReadMessageHeader();
+		OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEHEADER_EXIT );
 		return;
 		}
 
-	LOGTEXT2(_L8("\t- New read! Request 0x%x"), iRequestHeader.iRequest);
-
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEHEADER_DUP1, 
+			"CCdcControlInterfaceReader::DecodeMessageHeader;\t- New read! Request %d", (TInt)iRequestHeader.iRequest );
+	
 	if ( iRequestHeader.IsDataResponseRequired() )
 		{
 		DecodeMessageDataWithResponseRequired();
@@ -171,6 +185,7 @@ void CCdcControlInterfaceReader::DecodeMessageHeader()
 		{
 		ReadMessageData(iRequestHeader.iLength);
 		}
+	OstTraceFunctionExit0( DUP1_CCDCCONTROLINTERFACEREADER_DECODEMESSAGEHEADER_EXIT );
 	}
 
 void CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired()
@@ -178,11 +193,11 @@ void CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired()
  * Decode a message which requires data to be sent to the host in response.
  */
 	{
-	LOG_FUNC
-
-	LOGTEXT2(_L8("\t- New read! Request 0x%x"), iRequestHeader.iRequest);
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATAWITHRESPONSEREQUIRED_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATAWITHRESPONSEREQUIRED, 
+			"CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired;\t- New read! Request=%hhx", iRequestHeader.iRequest );
+	
 	TBuf8<KAcmControlReadBufferLength> returnBuffer;
-
 	switch ( iRequestHeader.iRequest )
 		{
 	case KGetEncapsulated:
@@ -248,8 +263,10 @@ void CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired()
 
 	default:
 		{
-		LOGTEXT2(_L8("\t- request number not recognised (%d)"),
-			iRequestHeader.iRequest);
+		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATAWITHRESPONSEREQUIRED_DUP1, 
+				"CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired;\t- request number not recognised (%d)", 
+				(TInt)(iRequestHeader.iRequest) );
+		
 		// Stall bus- unknown message. If this fails, there's nothing we can 
 		// do.
 		static_cast<void>(iLdd.EndpointZeroRequestError()); 
@@ -258,6 +275,7 @@ void CCdcControlInterfaceReader::DecodeMessageDataWithResponseRequired()
 		}
 
 	ReadMessageHeader();
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATAWITHRESPONSEREQUIRED_EXIT );
 	}
 
 void CCdcControlInterfaceReader::DecodeMessageData()
@@ -268,17 +286,20 @@ void CCdcControlInterfaceReader::DecodeMessageData()
  * can be nack'ed by signalling an endpoint zero request error.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA_ENTRY );
 	if ( iMessageData.Length() != iRequestHeader.iLength )
 		{
-		LOGTEXT(_L8("\t- Data length is incorrect"));
+		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA, 
+				"CCdcControlInterfaceReader::DecodeMessageData;\t- Data length is incorrect" );
+		
 		ReadMessageHeader();
+		OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA_EXIT );
 		return;
 		}
 
-	LOGTEXT2(_L8("\tNew read! Request %d"), iRequestHeader.iRequest);
-
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA_DUP1, 
+			"CCdcControlInterfaceReader::DecodeMessageData;\tNew read! Request %d", (TInt)(iRequestHeader.iRequest) );
+	
 	switch ( iRequestHeader.iRequest )
 		{
 	case KSendEncapsulated:
@@ -366,8 +387,9 @@ void CCdcControlInterfaceReader::DecodeMessageData()
 			}
 		break;
 	default:
-		LOGTEXT2(_L8("\t***request number not recognised (%d)"),
-			iRequestHeader.iRequest);
+		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA_DUP2, 
+				"CCdcControlInterfaceReader::DecodeMessageData;\t***request number not recognised (%d)", (TInt)(iRequestHeader.iRequest) );
+		
 		// Stall bus- unknown message. If this fails, there's nothing we can 
 		// do.
 		static_cast<void>(iLdd.EndpointZeroRequestError()); 
@@ -375,6 +397,7 @@ void CCdcControlInterfaceReader::DecodeMessageData()
 		}
 
 	ReadMessageHeader();
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_DECODEMESSAGEDATA_EXIT_DUP1 );
 	}
 
 void CCdcControlInterfaceReader::ReadMessageHeader()
@@ -383,12 +406,11 @@ void CCdcControlInterfaceReader::ReadMessageHeader()
  * message header.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_READMESSAGEHEADER_ENTRY );
 	iState = EWaitingForHeader;
-
 	iLdd.ReadPacket(iStatus, EEndpoint0, iMessageHeader, KUsbRequestHdrSize);
 	SetActive();
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_READMESSAGEHEADER_EXIT );
 	}
 
 void CCdcControlInterfaceReader::ReadMessageData(TUint aLength)
@@ -399,14 +421,14 @@ void CCdcControlInterfaceReader::ReadMessageData(TUint aLength)
  * @param aLength Length of data to read.
  */
 	{
-	LOG_FUNC
-
-	LOGTEXT2(_L8("\tqueuing read, length = %d"),aLength);
+	OstTraceFunctionEntry0( CCDCCONTROLINTERFACEREADER_READMESSAGEDATA_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACEREADER_READMESSAGEDATA, 
+			"CCdcControlInterfaceReader::ReadMessageData;\tqueuing read, length = %d", (TInt)aLength );
 
 	iState = EWaitingForData;
-
 	iLdd.Read(iStatus, EEndpoint0, iMessageData, static_cast<TInt>(aLength));
 	SetActive();
+	OstTraceFunctionExit0( CCDCCONTROLINTERFACEREADER_READMESSAGEDATA_EXIT );
 	}
 
 //

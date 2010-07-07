@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -24,10 +24,12 @@
 
 #include <cusbclasscontrolleriterator.h>
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBSVR");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CUsbClassControllerIteratorTraces.h"
 #endif
+
+
 
 // Panic category only used in debug builds
 #ifdef _DEBUG
@@ -130,10 +132,13 @@ EXPORT_C TInt CUsbClassControllerIterator::Seek(
  */
 EXPORT_C CUsbClassControllerBase* CUsbClassControllerIterator::Current()
 	{
-	__ASSERT_DEBUG((iClassControllerIndex >= 0) &&
-		(iClassControllerIndex < iClassControllerArray.Count()),
-		_USB_PANIC(KUsbCcIteratorPanicCategory, EIndexOutOfRange));
-
+#ifdef _DEBUG
+    if(!((iClassControllerIndex >= 0) && (iClassControllerIndex < iClassControllerArray.Count())))
+        {
+        OstTrace1( TRACE_FATAL, CUSBCLASSCONTROLLERITERATOR_CURRENT, "CUsbClassControllerIterator::Current;panic reason=%d", EIndexOutOfRange );
+        User::Panic(KUsbCcIteratorPanicCategory, EIndexOutOfRange );
+        }
+#endif
 	return iClassControllerArray[iClassControllerIndex];
 	}
 

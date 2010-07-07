@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -30,10 +30,11 @@
 
 #include <usb/hostms/msmmpolicypluginbase.h>
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "msmmserverTraces.h"
 #endif
+
 
 //  Static public functions
 TInt CMsmmServer::ThreadFunction()
@@ -45,15 +46,7 @@ TInt CMsmmServer::ThreadFunction()
     CTrapCleanup* cleanupStack = CTrapCleanup::New();
     if (cleanupStack)
         {
-#ifdef __FLOG_ACTIVE
-        (void)CUsbLog::Connect();
-#endif
-
         TRAP(ret, ThreadFunctionL());
-
-#ifdef __FLOG_ACTIVE
-        CUsbLog::Close();
-#endif
         
         delete cleanupStack;
         }
@@ -68,7 +61,7 @@ TInt CMsmmServer::ThreadFunction()
 
 void CMsmmServer::ThreadFunctionL()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CMSMMSERVER_THREADFUNCTIONL_ENTRY );
     
     TSecureId creatorSID = User::CreatorSecureId();
     if (KFDFWSecureId != creatorSID)
@@ -96,6 +89,7 @@ void CMsmmServer::ThreadFunctionL()
 
     // Free the server and active scheduler.
     CleanupStack::PopAndDestroy(2, scheduler);
+    OstTraceFunctionExit0( CMSMMSERVER_THREADFUNCTIONL_EXIT );
     }
 
 CPolicyServer::TCustomResult CMsmmServer::CustomSecurityCheckL(
@@ -122,7 +116,8 @@ CPolicyServer::TCustomResult CMsmmServer::CustomSecurityCheckL(
 // Construction and destruction
 CMsmmServer* CMsmmServer::NewLC()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CMSMMSERVER_NEWLC_ENTRY );
+    
     CMsmmServer* self = new (ELeave) CMsmmServer(EPriorityHigh);
     CleanupStack::PushL(self);
     
@@ -130,12 +125,14 @@ CMsmmServer* CMsmmServer::NewLC()
     self->StartL(KMsmmServerName);
     self->ConstructL();
     
+    OstTraceFunctionExit0( CMSMMSERVER_NEWLC_EXIT );
     return self;
     }
 
 CMsmmServer::~CMsmmServer()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_CMSMMSERVER_DES_ENTRY );
+    
     delete iPolicyPlugin;
     delete iEventQueue;
     delete iEngine;
@@ -148,18 +145,19 @@ CMsmmServer::~CMsmmServer()
     iFs.RemoveProxyDrive(KPROXYDRIVENAME);
     iFs.Close();
 #endif
+    OstTraceFunctionExit0( CMSMMSERVER_CMSMMSERVER_DES_EXIT );
     }
     
     // CMsmmServer APIs
 CSession2* CMsmmServer::NewSessionL(const TVersion& aVersion, 
         const RMessage2& aMessage) const
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_NEWSESSIONL_ENTRY );
     
     if (KMaxClientCount <= SessionNumber())
         {
         // There is a connection to MSMM server already.
-        // Currently design of MSMM can have two clients, one FDF and the other Indicator UI 
+        // Currently design of MSMM can have two clients, one FDF and the other Indicator UI
         // at any time.
         User::Leave(KErrInUse);
         }
@@ -182,22 +180,22 @@ CSession2* CMsmmServer::NewSessionL(const TVersion& aVersion,
 
 TInt CMsmmServer::SessionNumber() const
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( CMSMMSERVER_SESSIONNUMBER_ENTRY );
     return iNumSessions;
     }
 
 void CMsmmServer::AddSession()
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( CMSMMSERVER_ADDSESSION_ENTRY );
+     
     ++iNumSessions;
     iTerminator->Cancel();
+    OstTraceFunctionExit0( CMSMMSERVER_ADDSESSION_EXIT );
     }
 
 void CMsmmServer::RemoveSession()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_REMOVESESSION_ENTRY );
     
     --iNumSessions;
     if (iNumSessions == 0)
@@ -209,11 +207,13 @@ void CMsmmServer::RemoveSession()
         iTerminator->Cancel();
         iTerminator->Start();
         }
+		
+    OstTraceFunctionExit0( CMSMMSERVER_REMOVESESSION_EXIT );
     }
-
-void CMsmmServer::DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice)
+	
+	void CMsmmServer::DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_DISMOUNTUSBDRIVERSL_ENTRY );
     delete iDismountManager;
     iDismountManager = NULL;
     iDismountManager= CMsmmDismountUsbDrives::NewL();
@@ -229,20 +229,21 @@ void CMsmmServer::DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice)
 
     // Start dismounting
     iDismountManager->DismountUsbDrives(*iPolicyPlugin, aDevice);
+	OstTraceFunctionExit0( CMSMMSERVER_DISMOUNTUSBDRIVERSL_EXIT );
     }
+
 
 //  Private functions 
 // CMsmmServer Construction
 CMsmmServer::CMsmmServer(TInt aPriority)
     :CPolicyServer(aPriority, KMsmmServerSecurityPolicy, EUnsharableSessions)
     {
-    LOG_FUNC
-    //
+    OstTraceFunctionEntry0( CMSMMSERVER_CMSMMSERVER_CONS_ENTRY );
     }
 
 void CMsmmServer::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_CONSTRUCTL_ENTRY );
     
     iEngine = CMsmmEngine::NewL();
     iEventQueue = CDeviceEventQueue::NewL(*this);
@@ -269,6 +270,7 @@ void CMsmmServer::ConstructL()
     
     // Start automatic shutdown timer
     iTerminator->Start();
+    OstTraceFunctionExit0( CMSMMSERVER_CONSTRUCTL_EXIT );
     }
 
 // End of file

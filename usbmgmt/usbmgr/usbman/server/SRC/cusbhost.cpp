@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,13 +15,13 @@
 *
 */
 
-#include "cusbhost.h"
 #include <usb/usblogger.h>
-
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "usbhost");
+#include "cusbhost.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "cusbhostTraces.h"
 #endif
+
 
 CUsbHost* CUsbHost::iInstance = 0;
 
@@ -39,7 +39,7 @@ CUsbHost* CUsbHost::NewL()
 
 CUsbHost::~CUsbHost()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CUSBHOST_CUSBHOST_DES_ENTRY );
 
 	Stop();
 
@@ -51,30 +51,37 @@ CUsbHost::~CUsbHost()
 		}
 	iObservers.Close();
 	iInstance = 0;
+	OstTraceFunctionExit0( CUSBHOST_CUSBHOST_DES_EXIT );
 	}
 
 CUsbHost::CUsbHost()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CUSBHOST_CUSBHOST_CONS_ENTRY );
+	OstTraceFunctionExit0( CUSBHOST_CUSBHOST_CONS_EXIT );
 	}
 
 void CUsbHost::ConstructL()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CUSBHOST_CONSTRUCTL_ENTRY );
 
 	iUsbHostWatcher[EHostEventMonitor] = 
 			CActiveUsbHostEventWatcher::NewL(iUsbHostStack,*this,iHostEventInfo);
 	iUsbHostWatcher[EHostMessageMonitor] = 
 			CActiveUsbHostMessageWatcher::NewL(iUsbHostStack,*this,iHostMessage);
+	OstTraceFunctionExit0( CUSBHOST_CONSTRUCTL_EXIT );
 	}
 void CUsbHost::StartL()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_STARTL_ENTRY );
 
 	if(!iHasBeenStarted)
 		{
-
-		LEAVEIFERRORL(iUsbHostStack.Connect());
+		TInt err = iUsbHostStack.Connect();
+		if(err < 0)
+		    {
+            OstTrace1( TRACE_NORMAL, CUSBHOST_STARTL, "CUsbHost::StartL; iUsbHostStack.Connect() error. Leave error=%d", err );
+            User::Leave(err);
+		    }
 
 		for(TInt i=0;i<ENumMonitor;i++)
 			{
@@ -82,11 +89,12 @@ void CUsbHost::StartL()
 			}
 		iHasBeenStarted = ETrue;
 		}
+	OstTraceFunctionExit0( CUSBHOST_STARTL_EXIT );
 	}
 
 void CUsbHost::Stop()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_STOP_ENTRY );
 
 	TInt i=0;
 	for(i=0;i<ENumMonitor;i++)
@@ -100,23 +108,25 @@ void CUsbHost::Stop()
 	iUsbHostStack.Close();
 
 	iHasBeenStarted = EFalse;
+	OstTraceFunctionExit0( CUSBHOST_STOP_EXIT );
 	}
 
 void CUsbHost::RegisterObserverL(MUsbOtgHostNotifyObserver& aObserver)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_REGISTEROBSERVERL_ENTRY );
 
 	iObservers.AppendL(&aObserver);
 	UpdateNumOfObservers();
+	OstTraceFunctionExit0( CUSBHOST_REGISTEROBSERVERL_EXIT );
 	}
 
 void CUsbHost::DeregisterObserver(MUsbOtgHostNotifyObserver& aObserver)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_DEREGISTEROBSERVER_ENTRY );
 	TInt index = iObservers.Find(&aObserver);
 	if(index == KErrNotFound)
 		{
-		LOGTEXT(_L8("\t Cannot remove observer, not found"));
+        OstTrace0( TRACE_NORMAL, CUSBHOST_DEREGISTEROBSERVER, "CUsbHost::DeregisterObserver;  Cannot remove observer, not found" );
 		}
 	else
 		{
@@ -124,11 +134,12 @@ void CUsbHost::DeregisterObserver(MUsbOtgHostNotifyObserver& aObserver)
 		}
 
 	UpdateNumOfObservers();
+	OstTraceFunctionExit0( CUSBHOST_DEREGISTEROBSERVER_EXIT );
 	}
 
 TInt CUsbHost::GetSupportedLanguages(TUint aDeviceId,RArray<TUint>& aLangIds)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_GETSUPPORTEDLANGUAGES_ENTRY );
 	TInt err = KErrNone;
 	if ( iUsbHostStack.Handle() )
 		{
@@ -138,12 +149,13 @@ TInt CUsbHost::GetSupportedLanguages(TUint aDeviceId,RArray<TUint>& aLangIds)
 		{
 		err = KErrBadHandle;
 		}
+	OstTraceFunctionExit0( CUSBHOST_GETSUPPORTEDLANGUAGES_EXIT );
 	return err;
 	}
 
 TInt CUsbHost::GetManufacturerStringDescriptor(TUint aDeviceId,TUint aLangId,TName& aString)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_GETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
 	TInt err = KErrNone;
 	if ( iUsbHostStack.Handle() )
 		{
@@ -153,12 +165,13 @@ TInt CUsbHost::GetManufacturerStringDescriptor(TUint aDeviceId,TUint aLangId,TNa
 		{
 		err = KErrBadHandle;
 		}
+	OstTraceFunctionExit0( CUSBHOST_GETMANUFACTURERSTRINGDESCRIPTOR_EXIT );
 	return err;
 	}
 
 TInt CUsbHost::GetProductStringDescriptor(TUint aDeviceId,TUint aLangId,TName& aString)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_GETPRODUCTSTRINGDESCRIPTOR_ENTRY );
 	TInt err = KErrNone;
 	if ( iUsbHostStack.Handle() )
 		{
@@ -168,12 +181,13 @@ TInt CUsbHost::GetProductStringDescriptor(TUint aDeviceId,TUint aLangId,TName& a
 		{
 		err = KErrBadHandle;
 		}
+	OstTraceFunctionExit0( CUSBHOST_GETPRODUCTSTRINGDESCRIPTOR_EXIT );
 	return err;
 	}
 
 TInt CUsbHost::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& otgDescriptor)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_GETOTGDESCRIPTOR_ENTRY );
 	
 	TInt err(KErrNone);
 	
@@ -186,20 +200,21 @@ TInt CUsbHost::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& otgDescriptor)
 		err = KErrBadHandle;
 		}
 	
+	OstTraceFunctionExit0( CUSBHOST_GETOTGDESCRIPTOR_EXIT );
 	return err;
 	}
 
 void CUsbHost::NotifyHostEvent(TUint aWatcherId)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CUSBHOST_NOTIFYHOSTEVENT_ENTRY );
+
 	if(aWatcherId == EHostEventMonitor)
 		{
-
-		LOGTEXT2(_L8("\t Device id %d"),iHostEventInfo.iDeviceId);
-		LOGTEXT2(_L8("\t iEventType  %d"),iHostEventInfo.iEventType);
-		LOGTEXT2(_L8("\t TDriverLoadStatus %d"),iHostEventInfo.iDriverLoadStatus);
-		LOGTEXT2(_L8("\t VID %d"),iHostEventInfo.iVid);
-		LOGTEXT2(_L8("\t PID %d"),iHostEventInfo.iPid);
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT, "CUsbHost::NotifyHostEvent;DeviceId=%d", iHostEventInfo.iDeviceId );
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT_DUP1, "CUsbHost::NotifyHostEvent;iEventType=%d", iHostEventInfo.iEventType );
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT_DUP2, "CUsbHost::NotifyHostEvent;TDriverLoadStatus=%d", iHostEventInfo.iDriverLoadStatus );
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT_DUP3, "CUsbHost::NotifyHostEvent;VID=%d", iHostEventInfo.iVid );
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT_DUP4, "CUsbHost::NotifyHostEvent;Pid=%d", iHostEventInfo.iPid );
 
 		for(TUint i=0;i<iNumOfObservers;i++)
 			{
@@ -208,24 +223,26 @@ void CUsbHost::NotifyHostEvent(TUint aWatcherId)
 		}
 	else
 		{
-		LOGTEXT2(_L8("\t Host Message %d"),iHostMessage);
-
+		OstTrace1( TRACE_NORMAL, CUSBHOST_NOTIFYHOSTEVENT_DUP5, "CUsbHost::NotifyHostEvent;Host Message=%d", iHostMessage );
+		
 		for(TUint i=0;i<iNumOfObservers;i++)
 			{
 			iObservers[i]->UsbOtgHostMessage(iHostMessage);
 			}
 		}
+	OstTraceFunctionExit0( CUSBHOST_NOTIFYHOSTEVENT_EXIT );
 	}
 
 void CUsbHost::UpdateNumOfObservers()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_UPDATENUMOFOBSERVERS_ENTRY );
 	iNumOfObservers = iObservers.Count();
+	OstTraceFunctionExit0( CUSBHOST_UPDATENUMOFOBSERVERS_EXIT );
 	}
 
 TInt CUsbHost::EnableDriverLoading()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_ENABLEDRIVERLOADING_ENTRY );
 	TInt err = KErrNone;
 	if ( iUsbHostStack.Handle() )
 		{
@@ -235,14 +252,16 @@ TInt CUsbHost::EnableDriverLoading()
 		{
 		err = KErrBadHandle;
 		}
+	OstTraceFunctionExit0( CUSBHOST_ENABLEDRIVERLOADING_EXIT );
 	return err;
 	}
 
 void CUsbHost::DisableDriverLoading()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBHOST_DISABLEDRIVERLOADING_ENTRY );
 	if ( iUsbHostStack.Handle() )
 		{
 		iUsbHostStack.DisableDriverLoading();
 		}
+	OstTraceFunctionExit0( CUSBHOST_DISABLEDRIVERLOADING_EXIT );
 	}

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -16,16 +16,15 @@
 */
 
 #include <acminterface.h>
-#include <usb/usblogger.h>
 #include "AcmPort.h"
 #include "AcmPortFactory.h"
 #include "AcmUtils.h"
 #include "AcmWriter.h"
 #include "AcmReader.h"
 #include "AcmPanic.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "AcmPortTraces.h"
 #endif
 
 const TUint KCapsRate=(   KCapsBps50
@@ -94,12 +93,13 @@ CAcmPort* CAcmPort::NewL(const TUint aUnit, MAcmPortObserver& aFactory)
  * @return Ownership of a newly created CAcmPort object
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CACMPORT_NEWL_ENTRY );
+	
 	CAcmPort* self = new(ELeave) CAcmPort(aUnit, aFactory);
 	CleanupClosePushL(*self);
 	self->ConstructL();
 	CleanupStack::Pop();
+	OstTraceFunctionExit0( CACMPORT_NEWL_EXIT );
 	return self;
 	}
 
@@ -109,12 +109,20 @@ void CAcmPort::ConstructL()
  * port.
  */
 	{
+	OstTraceFunctionEntry0( CACMPORT_CONSTRUCTL_ENTRY );
+	
 	iReader = CAcmReader::NewL(*this, KDefaultBufferSize);
 	iWriter = CAcmWriter::NewL(*this, KDefaultBufferSize);
 
 	TName name;
+	TInt	err;
 	name.Num(iUnit);
-	LEAVEIFERRORL(SetName(&name));
+	err = SetName(&name);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_FATAL, CACMPORT_CONSTRUCTL, "CAcmPort::ConstructL;err=%d", err );
+		User::Leave(err);
+		}
 
 	iCommServerConfig.iBufFlags = 0;
 	iCommServerConfig.iBufSize = iReader->BufSize();
@@ -133,6 +141,7 @@ void CAcmPort::ConstructL()
 	iCommConfig.iParityErrorChar= 0;
 	iCommConfig.iSIREnable		= ESIRDisable;
 	iCommConfig.iSIRSettings	= 0;
+	OstTraceFunctionExit0( CACMPORT_CONSTRUCTL_EXIT );
 	}
 
 CAcmPort::CAcmPort(const TUint aUnit, MAcmPortObserver& aObserver) 
@@ -147,6 +156,8 @@ CAcmPort::CAcmPort(const TUint aUnit, MAcmPortObserver& aObserver)
  * @param aUnit The port number.
  */
 	{
+	OstTraceFunctionEntry0( CACMPORT_CACMPORT_CONS_ENTRY );
+	OstTraceFunctionExit0( CACMPORT_CACMPORT_DES_EXIT );
 	}
 
 void CAcmPort::StartRead(const TAny* aClientBuffer, TInt aLength)
@@ -157,26 +168,30 @@ void CAcmPort::StartRead(const TAny* aClientBuffer, TInt aLength)
  * @param aLength number of bytes to read
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT3(_L8("\taClientBuffer=0x%08x, aLength=%d"),
-		aClientBuffer, aLength);
+	OstTraceFunctionEntry0( CACMPORT_STARTREAD_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_STARTREAD, "CAcmPort::StartRead;aClientBuffer=%p;aLength=%d", aClientBuffer, aLength );
 
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_STARTREAD_DUP1, "CAcmPort::StartRead;\t***access denied" );
 		ReadCompleted(KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_STARTREAD_EXIT );
 		return;
 		}
 
 	// Analyse the request and call the relevant API on the data reader. NB We 
 	// do not pass requests for zero bytes to the data reader. They are an 
 	// RComm oddity we should handle here.
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_STARTREAD_DUP3, "CAcmPort::StartRead;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	if(iReader->IsNotifyDataAvailableQueryPending())
 		{
 		ReadCompleted(KErrInUse);
+		OstTraceFunctionExit0( CACMPORT_STARTREAD_EXIT_DUP1 );
 		return;
 		}
 
@@ -192,9 +207,10 @@ void CAcmPort::StartRead(const TAny* aClientBuffer, TInt aLength)
 		{
 		// Obscure RComm API feature- complete zero-length Read immediately, 
 		// to indicate that the hardware is powered up.
-		LOGTEXT(_L8("\tcompleting immediately with KErrNone"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_STARTREAD_DUP2, "CAcmPort::StartRead;\tcompleting immediately with KErrNone" );
 		ReadCompleted(KErrNone);
 		}
+	OstTraceFunctionExit0( CACMPORT_STARTREAD_EXIT_DUP2 );
 	}
 
 void CAcmPort::ReadCancel()
@@ -202,17 +218,21 @@ void CAcmPort::ReadCancel()
  * Downcall from C32. Cancel a read.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_READCANCEL_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_READCANCEL, "CAcmPort::ReadCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_READCANCEL_EXIT );
 		return;
 		}
 
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_READCANCEL_DUP1, "CAcmPort::ReadCancel;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iReader->ReadCancel();
+	OstTraceFunctionExit0( CACMPORT_READCANCEL_EXIT_DUP1 );
 	}
 
 TInt CAcmPort::QueryReceiveBuffer(TInt& aLength) const
@@ -223,18 +243,23 @@ TInt CAcmPort::QueryReceiveBuffer(TInt& aLength) const
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_QUERYRECEIVEBUFFER_ENTRY );
 	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_QUERYRECEIVEBUFFER, "CAcmPort::QueryReceiveBuffer;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_QUERYRECEIVEBUFFER_EXIT );
 		return KErrAccessDenied;
 		}
 
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_QUERYRECEIVEBUFFER_DUP2, "CAcmPort::QueryReceiveBuffer;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	aLength = static_cast<TInt>(iReader->BufLen());
-	LOGTEXT2(_L8("\tlength=%d"), aLength);
+	OstTrace1( TRACE_NORMAL, CACMPORT_QUERYRECEIVEBUFFER_DUP1, "CAcmPort::QueryReceiveBuffer;aLength=%d", aLength );
+	OstTraceFunctionExit0( CACMPORT_QUERYRECEIVEBUFFER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -245,24 +270,32 @@ void CAcmPort::ResetBuffers(TUint aFlags)
  * @param aFlags Flags indicating which buffer(s) to reset.
  */
 	{
-	LOG_LINE
-	LOGTEXT2(_L8(">>CAcmPort::ResetBuffers aFlags = %d"), aFlags);
+	OstTraceFunctionEntry0( CACMPORT_RESETBUFFERS_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_RESETBUFFERS, "CAcmPort::ResetBuffers;aFlags=%d", aFlags );
 
 	if ( aFlags & KCommResetRx )
 		{
-		LOGTEXT(_L8("\tresetting Rx buffer"));
-		__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace0( TRACE_NORMAL, CACMPORT_RESETBUFFERS_DUP1, "CAcmPort::ResetBuffers;\tresetting Rx buffer" );
+		if (!iReader)
+			{
+			OstTraceExt1( TRACE_FATAL, CACMPORT_RESETBUFFERS_DUP3, "CAcmPort::ResetBuffers;iReader=%p", iReader );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		iReader->ResetBuffer();
 		}
 
 	if ( aFlags & KCommResetTx )
 		{
-		LOGTEXT(_L8("\tresetting Tx buffer"));
-		__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace0( TRACE_NORMAL, CACMPORT_RESETBUFFERS_DUP2, "CAcmPort::ResetBuffers;\tresetting Tx buffer" );
+		if (!iWriter)
+			{
+			OstTraceExt1( TRACE_FATAL, CACMPORT_RESETBUFFERS_DUP4, "CAcmPort::ResetBuffers;iWriter=%p", iWriter );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		iWriter->ResetBuffer();
 		}
 
-	LOGTEXT(_L8("<<CAcmPort::ResetBuffers"));
+	OstTraceFunctionExit0( CACMPORT_RESETBUFFERS_EXIT );
 	}
 
 void CAcmPort::StartWrite(const TAny* aClientBuffer, TInt aLength)
@@ -273,32 +306,35 @@ void CAcmPort::StartWrite(const TAny* aClientBuffer, TInt aLength)
  * @param aLength number of bytes to write
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT3(_L8("\taClientBuffer=0x%08x, aLength=%d"),
-		aClientBuffer, aLength);
+	OstTraceFunctionEntry0( CACMPORT_STARTWRITE_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_STARTWRITE, "CAcmPort::StartWrite;aClientBuffer=%p;aLength=%d", aClientBuffer, aLength );
 
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_STARTWRITE_DUP1, "CAcmPort::StartWrite;\t***access denied" );
 		WriteCompleted(KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_STARTWRITE_EXIT );
 		return;
 		}
 
 	if ( aLength < 0 )
 		{
 		// Negative length makes no sense.
-		LOGTEXT(_L8("\taLength is negative- "
-			"completing immediately with KErrArgument"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_STARTWRITE_DUP2, "CAcmPort::StartWrite;\taLength is negative-completing immediately with KErrArgument" );
 		WriteCompleted(KErrArgument);
+		OstTraceFunctionExit0( CACMPORT_STARTWRITE_EXIT_DUP1 );
 		return;
 		}
 
 	// NB We pass zero-byte writes down to the LDD as normal. This results in 
 	// a zero-length packet being sent to the host.
-
-	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iWriter)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_STARTWRITE_DUP3, "CAcmPort::StartWrite;iWriter=%p", iWriter );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iWriter->Write(aClientBuffer, static_cast<TUint>(aLength));
+	OstTraceFunctionExit0( CACMPORT_STARTWRITE_EXIT_DUP2 );
 	}
 
 void CAcmPort::WriteCancel()
@@ -306,17 +342,22 @@ void CAcmPort::WriteCancel()
  * Downcall from C32. Cancel a pending write
  */
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_WRITECANCEL_ENTRY );
 	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_WRITECANCEL, "CAcmPort::WriteCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_WRITECANCEL_EXIT );
 		return;
 		}
 
-	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iWriter)
+		{
+		OstTraceExt1( TRACE_FATAL,CACMPORT_WRITECANCEL_DUP1, "CAcmPort::WriteCancel;iWriter=%p", iWriter );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iWriter->WriteCancel();
+	OstTraceFunctionExit0( CACMPORT_WRITECANCEL_EXIT_DUP1 );
 	}
 
 void CAcmPort::Break(TInt aTime)
@@ -328,13 +369,13 @@ void CAcmPort::Break(TInt aTime)
  * @param aTime Length of break in microseconds
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT2(_L8("\taTime=%d (microseconds)"), aTime);
+	OstTraceFunctionEntry0( CACMPORT_BREAK_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_BREAK, "CAcmPort::Break;\taTime=%d (microseconds)", aTime );
 
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAK_DUP1, "CAcmPort::Break;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_BREAK_EXIT );
 		return;
 		}
 
@@ -346,15 +387,16 @@ void CAcmPort::Break(TInt aTime)
 	TInt err = iAcm->BreakRequest(CBreakController::EDevice,
 		CBreakController::ETiming,
 		TTimeIntervalMicroSeconds32(aTime));
-	LOGTEXT2(_L8("\tBreakRequest = %d"), err);
+	OstTrace1( TRACE_NORMAL, CACMPORT_BREAK_DUP2, "CAcmPort::Break;\tBreakRequest = %d", err );
 	// Note that the break controller may refuse our request if a host-driven 
 	// break is outstanding.
 	if ( err )
 		{
-		LOGTEXT2(_L8("\tcalling BreakCompleted with %d"), err);
+		OstTrace1( TRACE_NORMAL, CACMPORT_BREAK_DUP3, "CAcmPort::Break;\tcalling BreakCompleted with %d", err );
 		iBreak = EFalse;
 		BreakCompleted(err);
 		}						
+	OstTraceFunctionExit0( CACMPORT_BREAK_EXIT_DUP1 );
 	}
 
 void CAcmPort::BreakCancel()
@@ -362,22 +404,20 @@ void CAcmPort::BreakCancel()
  * Downcall from C32. Cancel a pending break.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_BREAKCANCEL_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKCANCEL, "CAcmPort::BreakCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_BREAKCANCEL_EXIT );
 		return;
 		}
 	
 	iCancellingBreak = ETrue;
-
 	TInt err = iAcm->BreakRequest(CBreakController::EDevice,
 		CBreakController::EInactive);
 	// Note that the device cannot turn off a break if there's a host-driven 
 	// break in progress.
-	LOGTEXT2(_L8("\tBreakRequest = %d"), err);
+	OstTrace1( TRACE_NORMAL, CACMPORT_BREAKCANCEL_DUP1, "CAcmPort::BreakCancel;\tBreakRequest = %d", err );
 	if ( err )
 		{
 		iCancellingBreak = EFalse;
@@ -386,6 +426,7 @@ void CAcmPort::BreakCancel()
 	// Whether BreakOff worked or not, reset our flag saying we're no longer 
 	// interested in any subsequent completion anyway.
 	iBreak = EFalse;
+	OstTraceFunctionExit0( CACMPORT_BREAKCANCEL_EXIT_DUP1 );
 	}
 
 TInt CAcmPort::GetConfig(TDes8& aDes) const
@@ -396,43 +437,39 @@ TInt CAcmPort::GetConfig(TDes8& aDes) const
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETCONFIG_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETCONFIG, "CAcmPort::GetConfig;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETCONFIG_EXIT );
 		return KErrAccessDenied;
 		}
 
 	if ( aDes.Length() < static_cast<TInt>(sizeof(TCommConfigV01)) )
 		{
-		LOGTEXT(_L8("\t***not supported"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP12, "CAcmPort::GetConfig;\t***not supported" );
+		OstTraceFunctionExit0( CACMPORT_GETCONFIG_EXIT_DUP1 );
 		return KErrNotSupported;
 		}
 
 	TCommConfig commConfigPckg;
 	TCommConfigV01& commConfig = commConfigPckg();
 	commConfig = iCommConfig;
-	
 	aDes.Copy(commConfigPckg);
+	
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP1, "CAcmPort::GetConfig;\tiCommConfig.iRate=%d", iCommConfig.iRate );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP2, "CAcmPort::GetConfig;\tiCommConfig.iDataBits = %d", iCommConfig.iDataBits );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP3, "CAcmPort::GetConfig;\tiCommConfig.iStopBits = %d", iCommConfig.iStopBits );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP4, "CAcmPort::GetConfig;\tiCommConfig.iParity = %d", iCommConfig.iParity );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP5, "CAcmPort::GetConfig;\tiCommConfig.iHandshake = %d", iCommConfig.iHandshake );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP6, "CAcmPort::GetConfig;\tiCommConfig.iParityError = %d", iCommConfig.iParityError );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP7, "CAcmPort::GetConfig;\tiCommConfig.iFifo = %d", iCommConfig.iFifo );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP8, "CAcmPort::GetConfig;\tiCommConfig.iSpecialRate = %d", iCommConfig.iSpecialRate );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP9, "CAcmPort::GetConfig;\tiCommConfig.iTerminatorCount = %d", iCommConfig.iTerminatorCount );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP10, "CAcmPort::GetConfig;\tiCommConfig.iSIREnable = %d", iCommConfig.iSIREnable );
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETCONFIG_DUP11, "CAcmPort::GetConfig;\tiCommConfig.iSIRSettings = %d", iCommConfig.iSIRSettings );
 
-	LOGTEXT2(_L8("\tiCommConfig.iRate = %d"), iCommConfig.iRate);
-	LOGTEXT2(_L8("\tiCommConfig.iDataBits = %d"), iCommConfig.iDataBits);
-	LOGTEXT2(_L8("\tiCommConfig.iStopBits = %d"), iCommConfig.iStopBits);
-	LOGTEXT2(_L8("\tiCommConfig.iParity = %d"), iCommConfig.iParity);
-	LOGTEXT2(_L8("\tiCommConfig.iHandshake = %d"), iCommConfig.iHandshake);
-	LOGTEXT2(_L8("\tiCommConfig.iParityError = %d"), 
-		iCommConfig.iParityError);
-	LOGTEXT2(_L8("\tiCommConfig.iFifo = %d"), iCommConfig.iFifo);
-	LOGTEXT2(_L8("\tiCommConfig.iSpecialRate = %d"), 
-		iCommConfig.iSpecialRate);
-	LOGTEXT2(_L8("\tiCommConfig.iTerminatorCount = %d"), 
-		iCommConfig.iTerminatorCount);
-	LOGTEXT2(_L8("\tiCommConfig.iSIREnable = %d"), iCommConfig.iSIREnable);
-	LOGTEXT2(_L8("\tiCommConfig.iSIRSettings = %d"), 
-		iCommConfig.iSIRSettings);
-
+	OstTraceFunctionExit0( CACMPORT_GETCONFIG_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -444,24 +481,20 @@ TInt CAcmPort::SetConfig(const TDesC8& aDes)
  * @return Error
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_SETCONFIG_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETCONFIG, "CAcmPort::SetConfig;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETCONFIG_EXIT );
 		return KErrAccessDenied;
 		}
 
-	LOGTEXT4(_L8("\tlength of argument %d, TCommConfigV01 %d, "
-		"TCommConfigV02 %d"), 
-		aDes.Length(), 
-		(TInt)sizeof(TCommConfigV01),
-		(TInt)sizeof(TCommConfigV02));
-
+	OstTraceExt3( TRACE_NORMAL, CACMPORT_SETCONFIG_DUP1, "CAcmPort::SetConfig;\tlength of argument=%d;TCommConfigV01=%d;TCommConfigV02=%d", aDes.Length(), (TInt)sizeof(TCommConfigV01), (TInt)sizeof(TCommConfigV02) );
+	
 	if ( aDes.Length() < static_cast<TInt>(sizeof(TCommConfigV01)) )
 		{
-		LOGTEXT(_L8("\t***not supported"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETCONFIG_DUP2, "CAcmPort::SetConfig;\t***not supported" );
+		OstTraceFunctionExit0( CACMPORT_SETCONFIG_EXIT_DUP1 );
 		return KErrNotSupported;
 		}
 
@@ -469,18 +502,17 @@ TInt CAcmPort::SetConfig(const TDesC8& aDes)
 	configPckg.Copy(aDes);
 	TCommConfigV01& config = configPckg();
 
-	LOGTEXT2(_L8("\tiCommConfig.iRate = %d"), config.iRate);
-	LOGTEXT2(_L8("\tiCommConfig.iDataBits = %d"), config.iDataBits);
-	LOGTEXT2(_L8("\tiCommConfig.iStopBits = %d"), config.iStopBits);
-	LOGTEXT2(_L8("\tiCommConfig.iParity = %d"), config.iParity);
-	LOGTEXT2(_L8("\tiCommConfig.iHandshake = %d"), config.iHandshake);
-	LOGTEXT2(_L8("\tiCommConfig.iParityError = %d"), config.iParityError);
-	LOGTEXT2(_L8("\tiCommConfig.iFifo = %d"), config.iFifo);
-	LOGTEXT2(_L8("\tiCommConfig.iSpecialRate = %d"), config.iSpecialRate);
-	LOGTEXT2(_L8("\tiCommConfig.iTerminatorCount = %d"), 
-		config.iTerminatorCount);
-	LOGTEXT2(_L8("\tiCommConfig.iSIREnable = %d"), config.iSIREnable);
-	LOGTEXT2(_L8("\tiCommConfig.iSIRSettings = %d"), config.iSIRSettings);
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP3, "CAcmPort::SetConfig;\tconfig.iRate=%d", config.iRate );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP4, "CAcmPort::SetConfig;\tconfig.iDataBits=%d", config.iDataBits );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP5, "CAcmPort::SetConfig;\tconfig.iStopBits=%d", config.iStopBits );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP6, "CAcmPort::SetConfig;\tconfig.iParity=%d", config.iParity );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP7, "CAcmPort::SetConfig;\tconfig.iHandshake=%d", config.iHandshake );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP8, "CAcmPort::SetConfig;\tconfig.iParityError=%d", config.iParityError );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP9, "CAcmPort::SetConfig;\tconfig.iFifo=%d", config.iFifo );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP10, "CAcmPort::SetConfig;\tconfig.iSpecialRate=%d", config.iSpecialRate );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP11, "CAcmPort::SetConfig;\tconfig.iTerminatorCount=%d", config.iTerminatorCount );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP12, "CAcmPort::SetConfig;\tconfig.iSIREnable=%d", config.iSIREnable );
+	OstTrace1( TRACE_DUMP, CACMPORT_SETCONFIG_DUP13, "CAcmPort::SetConfig;\tconfig.iSIRSettings=%d", config.iSIRSettings );
 
 	// Tell the reader object about the new terminators. Pass the whole config 
 	// struct by reference for ease.
@@ -493,6 +525,7 @@ TInt CAcmPort::SetConfig(const TDesC8& aDes)
 		config.iHandshake);
 	iCommConfig = config;
 
+	OstTraceFunctionExit0( CACMPORT_SETCONFIG_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -510,12 +543,14 @@ void CAcmPort::HandleConfigNotification(TBps aRate,
  * @param aHandshake	New handshake setting
  */
 	{
-	LOGTEXT(_L8(">>CAcmPort::HandleConfigNotification"));
-	LOGTEXT2(_L8("\taRate = %d"), aRate);
-	LOGTEXT2(_L8("\taDataBits = %d"), aDataBits);
-	LOGTEXT2(_L8("\taStopBits = %d"), aStopBits);
-	LOGTEXT2(_L8("\taParity = %d"), aParity);
-	LOGTEXT2(_L8("\taHandshake = %d"), aHandshake);
+	OstTraceFunctionEntry0( CACMPORT_HANDLECONFIGNOTIFICATION_ENTRY );
+	
+	OstTrace0( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION, "CAcmPort::HandleConfigNotification;>>CAcmPort::HandleConfigNotification" );
+	OstTrace1( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION_DUP1, "CAcmPort::HandleConfigNotification;aRate=%d", aRate );
+	OstTrace1( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION_DUP2, "CAcmPort::HandleConfigNotification;aDataBits=%d", aDataBits );
+	OstTrace1( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION_DUP3, "CAcmPort::HandleConfigNotification;aStopBits=%d", aStopBits );
+	OstTrace1( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION_DUP4, "CAcmPort::HandleConfigNotification;aParity=%d", aParity );
+	OstTrace1( TRACE_DUMP, CACMPORT_HANDLECONFIGNOTIFICATION_DUP5, "CAcmPort::HandleConfigNotification;aHandshake=%d", aHandshake );
 			
 	iCommNotification.iChangedMembers = 0;
 
@@ -551,12 +586,12 @@ void CAcmPort::HandleConfigNotification(TBps aRate,
 
 	if ( iCommNotification.iChangedMembers )
 		{
-		LOGTEXT(_L8("\tcalling ConfigChangeCompleted with KErrNone"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_HANDLECONFIGNOTIFICATION_DUP6, "CAcmPort::HandleConfigNotification;\tcalling ConfigChangeCompleted with KErrNone" );
 		ConfigChangeCompleted(iCommNotificationDes,KErrNone);
 		iNotifyConfigChange = EFalse;
 		}
 
-	LOGTEXT(_L8("<<CAcmPort::HandleConfigNotification"));
+	OstTraceFunctionExit0( CACMPORT_HANDLECONFIGNOTIFICATION_EXIT );
 	}
 
 TInt CAcmPort::SetServerConfig(const TDesC8& aDes)
@@ -567,18 +602,18 @@ TInt CAcmPort::SetServerConfig(const TDesC8& aDes)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_SETSERVERCONFIG_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSERVERCONFIG, "CAcmPort::SetServerConfig;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETSERVERCONFIG_EXIT );
 		return KErrAccessDenied;
 		}
 
 	if ( aDes.Length() < static_cast<TInt>(sizeof(TCommServerConfigV01)) )
 		{
-		LOGTEXT(_L8("\t***not supported"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSERVERCONFIG_DUP1, "CAcmPort::SetServerConfig;\t***not supported" );
+		OstTraceFunctionExit0( CACMPORT_SETSERVERCONFIG_EXIT_DUP1 );
 		return KErrNotSupported;
 		}
 
@@ -588,7 +623,8 @@ TInt CAcmPort::SetServerConfig(const TDesC8& aDes)
 
 	if ( serverConfig.iBufFlags != KCommBufferFull )
 		{
-		LOGTEXT(_L8("\t***not supported"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSERVERCONFIG_DUP2, "CAcmPort::SetServerConfig;\t***not supported" );
+		OstTraceFunctionExit0( CACMPORT_SETSERVERCONFIG_EXIT_DUP2 );
 		return KErrNotSupported;
 		}
 
@@ -598,12 +634,14 @@ TInt CAcmPort::SetServerConfig(const TDesC8& aDes)
 		{
 		// Failure- the buffer lengths will have been left as they were, so 
 		// just return error.
-		LOGTEXT2(_L8("\t***DoSetBufferLengths=%d"), err);
+		OstTrace1( TRACE_NORMAL, CACMPORT_SETSERVERCONFIG_DUP3, "CAcmPort::SetServerConfig;\t***DoSetBufferLengths=%d", err );
+		OstTraceFunctionExit0( CACMPORT_SETSERVERCONFIG_EXIT_DUP3 );
 		return err;
 		}
 
 	// Changed buffer sizes OK. Note that new config.
 	iCommServerConfig = serverConfig;
+	OstTraceFunctionExit0( CACMPORT_SETSERVERCONFIG_EXIT_DUP4 );
 	return KErrNone;
 	}
 
@@ -615,18 +653,18 @@ TInt CAcmPort::GetServerConfig(TDes8& aDes)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETSERVERCONFIG_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETSERVERCONFIG, "CAcmPort::GetServerConfig;\t***access denied" );	
+		OstTraceFunctionExit0( CACMPORT_GETSERVERCONFIG_EXIT );
 		return KErrAccessDenied;
 		}
 
 	if ( aDes.Length() < static_cast<TInt>(sizeof(TCommServerConfigV01)) )
 		{
-		LOGTEXT(_L8("\t***not supported"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETSERVERCONFIG_DUP1, "CAcmPort::GetServerConfig;\t***not supported" );
+		OstTraceFunctionExit0( CACMPORT_GETSERVERCONFIG_EXIT_DUP1 );
 		return KErrNotSupported;
 		}
 
@@ -635,6 +673,7 @@ TInt CAcmPort::GetServerConfig(TDes8& aDes)
 	TCommServerConfigV01& serverConfig = (*serverConfigPckg)();
 
 	serverConfig = iCommServerConfig;
+	OstTraceFunctionExit0( CACMPORT_GETSERVERCONFIG_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -646,12 +685,12 @@ TInt CAcmPort::GetCaps(TDes8& aDes)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETCAPS_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETCAPS, "CAcmPort::GetCaps;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETCAPS_EXIT );
 		return KErrAccessDenied;
 		}
 
@@ -681,13 +720,15 @@ TInt CAcmPort::GetCaps(TDes8& aDes)
 		break;
 	default:
 		{
-		LOGTEXT(_L8("\t***bad argument"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETCAPS_DUP1, "CAcmPort::GetCaps;\t***bad argument" );
+		OstTraceFunctionExit0( CACMPORT_GETCAPS_EXIT_DUP1 );
 		return KErrArgument;
 		}
 		}
 
 	aDes.Copy(capsPckg.Left(aDes.Length()));
 
+	OstTraceFunctionExit0( CACMPORT_GETCAPS_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -699,19 +740,18 @@ TInt CAcmPort::GetSignals(TUint& aSignals)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETSIGNALS_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETSIGNALS, "CAcmPort::GetSignals;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETSIGNALS_EXIT );
 		return KErrAccessDenied;
 		}
 
 	aSignals = ConvertSignals(iSignals);
 
-	LOGTEXT3(_L8("iSignals=0x%x, aSignals=0x%x"),
-		iSignals, aSignals);
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_GETSIGNALS_DUP1, "CAcmPort::GetSignals;iSignals=%x;aSignals=%x", iSignals, (TUint32)aSignals );
+	OstTraceFunctionExit0( CACMPORT_GETSIGNALS_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -723,12 +763,11 @@ TInt CAcmPort::SetSignalsToMark(TUint aSignals)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_SETSIGNALSTOMARK_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSIGNALSTOMARK, "CAcmPort::SetSignalsToMark;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOMARK_EXIT );
 		return KErrAccessDenied;
 		}
 
@@ -736,12 +775,13 @@ TInt CAcmPort::SetSignalsToMark(TUint aSignals)
 	TInt err = SetSignals(newSignals);
 	if ( err )
 		{
-		LOGTEXT2(_L8("***SetSignals = %d"), err);
+		OstTrace1( TRACE_NORMAL, CACMPORT_SETSIGNALSTOMARK_DUP1, "CAcmPort::SetSignalsToMark;***SetSignals = %d", err );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOMARK_EXIT_DUP1 );
 		return err;
 		}
 
-	LOGTEXT3(_L8("iSignals=0x%x, aSignals=0x%x"),
-		iSignals, aSignals);
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_SETSIGNALSTOMARK_DUP2, "CAcmPort::SetSignalsToMark;iSignals=%x;aSignals=%x", iSignals, (TUint32)aSignals );
+	OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOMARK_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -753,12 +793,11 @@ TInt CAcmPort::SetSignalsToSpace(TUint aSignals)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_SETSIGNALSTOSPACE_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSIGNALSTOSPACE, "CAcmPort::SetSignalsToSpace;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOSPACE_EXIT );
 		return KErrAccessDenied;
 		}
 
@@ -766,12 +805,13 @@ TInt CAcmPort::SetSignalsToSpace(TUint aSignals)
 	TInt err = SetSignals(newSignals);
 	if ( err )
 		{
-		LOGTEXT2(_L8("***SetSignals = %d"), err);
+		OstTrace1( TRACE_NORMAL, CACMPORT_SETSIGNALSTOSPACE_DUP1, "CAcmPort::SetSignalsToSpace;***SetSignals = %d", err );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOSPACE_EXIT_DUP1 );
 		return err;
 		}
 
-	LOGTEXT3(_L8("iSignals=0x%x, aSignals=0x%x"),
-		iSignals, aSignals);
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_SETSIGNALSTOSPACE_DUP2, "CAcmPort::SetSignalsToSpace;iSignals=%x;aSignals=%x", iSignals, (TUint32)aSignals );
+	OstTraceFunctionExit0( CACMPORT_SETSIGNALSTOSPACE_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -785,23 +825,24 @@ TInt CAcmPort::SetSignals(TUint32 aNewSignals)
  * @return Error.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_SETSIGNALS_ENTRY );
 
 	TBool ring =((aNewSignals & KSignalRNG)==KSignalRNG);
 	TBool dsr  =((aNewSignals & KSignalDSR)==KSignalDSR);
 	TBool dcd  =((aNewSignals & KSignalDCD)==KSignalDCD);
  
- 
  	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETSIGNALS, "CAcmPort::SetSignals;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALS_EXIT );
 		return KErrAccessDenied;
 		}
 
 	TInt err = iAcm->SendSerialState(ring,dsr,dcd);
 	if ( err )
 		{
-		LOGTEXT2(_L8("\t***SendSerialState = %d- returning"), err);
+		OstTrace1( TRACE_NORMAL, CACMPORT_SETSIGNALS_DUP1, "CAcmPort::SetSignals;\t***SendSerialState = %d- returning", err );
+		OstTraceFunctionExit0( CACMPORT_SETSIGNALS_EXIT_DUP1 );
 		return err;
 		}
 
@@ -831,7 +872,7 @@ TInt CAcmPort::SetSignals(TUint32 aNewSignals)
 				}
 
 			// Report correctly mapped signals that client asked for
-			LOGTEXT(_L8("\tcalling SignalChangeCompleted with KErrNone"));
+			OstTrace0( TRACE_NORMAL, CACMPORT_SETSIGNALS_DUP2, "CAcmPort::SetSignals;\tcalling SignalChangeCompleted with KErrNone" );
 			TUint32 signals = ConvertSignals ( changedSignalsMask | ( aNewSignals & iNotifySignalMask ) );
 			SignalChangeCompleted ( signals, KErrNone );
 			iNotifySignalChange = EFalse;
@@ -840,7 +881,7 @@ TInt CAcmPort::SetSignals(TUint32 aNewSignals)
 
 	// Store new signals in iSignals
 	iSignals = aNewSignals;
-
+	OstTraceFunctionExit0( CACMPORT_SETSIGNALS_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -859,10 +900,9 @@ TUint32 CAcmPort::ConvertAndFilterSignals(TUint32 aSignals) const
  * role.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_CONVERTANDFILTERSIGNALS_ENTRY );
+	
 	TUint32 signals = 0;
-
 	// note that this never allows the client to use this method
 	// to diddle the BREAK state
 
@@ -894,6 +934,7 @@ TUint32 CAcmPort::ConvertAndFilterSignals(TUint32 aSignals) const
 			|	KSignalRNG);
 		}
 
+	OstTraceFunctionExit0( CACMPORT_CONVERTANDFILTERSIGNALS_EXIT );
 	return signals;
 	}
 
@@ -916,8 +957,8 @@ TUint32 CAcmPort::ConvertSignals(TUint32 aSignals) const
  * port is.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_CONVERTSIGNALS_ENTRY );
+	
 	// Swap signals around if the client is expecting DTE signalling
 	if ( iRole == ECommRoleDTE )
 		{
@@ -965,6 +1006,7 @@ TUint32 CAcmPort::ConvertSignals(TUint32 aSignals) const
 		aSignals = ( aSignals & ~KSwapSignals ) | swappedSignals;
 		}
 
+	OstTraceFunctionExit0( CACMPORT_CONVERTSIGNALS_EXIT );
 	return aSignals;
 	}
 
@@ -979,18 +1021,23 @@ TInt CAcmPort::GetReceiveBufferLength(TInt& aLength) const
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETRECEIVEBUFFERLENGTH_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETRECEIVEBUFFERLENGTH, "CAcmPort::GetReceiveBufferLength;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETRECEIVEBUFFERLENGTH_EXIT );
 		return KErrAccessDenied;
 		}
 
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_GETRECEIVEBUFFERLENGTH_DUP2, "CAcmPort::GetReceiveBufferLength;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	aLength = static_cast<TInt>(iReader->BufSize());
-	LOGTEXT2(_L8("\tlength=%d"), aLength);
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETRECEIVEBUFFERLENGTH_DUP1, "CAcmPort::GetReceiveBufferLength;aLength=%d", aLength );
+	OstTraceFunctionExit0( CACMPORT_GETRECEIVEBUFFERLENGTH_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -1003,10 +1050,14 @@ TInt CAcmPort::DoSetBufferLengths(TUint aLength)
  * @return Error.
  */
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taLength=%d"), aLength);
+	OstTraceFunctionEntry0( CACMPORT_DOSETBUFFERLENGTHS_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_DOSETBUFFERLENGTHS, "CAcmPort::DoSetBufferLengths;aLength=%d", aLength );
 
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_DOSETBUFFERLENGTHS_DUP5, "CAcmPort::DoSetBufferLengths;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	// Sart trying to resize buffers. Start with the reader. 
 	// Before we start though, set some stuff up we may need later (see 
 	// comments below).
@@ -1017,8 +1068,8 @@ TInt CAcmPort::DoSetBufferLengths(TUint aLength)
 		// If we can't allocate the dummy buffer, we can't guarantee that we 
 		// can roll back this API safely if it fails halfway through. So abort 
 		// the entire operation.
-		LOGTEXT(_L8("\t***failed to allocate dummy buffer- "
-			"returning KErrNoMemory"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_DOSETBUFFERLENGTHS_DUP1, "CAcmPort::DoSetBufferLengths;\t***failed to allocate dummy buffer- returning KErrNoMemory" );
+		OstTraceFunctionExit0( CACMPORT_DOSETBUFFERLENGTHS_EXIT );
 		return KErrNoMemory;
 		}
 
@@ -1029,12 +1080,17 @@ TInt CAcmPort::DoSetBufferLengths(TUint aLength)
 		// (i.e. at its old size). This is a safe failure case- simply 
 		// clean up and return the error to the client.
 		delete dummyBuffer;
-		LOGTEXT2(_L8("\t***SetBufSize on reader failed with %d"), ret);
+		OstTrace1( TRACE_NORMAL, CACMPORT_DOSETBUFFERLENGTHS_DUP2, "CAcmPort::DoSetBufferLengths;\t***SetBufSize on reader failed with %d", ret );
+		OstTraceFunctionExit0( CACMPORT_DOSETBUFFERLENGTHS_EXIT_DUP1 );
 		return ret;
 		}
 
 	// OK, the Rx buffer has been resized, now for the Tx buffer...
-	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iWriter)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_DOSETBUFFERLENGTHS_DUP6, "CAcmPort::DoSetBufferLengths;iWriter=%p", iWriter );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	ret = iWriter->SetBufSize(aLength);
 	if ( ret )
 		{
@@ -1043,20 +1099,25 @@ TInt CAcmPort::DoSetBufferLengths(TUint aLength)
 		// buffer back to the old size. To make sure that this will work, free 
 		// the dummy buffer we initially allocated.
 		delete dummyBuffer;
-		LOGTEXT2(_L8("\t***SetBufSize on writer failed with %d"), ret);
+		OstTrace1( TRACE_NORMAL, CACMPORT_DOSETBUFFERLENGTHS_DUP3, "CAcmPort::DoSetBufferLengths;\t***SetBufSize on writer failed with %d", ret );
 		TInt err = iReader->SetBufSize(oldSize);
-		__ASSERT_DEBUG(!err, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (err)
+			{
+			OstTrace1( TRACE_FATAL, CACMPORT_DOSETBUFFERLENGTHS_DUP7, "CAcmPort::DoSetBufferLengths;err=%d", err );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		static_cast<void>(err);
 		// Now both buffers are at the size they started at, and the 
 		// request failed with error code 'ret'.
+		OstTraceFunctionExit0( CACMPORT_DOSETBUFFERLENGTHS_EXIT_DUP2 );
 		return ret;
 		}
 
 	// We seem to have successfully resized both buffers... clean up and 
 	// return.
 	delete dummyBuffer;
-	
-	LOGTEXT(_L8("\treturning KErrNone"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_DOSETBUFFERLENGTHS_DUP4, "CAcmPort::DoSetBufferLengths;\treturning KErrNone" );
+	OstTraceFunctionExit0( CACMPORT_DOSETBUFFERLENGTHS_EXIT_DUP3 );
 	return KErrNone;
 	}
 
@@ -1070,19 +1131,18 @@ TInt CAcmPort::SetReceiveBufferLength(TInt aLength)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT2(_L8("\taLength=%d"), aLength);
-
+	OstTraceFunctionEntry0( CACMPORT_SETRECEIVEBUFFERLENGTH_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETRECEIVEBUFFERLENGTH, "CAcmPort::SetReceiveBufferLength;aLength=%d", aLength );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETRECEIVEBUFFERLENGTH_DUP1, "CAcmPort::SetReceiveBufferLength;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_SETRECEIVEBUFFERLENGTH_EXIT );
 		return KErrAccessDenied;
 		}
 
 	TInt ret = DoSetBufferLengths(static_cast<TUint>(aLength));
-	LOGTEXT2(_L8("\tDoSetBufferLengths=%d"), ret);
-	LOGTEXT2(_L8("\treturning %d"), ret);
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETRECEIVEBUFFERLENGTH_DUP2, "CAcmPort::SetReceiveBufferLength;\tDoSetBufferLengths = return value = %d", ret );
+	OstTraceFunctionExit0( CACMPORT_SETRECEIVEBUFFERLENGTH_EXIT_DUP1 );
 	return ret;
 	}
 
@@ -1091,9 +1151,9 @@ void CAcmPort::Destruct()
  * Downcall from C32. Destruct - we must (eventually) call delete this
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_DESTRUCT_ENTRY );
 	delete this;
+	OstTraceFunctionExit0( CACMPORT_DESTRUCT_EXIT );
 	}
 
 void CAcmPort::FreeMemory()
@@ -1102,8 +1162,8 @@ void CAcmPort::FreeMemory()
  * Implemented to do nothing.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_FREEMEMORY_ENTRY );
+	OstTraceFunctionExit0( CACMPORT_FREEMEMORY_EXIT );
 	}
 
 void CAcmPort::NotifyDataAvailable()
@@ -1111,18 +1171,22 @@ void CAcmPort::NotifyDataAvailable()
  * Downcall from C32. Notify client when data is available. 
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYDATAAVAILABLE_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYDATAAVAILABLE, "CAcmPort::NotifyDataAvailable;\t***access denied" );
 		NotifyDataAvailableCompleted(KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_NOTIFYDATAAVAILABLE_EXIT );
 		return;
 		}
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
-
+	
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_NOTIFYDATAAVAILABLE_DUP1, "CAcmPort::NotifyDataAvailable;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iReader->NotifyDataAvailable();		
+	OstTraceFunctionExit0( CACMPORT_NOTIFYDATAAVAILABLE_EXIT_DUP1 );
 	}
 
 void CAcmPort::NotifyDataAvailableCancel()
@@ -1131,17 +1195,22 @@ void CAcmPort::NotifyDataAvailableCancel()
  * that C32 actually completes the client's request for us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYDATAAVAILABLECANCEL_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYDATAAVAILABLECANCEL, "CAcmPort::NotifyDataAvailableCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_NOTIFYDATAAVAILABLECANCEL_EXIT );
 		return;
 		}
-	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 
+	if (!iReader)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMPORT_NOTIFYDATAAVAILABLECANCEL_DUP1, "CAcmPort::NotifyDataAvailableCancel;iReader=%p", iReader );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iReader->NotifyDataAvailableCancel();
+	OstTraceFunctionExit0( CACMPORT_NOTIFYDATAAVAILABLECANCEL_EXIT_DUP1 );
 	}
 
 TInt CAcmPort::GetFlowControlStatus(TFlowControl& /*aFlowControl*/)
@@ -1152,16 +1221,17 @@ TInt CAcmPort::GetFlowControlStatus(TFlowControl& /*aFlowControl*/)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETFLOWCONTROLSTATUS_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETFLOWCONTROLSTATUS, "CAcmPort::GetFlowControlStatus;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETFLOWCONTROLSTATUS_EXIT );
 		return KErrAccessDenied;
 		}
 
-	LOGTEXT(_L8("\t***not supported"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_GETFLOWCONTROLSTATUS_DUP1, "CAcmPort::GetFlowControlStatus;\t***not supported" );
+	OstTraceFunctionExit0( CACMPORT_GETFLOWCONTROLSTATUS_EXIT_DUP1 );
 	return KErrNotSupported;
 	}
 
@@ -1173,18 +1243,19 @@ void CAcmPort::NotifyOutputEmpty()
  * it's not very useful.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYOUTPUTEMPTY_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYOUTPUTEMPTY, "CAcmPort::NotifyOutputEmpty;\t***access denied" );
 		NotifyOutputEmptyCompleted(KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_NOTIFYOUTPUTEMPTY_EXIT );
 		return;
 		}
 
-	LOGTEXT(_L8("\t***not supported"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYOUTPUTEMPTY_DUP1, "CAcmPort::NotifyOutputEmpty;\t***not supported" );
 	NotifyOutputEmptyCompleted(KErrNotSupported);
+	OstTraceFunctionExit0( CACMPORT_NOTIFYOUTPUTEMPTY_EXIT_DUP1 );
 	}
 
 void CAcmPort::NotifyOutputEmptyCancel()
@@ -1194,8 +1265,8 @@ void CAcmPort::NotifyOutputEmptyCancel()
  * us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYOUTPUTEMPTYCANCEL_ENTRY );
+	OstTraceFunctionExit0( CACMPORT_NOTIFYOUTPUTEMPTYCANCEL_EXIT );
 	}
 
 void CAcmPort::NotifyBreak()
@@ -1204,21 +1275,25 @@ void CAcmPort::NotifyBreak()
  * line.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYBREAK_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYBREAK, "CAcmPort::NotifyBreak;\t***access denied" );
 		BreakNotifyCompleted(KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_NOTIFYBREAK_EXIT );
 		return;
 		}
 
 	// C32 protects us against this.
-	__ASSERT_DEBUG(!iNotifyBreak, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (iNotifyBreak)
+		{
+		OstTrace1( TRACE_FATAL, CACMPORT_NOTIFYBREAK_DUP1, "CAcmPort::NotifyBreak;iNotifyBreak=%d", (TInt)iNotifyBreak );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	iNotifyBreak = ETrue;
+	OstTraceFunctionExit0( CACMPORT_NOTIFYBREAK_EXIT_DUP1 );
 	}
 
 void CAcmPort::NotifyBreakCancel()
@@ -1227,16 +1302,16 @@ void CAcmPort::NotifyBreakCancel()
  * Note that C32 actually completes the client's request for us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYBREAKCANCEL_ENTRY );
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYBREAKCANCEL, "CAcmPort::NotifyBreakCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_NOTIFYBREAKCANCEL_EXIT );
 		return;
 		}
 
 	iNotifyBreak = EFalse;
+	OstTraceFunctionExit0( CACMPORT_NOTIFYBREAKCANCEL_EXIT_DUP1 );
 	}
 
 void CAcmPort::BreakRequestCompleted()
@@ -1247,17 +1322,17 @@ void CAcmPort::BreakRequestCompleted()
  * This is implemented to complete the RComm client's Break request.
  */
  	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_BREAKREQUESTCOMPLETED_ENTRY );
+	
 
 	if ( !iCancellingBreak )
 		{
-		LOGTEXT(_L8("\tcalling BreakCompleted with KErrNone"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKREQUESTCOMPLETED, "CAcmPort::BreakRequestCompleted;\tcalling BreakCompleted with KErrNone" );
 		BreakCompleted(KErrNone);
 		}
 	else
 		{
-		LOGTEXT(_L8("\tbreak is being cancelled- "
-			"letting C32 complete the request"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKREQUESTCOMPLETED_DUP1, "CAcmPort::BreakRequestCompleted;\tbreak is being cancelled-letting C32 complete the request" );
 		}
 	// In the event of an RComm::BreakCancel, this function is called 
 	// sychronously with CAcmPort::BreakCancel, and C32 will complete the 
@@ -1265,6 +1340,7 @@ void CAcmPort::BreakRequestCompleted()
 	// only need to complete it if there isn't a cancel going on.
 	iBreak = EFalse;
 	iCancellingBreak = EFalse;
+	OstTraceFunctionExit0( CACMPORT_BREAKREQUESTCOMPLETED_EXIT );
 	}
 
 void CAcmPort::BreakStateChange()
@@ -1277,8 +1353,7 @@ void CAcmPort::BreakStateChange()
  * NotifySignalChange requests, and complete NotifyBreak requests.
  */
  	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_BREAKSTATECHANGE_ENTRY );
 	// TODO: what if no iAcm?
 
 	// Take a copy of the current signal state for comparison later
@@ -1288,12 +1363,12 @@ void CAcmPort::BreakStateChange()
 	// it and apply the appropriate flag state to the local iSignals
 	if ( iAcm && iAcm->BreakActive() )
 		{
-		LOGTEXT(_L8("\tbreak is active"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKSTATECHANGE, "CAcmPort::BreakStateChange;\tbreak is active" );
 		iSignals |= KSignalBreak;
 		}
 	else
 		{
-		LOGTEXT(_L8("\tbreak is inactive"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKSTATECHANGE_DUP1, "CAcmPort::BreakStateChange;\tbreak is inactive" );
 		iSignals &= ~KSignalBreak;
 		}
 
@@ -1302,7 +1377,7 @@ void CAcmPort::BreakStateChange()
 	// out of the break-active condition...
 	if ( iNotifyBreak && !iBreak )
 		{
-		LOGTEXT(_L8("\tcalling BreakNotifyCompleted with KErrNone"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKSTATECHANGE_DUP2, "CAcmPort::BreakStateChange;\tcalling BreakNotifyCompleted with KErrNone" );
 		BreakNotifyCompleted(KErrNone);
 		iNotifyBreak = EFalse;
 		}
@@ -1313,11 +1388,12 @@ void CAcmPort::BreakStateChange()
 		&&	( ( iNotifySignalMask & ( iSignals ^ oldSignals ) ) != 0 ) )
 		{
 		// Report correctly mapped signals that client asked for
-		LOGTEXT(_L8("\tcalling SignalChangeCompleted with KErrNone"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_BREAKSTATECHANGE_DUP3, "CAcmPort::BreakStateChange;\tcalling SignalChangeCompleted with KErrNone" );
 		TUint32 signals = ConvertSignals ( KBreakChanged | ( iSignals & iNotifySignalMask ) );
 		SignalChangeCompleted( signals, KErrNone);
 		iNotifySignalChange = EFalse;
 		}
+	OstTraceFunctionExit0( CACMPORT_BREAKSTATECHANGE_EXIT );
 	}
 
 void CAcmPort::NotifyFlowControlChange()
@@ -1326,18 +1402,19 @@ void CAcmPort::NotifyFlowControlChange()
  * Note that this is not supported.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYFLOWCONTROLCHANGE_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYFLOWCONTROLCHANGE, "CAcmPort::NotifyFlowControlChange;\t***access denied" );
 		FlowControlChangeCompleted(EFlowControlOn, KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_NOTIFYFLOWCONTROLCHANGE_EXIT );
 		return;
 		}
 
-	LOGTEXT(_L8("\t***not supported"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYFLOWCONTROLCHANGE_DUP1, "CAcmPort::NotifyFlowControlChange;\t***not supported" );
 	FlowControlChangeCompleted(EFlowControlOn,KErrNotSupported);
+	OstTraceFunctionExit0( CACMPORT_NOTIFYFLOWCONTROLCHANGE_EXIT_DUP1 );
 	}
 
 void CAcmPort::NotifyFlowControlChangeCancel()
@@ -1347,8 +1424,8 @@ void CAcmPort::NotifyFlowControlChangeCancel()
  * request for us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYFLOWCONTROLCHANGECANCEL_ENTRY );
+	OstTraceFunctionExit0( CACMPORT_NOTIFYFLOWCONTROLCHANGECANCEL_EXIT );
 	}
 
 void CAcmPort::NotifyConfigChange()
@@ -1357,25 +1434,26 @@ void CAcmPort::NotifyConfigChange()
  * configuration.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYCONFIGCHANGE_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYCONFIGCHANGE, "CAcmPort::NotifyConfigChange;\t***access denied" );
 		ConfigChangeCompleted(iCommNotificationDes, KErrAccessDenied);
+		OstTraceFunctionExit0( CACMPORT_NOTIFYCONFIGCHANGE_EXIT );
 		return;
 		}
 
 	if ( iNotifyConfigChange )
 		{
-		LOGTEXT(_L8("\t***in use"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYCONFIGCHANGE_DUP1, "CAcmPort::NotifyConfigChange;\t***in use" );
 		ConfigChangeCompleted(iCommNotificationDes,KErrInUse);
 		}
 	else
 		{
 		iNotifyConfigChange = ETrue;
 		}
+	OstTraceFunctionExit0( CACMPORT_NOTIFYCONFIGCHANGE_EXIT_DUP1 );
 	}
 
 void CAcmPort::NotifyConfigChangeCancel()
@@ -1385,16 +1463,17 @@ void CAcmPort::NotifyConfigChangeCancel()
  * client's request for us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYCONFIGCHANGECANCEL_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYCONFIGCHANGECANCEL, "CAcmPort::NotifyConfigChangeCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_NOTIFYCONFIGCHANGECANCEL_EXIT );
 		return;
 		}
 
 	iNotifyConfigChange = EFalse;
+	OstTraceFunctionExit0( CACMPORT_NOTIFYCONFIGCHANGECANCEL_EXIT_DUP1 );
 	}
 
 void CAcmPort::HostConfigChange(const TCommConfigV01& aConfig)
@@ -1404,8 +1483,7 @@ void CAcmPort::HostConfigChange(const TCommConfigV01& aConfig)
  * @param aConfig	New configuration data.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_HOSTCONFIGCHANGE_ENTRY );
 	HandleConfigNotification(aConfig.iRate,
 		aConfig.iDataBits,
 		aConfig.iParity,
@@ -1415,6 +1493,7 @@ void CAcmPort::HostConfigChange(const TCommConfigV01& aConfig)
 	iCommConfig.iDataBits = aConfig.iDataBits;
 	iCommConfig.iParity = aConfig.iParity;
 	iCommConfig.iStopBits = aConfig.iStopBits;
+	OstTraceFunctionExit0( CACMPORT_HOSTCONFIGCHANGE_EXIT );
 	}
 
 void CAcmPort::NotifySignalChange(TUint aSignalMask)
@@ -1422,20 +1501,18 @@ void CAcmPort::NotifySignalChange(TUint aSignalMask)
  * Downcall from C32. Notify a client of a change to the signal lines.
  */
 	{
-	LOG_LINE
-	LOGTEXT2(_L8(">>CAcmPort::NotifySignalChange aSignalMask=0x%08x"), 
-		aSignalMask);
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYSIGNALCHANGE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_NOTIFYSIGNALCHANGE, "CAcmPort::NotifySignalChange;>>CAcmPort::NotifySignalChange aSignalMask=0x%08x", aSignalMask );
 	if ( iNotifySignalChange )
 		{
 		if ( !iAcm )
 			{
-			LOGTEXT(_L8("\t***access denied"));
+			OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYSIGNALCHANGE_DUP1, "CAcmPort::NotifySignalChange;\t***access denied" );
 			SignalChangeCompleted(0, KErrAccessDenied);
 			}
 		else
 			{
-			LOGTEXT(_L8("\t***in use"));
+			OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYSIGNALCHANGE_DUP2, "CAcmPort::NotifySignalChange;\t***in use" );
 			SignalChangeCompleted(0, KErrInUse);
 			}
 		}
@@ -1447,7 +1524,8 @@ void CAcmPort::NotifySignalChange(TUint aSignalMask)
 		iNotifySignalMask = ConvertSignals(aSignalMask);
 		}
 
-	LOGTEXT(_L8("<<CAcmPort::NotifySignalChange"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYSIGNALCHANGE_DUP3, "CAcmPort::NotifySignalChange;<<CAcmPort::NotifySignalChange" );
+	OstTraceFunctionExit0( CACMPORT_NOTIFYSIGNALCHANGE_EXIT );
 	}
 
 void CAcmPort::NotifySignalChangeCancel()
@@ -1457,16 +1535,17 @@ void CAcmPort::NotifySignalChangeCancel()
  * request for us.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_NOTIFYSIGNALCHANGECANCEL_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_NOTIFYSIGNALCHANGECANCEL, "CAcmPort::NotifySignalChangeCancel;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_NOTIFYSIGNALCHANGECANCEL_EXIT );
 		return;
 		}
 
 	iNotifySignalChange = EFalse;
+	OstTraceFunctionExit0( CACMPORT_NOTIFYSIGNALCHANGECANCEL_EXIT_DUP1 );
 	}
 
 void CAcmPort::HostSignalChange(TBool aDtr, TBool aRts)
@@ -1477,8 +1556,9 @@ void CAcmPort::HostSignalChange(TBool aDtr, TBool aRts)
  * @param aRts The state of the RTS signal.
  */
 	{
-	LOGTEXT3(_L8(">>CAcmPort::HostSignalChange aDtr=%d, aRts=%d"), aDtr, aRts);
-
+	OstTraceFunctionEntry0( CACMPORT_HOSTSIGNALCHANGE_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMPORT_HOSTSIGNALCHANGE, "CAcmPort::HostSignalChange;>>CAcmPort::HostSignalChange aDtr=%d, aRts=%d", aDtr, aRts );
+	
 	// Take a copy of the current signal state for comparison later
 	TUint32 oldSignals = iSignals;
 
@@ -1506,8 +1586,7 @@ void CAcmPort::HostSignalChange(TBool aDtr, TBool aRts)
 		{
 		// Create bitfield of changed signals that client is interested in
 		TUint32 changedSignals = ( iSignals ^ oldSignals ) & iNotifySignalMask;
-		LOGTEXT5(_L8("\tiSignals=%x, oldSignals=%x, changedSignals=%x, iNotifySignalMask=%x")
-						,iSignals, oldSignals, changedSignals, iNotifySignalMask);
+		OstTraceExt4( TRACE_NORMAL, CACMPORT_HOSTSIGNALCHANGE_DUP1, "CAcmPort::HostSignalChange;iSignals=%x;oldSignals=%x;changedSignals=%x;iNotifySignalMask=%x", iSignals, oldSignals, changedSignals, (TUint32)iNotifySignalMask );
 		if ( changedSignals != 0 )
 			{
 			// Mark which signals have changed
@@ -1520,17 +1599,18 @@ void CAcmPort::HostSignalChange(TBool aDtr, TBool aRts)
 				{
 				changedSignalsMask |= KRTSChanged;
 				}
-			LOGTEXT2(_L8("\tchangedSignalsMask=%x"), changedSignalsMask);
-
+			
+			OstTrace1( TRACE_NORMAL, CACMPORT_HOSTSIGNALCHANGE_DUP2, "CAcmPort::HostSignalChange;changedSignalsMask=%x", changedSignalsMask );
 			// Report correctly mapped signals that client asked for
 			TUint32 signals = ConvertSignals ( changedSignalsMask | ( iSignals & iNotifySignalMask ) );
-			LOGTEXT2(_L8("\tcalling SignalChangeCompleted with KErrNone, signals=%x"), signals);
+			OstTrace1( TRACE_NORMAL, CACMPORT_HOSTSIGNALCHANGE_DUP3, "CAcmPort::HostSignalChange;signals=%x", signals );
 			SignalChangeCompleted( signals, KErrNone);
 			iNotifySignalChange = EFalse;
 			}
 		}
 
-	LOGTEXT(_L8("<<CAcmPort::HostSignalChange"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_HOSTSIGNALCHANGE_DUP4, "CAcmPort::HostSignalChange;<<CAcmPort::HostSignalChange" );
+	OstTraceFunctionExit0( CACMPORT_HOSTSIGNALCHANGE_EXIT );
 	}
 
 TInt CAcmPort::GetRole(TCommRole& aRole)
@@ -1541,17 +1621,18 @@ TInt CAcmPort::GetRole(TCommRole& aRole)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_GETROLE_ENTRY );
+	
 	if ( !iAcm )
 		{
-		LOGTEXT(_L8("\t***access denied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_GETROLE, "CAcmPort::GetRole;\t***access denied" );
+		OstTraceFunctionExit0( CACMPORT_GETROLE_EXIT );
 		return KErrAccessDenied;
 		}
 
 	aRole = iRole;
-	LOGTEXT2(_L8("\trole=%d"), aRole);
+	OstTrace1( TRACE_NORMAL, CACMPORT_GETROLE_DUP1, "CAcmPort::GetRole;\trole=%d", aRole );
+	OstTraceFunctionExit0( DUP1_CACMPORT_GETROLE_EXIT );
 	return KErrNone;
 	}
 
@@ -1563,10 +1644,10 @@ TInt CAcmPort::SetRole(TCommRole aRole)
  * @return Error.
  */
 	{
-	LOG_LINE
-	LOGTEXT2(_L8(">>CAcmPort::SetRole aRole=%d"), aRole);
-
+	OstTraceFunctionEntry0( CACMPORT_SETROLE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETROLE, "CAcmPort::SetRole;>>CAcmPort::SetRole aRole=%d", aRole );
 	TInt ret = KErrNone;
+	
 	if ( !iAcm )
 		{
 		ret = KErrAccessDenied;
@@ -1576,7 +1657,8 @@ TInt CAcmPort::SetRole(TCommRole aRole)
 		iRole = aRole;
 		}
 
-	LOGTEXT2(_L8("<<CAcmPort::SetRole ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETROLE_DUP1, "CAcmPort::SetRole;<<CAcmPort::SetRole ret=%d", ret );
+	OstTraceFunctionExit0( CACMPORT_SETROLE_EXIT );
 	return ret;
 	}
 
@@ -1594,18 +1676,29 @@ void CAcmPort::SetAcm(CCdcAcmClass* aAcm)
  * @param aAcm The new ACM (may be NULL).
  */
 	{
-	LOGTEXT3(_L8(">>CAcmPort::SetAcm aAcm = 0x%08x, iAcm = 0x%08x"), aAcm, iAcm);
+	OstTraceFunctionEntry0( CACMPORT_SETACM_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETACM, "CAcmPort::SetAcm;>>CAcmPort::SetAcm aAcm = 0x%08x", aAcm );
+	OstTrace1( TRACE_NORMAL, CACMPORT_SETACM_DUP3, "CAcmPort::SetAcm;iAcm=0x%08x", iAcm );
+	
 	
 	if ( !aAcm )
 		{
 		// Cancel any outstanding operations on the reader and writer.
-		__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (!iReader)
+			{
+			OstTraceExt1( TRACE_FATAL, CACMPORT_SETACM_DUP4, "CAcmPort::SetAcm;iReader=%p", iReader );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		iReader->ReadCancel();
-		__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (!iWriter)
+			{
+			OstTraceExt1( TRACE_FATAL, CACMPORT_SETACM_DUP5, "CAcmPort::SetAcm;iWriter=%p", iWriter );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		iWriter->WriteCancel();
 
 		// Complete any outstanding requests
-		LOGTEXT(_L8("\tcompleting outstanding requests with KErrAccessDenied"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_SETACM_DUP1, "CAcmPort::SetAcm;\tcompleting outstanding requests with KErrAccessDenied" );
 		SignalChangeCompleted(iSignals,KErrAccessDenied);
 		ReadCompleted(KErrAccessDenied);
 		WriteCompleted(KErrAccessDenied);
@@ -1617,15 +1710,19 @@ void CAcmPort::SetAcm(CCdcAcmClass* aAcm)
 		}
 	else
 		{
-		__ASSERT_DEBUG(!iAcm, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (iAcm)
+			{
+			OstTraceExt1( TRACE_FATAL, CACMPORT_SETACM_DUP6, "CAcmPort::SetAcm;iAcm=%p", iAcm );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		aAcm->SetCallback(this);
 		// Set the port as the observer of break events.
 		aAcm->SetBreakCallback(this);
 		}
 
 	iAcm = aAcm;
-	
-	LOGTEXT(_L8("<<CAcmPort::SetAcm"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_SETACM_DUP2, "CAcmPort::SetAcm;<<CAcmPort::SetAcm" );
+	OstTraceFunctionExit0( CACMPORT_SETACM_EXIT );
 	}
 
 CAcmPort::~CAcmPort()
@@ -1633,8 +1730,8 @@ CAcmPort::~CAcmPort()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMPORT_CACMPORT_DESTRUCTRURE_ENTRY );
+	
 	delete iReader;
 	delete iWriter;
 	
@@ -1642,12 +1739,13 @@ CAcmPort::~CAcmPort()
 	// changes.
 	if ( iAcm )
 		{
-		LOGTEXT(_L8("\tiAcm exists- calling SetCallback(NULL)"));
+		OstTrace0( TRACE_NORMAL, CACMPORT_CACMPORT_DESTRUCTRURE, "CAcmPort::~CAcmPort;\tiAcm exists- calling SetCallback(NULL)" );
 		iAcm->SetCallback(NULL);
 		}
 
-	LOGTEXT(_L8("\tcalling AcmPortClosed on observer"));
+	OstTrace0( TRACE_NORMAL, CACMPORT_CACMPORT_DESTRUCTRURE_DUP1, "CAcmPort::~CAcmPort;\tcalling AcmPortClosed on observer" );
 	iObserver.AcmPortClosed(iUnit);
+	OstTraceFunctionExit0( CACMPORT_CACMPORT_DESTRUCTRURE_EXIT );
 	}
 
 //

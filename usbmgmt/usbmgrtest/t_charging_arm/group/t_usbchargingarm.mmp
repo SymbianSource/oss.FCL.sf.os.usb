@@ -51,4 +51,3 @@ LIBRARY			bluetoothav.lib
 // -- Add specific libraries here
 LIBRARY			centralrepository.lib
 
-#include <usb/usblogger.mmh>

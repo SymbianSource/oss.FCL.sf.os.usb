@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,11 +22,10 @@
  @file
 */
 
-#include "Stub1CC.h"
 #include <usb_std.h>
 #include <es_ini.h>
 #include <d32usbc.h>
-#include <usb/usblogger.h>
+#include "Stub1CC.h"
 
 #ifdef __FLOG_ACTIVE
 _LIT8(KLogComponent, "STUB1CC");
@@ -34,6 +33,11 @@ _LIT8(KLogComponent, "STUB1CC");
 
 
 #include "usbmaninternalconstants.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "Stub1CCTraces.h"
+#endif
+
  
 
 // Panic category 
@@ -160,32 +164,37 @@ void CUsbstub1ClassController::ConstructL()
  */
 void CUsbstub1ClassController::Start(TRequestStatus& aStatus)
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CUSBSTUB1CLASSCONTROLLER_START_ENTRY );
+	
 	aStatus = KRequestPending;
 	iReportStatus = &aStatus;
 	//If we are already started then just complete the request.
 	if (iState == EUsbServiceStarted)
 		{
 		User::RequestComplete(iReportStatus, KErrNone);
+		OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_START_EXIT );
 		return;
 		}
 
 	if (iFailToStart)
 		{
 		User::RequestComplete(iReportStatus, KErrGeneral);
+		OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_START_EXIT_DUP1 );
 		return;
 		}
 	
 	iState = EUsbServiceStarting;
 #ifndef __WINS__	
 	TInt ret = iLdd.Open(0);
-	LOGTEXT2(_L8("Open LDD, ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_START, _L8("Open LDD, ret=%d"), ret );
+	
 	ret = SetUpInterface();
-	LOGTEXT2(_L8("SetUpInterface(), ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_START_DUP1, _L8("SetUpInterface(), ret=%d"), ret );
+	
 #endif	
 	iTimer.After(iStatus, iStartDelay*1000);  //convert from usec to msec
 	SetActive();
+	OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_START_EXIT_DUP2 );
 	}
 
 /**
@@ -195,7 +204,7 @@ void CUsbstub1ClassController::Start(TRequestStatus& aStatus)
  */
 void CUsbstub1ClassController::Stop(TRequestStatus& aStatus)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBSTUB1CLASSCONTROLLER_STOP_ENTRY );
 	
 	aStatus = KRequestPending;
 	iReportStatus = &aStatus;
@@ -203,12 +212,14 @@ void CUsbstub1ClassController::Stop(TRequestStatus& aStatus)
 	if (iState == EUsbServiceIdle)
 		{
 		User::RequestComplete(iReportStatus, KErrNone);
+		OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_STOP_EXIT );
 		return;
 		}
 
 	if (iFailToStop)
 		{
 		User::RequestComplete(iReportStatus, KErrGeneral);
+		OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_STOP_EXIT_DUP1 );
 		return;
 		}
 
@@ -220,6 +231,7 @@ void CUsbstub1ClassController::Stop(TRequestStatus& aStatus)
 	
 	iTimer.After(iStatus, iStopDelay*1000);  //convert from usec to msec
 	SetActive();
+	OstTraceFunctionExit0( DUP2_CUSBSTUB1CLASSCONTROLLER_STOP_EXIT );
 	}
 
 /**
@@ -229,10 +241,11 @@ void CUsbstub1ClassController::Stop(TRequestStatus& aStatus)
  */
 void CUsbstub1ClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo) const
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CUSBSTUB1CLASSCONTROLLER_GETDESCRIPTORINFO_ENTRY );
+	
 	aDescriptorInfo.iLength = Kstub1DescriptorLength;
 	aDescriptorInfo.iNumInterfaces = Kstub1NumberOfInterfacesPerstub1Function;
+	OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_GETDESCRIPTORINFO_EXIT );
 	}
 
 
@@ -241,9 +254,15 @@ void CUsbstub1ClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo
  */
 void CUsbstub1ClassController::RunL()
 	{
-	LOG_FUNC
-
-	__ASSERT_DEBUG( iStatus == KErrNone, _USB_PANIC(Kstub1CcPanicCategory, EPanicUnexpectedStatus) );
+	OstTraceFunctionEntry0( CUSBSTUB1CLASSCONTROLLER_RUNL_ENTRY );
+	
+	if(iStatus != KErrNone)
+	    {
+            OstTrace1( TRACE_FATAL, CUSBSTUB1CLASSCONTROLLER_RUNL, 
+                    "CUsbstub1ClassController::RunL panic with error %d", 
+                    EPanicUnexpectedState);
+            __ASSERT_DEBUG(EFalse,User::Panic(Kstub1CcPanicCategory,EPanicUnexpectedStatus));
+	    }
 	switch (iState)
 		{
 		case EUsbServiceStarting:
@@ -253,10 +272,14 @@ void CUsbstub1ClassController::RunL()
 			iState = EUsbServiceIdle;
 			break;
 		default:	
-			_USB_PANIC(Kstub1CcPanicCategory, EPanicUnexpectedState);
+		    OstTrace1( TRACE_FATAL, CUSBSTUB1CLASSCONTROLLER_RUNL_DUP1, 
+                    "CUsbstub1ClassController::RunL panic with error %d", 
+                    EPanicUnexpectedState);
+		    User::Panic(Kstub1CcPanicCategory,EPanicUnexpectedStatus);
 		}
 	*iReportStatus = KErrNone;	
 	User::RequestComplete(iReportStatus, iStatus.Int());	
+	OstTraceFunctionExit0( CUSBSTUB1CLASSCONTROLLER_RUNL_EXIT );
 	}
 
 /**
@@ -279,7 +302,9 @@ void CUsbstub1ClassController::DoCancel()
 			iState = EUsbServiceStarted;
 			break;
 		default:	
-			_USB_PANIC(Kstub1CcPanicCategory, EPanicUnexpectedState);
+		    OstTrace1( TRACE_FATAL, CUSBSTUB1CLASSCONTROLLER_DOCANCEL, 
+		            "CUsbstub1ClassController::DoCancel panic with error %d", EPanicUnexpectedState );
+		    User::Panic(Kstub1CcPanicCategory,EPanicUnexpectedStatus);
 	}
 	*iReportStatus = KErrNone;		
 	User::RequestComplete(iReportStatus, KErrCancel);	
@@ -294,7 +319,9 @@ void CUsbstub1ClassController::DoCancel()
  */
 TInt CUsbstub1ClassController::RunError(TInt /*aError*/)
 	{
-	__ASSERT_DEBUG( EFalse, _USB_PANIC(Kstub1CcPanicCategory, EUnusedFunction) );
+    OstTrace1( TRACE_FATAL, CUSBSTUB1CLASSCONTROLLER_RUNERROR, 
+                    "CUsbstub1ClassController::RunError panic with error %d", EUnusedFunction);
+    __ASSERT_DEBUG(EFalse,User::Panic(Kstub1CcPanicCategory,EPanicUnexpectedStatus));
 	return KErrNone;
 	}
 	
@@ -304,25 +331,33 @@ TInt CUsbstub1ClassController::SetUpInterface()
  * endpoint and, if found, configuring the interface.
  */
 	{
-	LOGTEXT(_L8(">>CCdcControlInterface::SetUpInterface"));
-
+    OstTrace0( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE, 
+            _L8(">>CCdcControlInterface::SetUpInterface"));
+    
 	TUsbDeviceCaps dCaps;
 	TInt ret = iLdd.DeviceCaps(dCaps);
-	LOGTEXT(_L8("\tchecking result of DeviceCaps"));
+	OstTrace0( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP1, 
+	        _L8("\tchecking result of DeviceCaps"));
+	
 	if ( ret )
 		{
-		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
+        OstTrace1( TRACE_ERROR, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP2, 
+                _L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret );
+        
 		return ret;
 		}
 
 	const TUint KRequiredNumberOfEndpoints = 1; // in addition to endpoint 0.
 
 	const TUint totalEndpoints = static_cast<TUint>(dCaps().iTotalEndpoints);
-	LOGTEXT2(_L8("\tiTotalEndpoints = %d"), totalEndpoints);
+	OstTrace1( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP3, 
+	        _L8("\tiTotalEndpoints = %d"), totalEndpoints);
+	
 	if ( totalEndpoints < KRequiredNumberOfEndpoints )
 		{
-		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), 
-			KErrGeneral);
+        OstTrace1( TRACE_ERROR, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP4, 
+                _L8("<<CCdcControlInterface::SetUpInterface ret=%d"), KErrGeneral );
+        
 		return KErrGeneral;
 		}
 	
@@ -330,10 +365,14 @@ TInt CUsbstub1ClassController::SetUpInterface()
 	TUsbcEndpointData data[KUsbcMaxEndpoints];
 	TPtr8 dataptr(reinterpret_cast<TUint8*>(data), sizeof(data), sizeof(data));
 	ret = iLdd.EndpointCaps(dataptr);
-	LOGTEXT(_L8("\tchecking result of EndpointCaps"));
+	OstTrace0( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP5, 
+	        _L8("\tchecking result of EndpointCaps"));
+	
 	if ( ret )
 		{
-		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
+        OstTrace1( TRACE_ERROR, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP6, 
+                _L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret );
+        
 		return ret;
 		}
 
@@ -343,7 +382,12 @@ TInt CUsbstub1ClassController::SetUpInterface()
 	for ( TUint i = 0 ; i < totalEndpoints ; i++ )
 		{
 		const TUsbcEndpointCaps* caps = &data[i].iCaps;
-		__ASSERT_DEBUG(caps,_USB_PANIC(Kstub1CcPanicCategory, EPanicUnexpectedStatus));
+		if(!caps)
+		    {
+                OstTrace1( TRACE_FATAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP7, 
+                        "CUsbstub1ClassController::SetUpInterface panic with error %d", EPanicUnexpectedStatus);
+                __ASSERT_DEBUG(EFalse,User::Panic(Kstub1CcPanicCategory,EPanicUnexpectedStatus));
+		    }
 
 		if (data[i].iInUse)
 			{
@@ -369,11 +413,14 @@ TInt CUsbstub1ClassController::SetUpInterface()
 			break;
 			}
 		}
-	LOGTEXT(_L8("\tchecking epFound"));
+	OstTrace0( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP8, 
+	        _L8("\tchecking epFound"));
+	
 	if ( !epFound )
 		{
-		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), 
-			KErrGeneral);
+        OstTrace1( TRACE_ERROR, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP9, 
+                _L8("<<CCdcControlInterface::SetUpInterface ret=%d"), KErrGeneral);
+        
 		return KErrGeneral;
 		}
 
@@ -385,11 +432,15 @@ TInt CUsbstub1ClassController::SetUpInterface()
 	ifc().iClass.iSubClassNum = 0x02; // Table 16- Abstract Control Model
 	ifc().iClass.iProtocolNum = 0x01; // Table 17- Hayes compatible
 
-	LOGTEXT(_L8("\tabout to call SetInterface"));
+	OstTrace0( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP10, 
+	        _L8("\tabout to call SetInterface"));
+	
 	// Zero effectively indicates that alternate interfaces are not used.
 	ret = iLdd.SetInterface(0, ifc);
 
-	LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CUSBSTUB1CLASSCONTROLLER_SETUPINTERFACE_DUP11, 
+	        _L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret );
+	
 	return ret;
 	}
 

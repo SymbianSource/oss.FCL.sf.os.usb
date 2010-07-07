@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -27,27 +27,32 @@
 #include "msmmengine.h"
 #include "subcommands.h"
 #include "msmmnodebase.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "eventhandlerTraces.h"
 #endif
+
+
 
 // Push a sub-command into the queue and transfer the owership 
 // to the queue
 void RSubCommandQueue::PushL(TSubCommandBase* aCommand)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_PUSHL_ENTRY );
+    
     CleanupStack::PushL(aCommand);
     iQueue.AppendL(aCommand);
     CleanupStack::Pop(aCommand);
+    OstTraceFunctionExit0( RSUBCOMMANDQUEUE_PUSHL_EXIT );
     }
 
 // Pop the head entity from the queue and destroy it
 void RSubCommandQueue::Pop()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_POP_ENTRY );  
     if (iQueue.Count() == 0)
         {
+        OstTraceFunctionExit0( RSUBCOMMANDQUEUE_POP_EXIT );
         return;
         }
     
@@ -55,39 +60,45 @@ void RSubCommandQueue::Pop()
     iQueue.Remove(0);
     delete command;
     command = NULL;
+    OstTraceFunctionExit0( RSUBCOMMANDQUEUE_POP_EXIT_DUP1 );
     }
     
 // Insert a sub-command sequence after head entities
 void RSubCommandQueue::InsertAfterHeadL(TSubCommandBase* aCommand)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_INSERTAFTERHEADL_ENTRY );
+    
     if (!aCommand)
         {
         User::Leave(KErrArgument);
         }
     
     iQueue.InsertL(aCommand, 1);
+    OstTraceFunctionExit0( RSUBCOMMANDQUEUE_INSERTAFTERHEADL_EXIT );
     }
     
 // Execute the head sub-comment
 void RSubCommandQueue::ExecuteHeadL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_EXECUTEHEADL_ENTRY );
     Head().ExecuteL();
+    OstTraceFunctionExit0( RSUBCOMMANDQUEUE_EXECUTEHEADL_EXIT );
     }
     
 // Get a reference of head sub-command in queue
 TSubCommandBase& RSubCommandQueue::Head()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_HEAD_ENTRY ); 
     return *iQueue[0];
     }
     
 // Destory all entities and release the memory of queue
 void RSubCommandQueue::Release()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RSUBCOMMANDQUEUE_RELEASE_ENTRY );
+    
     iQueue.ResetAndDestroy();
+    OstTraceFunctionExit0( RSUBCOMMANDQUEUE_RELEASE_EXIT );
     }
 
 /*
@@ -95,36 +106,43 @@ void RSubCommandQueue::Release()
  */
 CDeviceEventHandler::~CDeviceEventHandler()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CDEVICEEVENTHANDLER_DES_ENTRY );
+    
     Cancel();
     delete iErrNotiData;
     iSubCommandQueue.Release();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CDEVICEEVENTHANDLER_DES_EXIT );
     }
 
 CDeviceEventHandler* CDeviceEventHandler::NewL(MMsmmSrvProxy& aServer)
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_NEWL_ENTRY );
+    
     CDeviceEventHandler* self = CDeviceEventHandler::NewLC(aServer);
     CleanupStack::Pop(self);
     
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_NEWL_EXIT );
     return self;
     }
 
 CDeviceEventHandler* CDeviceEventHandler::NewLC(MMsmmSrvProxy& aServer)
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_NEWLC_ENTRY );
+    
     CDeviceEventHandler* self = 
         new (ELeave) CDeviceEventHandler(aServer);
     CleanupStack::PushL(self);
     self->ConstructL();
     
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_NEWLC_EXIT );
     return self;
     }
 
 void CDeviceEventHandler::CreateSubCmdForRetrieveDriveLetterL(
         TInt aLogicalUnitCount)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORRETRIEVEDRIVELETTERL_ENTRY );
+    
     TRetrieveDriveLetter* command(NULL);
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     for (TInt index = 0; index < aLogicalUnitCount; index++)
@@ -132,49 +150,60 @@ void CDeviceEventHandler::CreateSubCmdForRetrieveDriveLetterL(
         command = new (ELeave) TRetrieveDriveLetter(parameter, index);
         iSubCommandQueue.PushL(command);
         }
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORRETRIEVEDRIVELETTERL_EXIT );
     }
 
 void CDeviceEventHandler::CreateSubCmdForMountingLogicalUnitL(TText aDrive, 
         TInt aLuNumber)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORMOUNTINGLOGICALUNITL_ENTRY );
+    
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TMountLogicalUnit* command = new (ELeave) TMountLogicalUnit(
             parameter, aDrive, aLuNumber);
     iSubCommandQueue.InsertAfterHeadL(command);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORMOUNTINGLOGICALUNITL_EXIT );
     }
 
 void CDeviceEventHandler::CreateSubCmdForSaveLatestMountInfoL(TText aDrive, 
         TInt aLuNumber)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORSAVELATESTMOUNTINFOL_ENTRY );
+    
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TSaveLatestMountInfo* command = 
         new (ELeave) TSaveLatestMountInfo(parameter, aDrive, aLuNumber);
     iSubCommandQueue.InsertAfterHeadL(command);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORSAVELATESTMOUNTINFOL_EXIT );
     }
 
 void CDeviceEventHandler::Start()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_START_ENTRY );
+    
     if (IsActive())
         {
+        OstTraceFunctionExit0( CDEVICEEVENTHANDLER_START_EXIT );
         return;
         }
     iStatus = KRequestPending;
     SetActive();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_START_EXIT_DUP1 );
     }
 
 void CDeviceEventHandler::Complete(TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_COMPLETE_ENTRY );
+    
     TRequestStatus* status = &iStatus;
     User::RequestComplete(status, aError);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_COMPLETE_EXIT );
     }
 
 TRequestStatus& CDeviceEventHandler::Status() const
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_STATUS_ENTRY );
+    
     const TRequestStatus& status = iStatus;
     return const_cast<TRequestStatus&>(status);
     }
@@ -182,7 +211,8 @@ TRequestStatus& CDeviceEventHandler::Status() const
 void CDeviceEventHandler::HandleEventL(TRequestStatus& aStatus, 
         const TDeviceEvent& aEvent)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_HANDLEEVENTL_ENTRY );
+    
     if (IsActive())
         {
         // An event is being handled. Currently handler is busy.
@@ -201,6 +231,7 @@ void CDeviceEventHandler::HandleEventL(TRequestStatus& aStatus,
     // Start the handler to handle the incoming event
     Start();
     Complete();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_HANDLEEVENTL_EXIT );
     }
 
 /*
@@ -209,25 +240,28 @@ void CDeviceEventHandler::HandleEventL(TRequestStatus& aStatus,
 
 void CDeviceEventHandler::DoCancel()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_DOCANCEL_ENTRY );
+    
     // Complete client with KErrCancel
     CompleteClient(KErrCancel);
 
     // Cancel current pending command
-    if (iSubCommandQueue.Count())
+	if (iSubCommandQueue.Count())
         {
-        iSubCommandQueue.Head().CancelAsyncCmd();
-        }
+		iSubCommandQueue.Head().CancelAsyncCmd();
+    	}
+	OstTraceFunctionExit0( CDEVICEEVENTHANDLER_DOCANCEL_EXIT );
     }
 
 void CDeviceEventHandler::RunL( )
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_RUNL_ENTRY );
     
     if (iSubCommandQueue.Count() == 0)
         {
         // Error occurs in lastest sub-command's DoExecuteL()
         // Or current command has been cancelled.
+        OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RUNL_EXIT );
         return;
         }
     
@@ -249,26 +283,27 @@ void CDeviceEventHandler::RunL( )
         // Complete client
         CompleteClient();
         }
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RUNL_EXIT_DUP1 );
     }
 
 TInt CDeviceEventHandler::RunError(TInt aError)
     {
-    LOG_FUNC
-
-    if (iSubCommandQueue.Count())
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_RUNERROR_ENTRY );
+    
+	if (iSubCommandQueue.Count())
         {
-        // Retrieve sub-command related error notification data
-        iSubCommandQueue.Head().HandleError(*iErrNotiData, aError);
+    	// Retrieve sub-command related error notification data
+    	iSubCommandQueue.Head().HandleError(*iErrNotiData, aError);
 
-        // If current sub-command isn't a key one, the handler will continue to
-        // execute rest sub-command in the queue. But, if current sub-command
-        // is the last one in the queue, handler shall complete the client also. 
-        if (iSubCommandQueue.Head().IsKeyCommand() || 
-                (iSubCommandQueue.Count() == 1))
-            {
-            CompleteClient(aError);
-            }
-        iSubCommandQueue.Pop();
+    	// If current sub-command isn't a key one, the handler will continue to
+    	// execute rest sub-command in the queue. But, if current sub-command
+    	// is the last one in the queue, handler shall complete the client also. 
+    	if (iSubCommandQueue.Head().IsKeyCommand() || 
+            (iSubCommandQueue.Count() == 1))
+        	{
+        	CompleteClient(aError);
+			}
+		iSubCommandQueue.Pop();
         }
 
     if( IsActive() )
@@ -281,6 +316,7 @@ TInt CDeviceEventHandler::RunError(TInt aError)
    	    Complete();
         }
 
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RUNERROR_EXIT );
     return KErrNone;
     }
 
@@ -289,20 +325,25 @@ CDeviceEventHandler::CDeviceEventHandler(MMsmmSrvProxy& aServer):
     CActive(EPriorityStandard),
     iServer(aServer)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CDEVICEEVENTHANDLER_ENTRY );
+    
     CActiveScheduler::Add(this);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CDEVICEEVENTHANDLER_EXIT );
     }
 
 void CDeviceEventHandler::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CONSTRUCTL_ENTRY );
+    
     iErrNotiData = new (ELeave) THostMsErrData;
     ResetHandler();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CONSTRUCTL_EXIT );
     }
 
 void CDeviceEventHandler::CreateSubCmdForDeviceEventL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORDEVICEEVENTL_ENTRY );
+    
     switch (iIncomingEvent.iEvent)
         {
     case EDeviceEventAddFunction:
@@ -312,19 +353,23 @@ void CDeviceEventHandler::CreateSubCmdForDeviceEventL()
         CreateSubCmdForRemovingUsbMsDeviceL();
         break;
         }
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORDEVICEEVENTL_EXIT );
     }
 
 void CDeviceEventHandler::CreateSubCmdForAddingUsbMsFunctionL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORADDINGUSBMSFUNCTIONL_ENTRY );
+    
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TRegisterInterface* command = new (ELeave) TRegisterInterface(parameter);
     iSubCommandQueue.PushL(command);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORADDINGUSBMSFUNCTIONL_EXIT );
     }
 
 void CDeviceEventHandler::CreateSubCmdForRemovingUsbMsDeviceL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_CREATESUBCMDFORREMOVINGUSBMSDEVICEL_ENTRY );
+    
     CMsmmEngine& engine = iServer.Engine();
     TUsbMsDevice* device = engine.SearchDevice(iIncomingEvent.iDeviceId);
     if (!device)
@@ -352,18 +397,22 @@ void CDeviceEventHandler::CreateSubCmdForRemovingUsbMsDeviceL()
     TRemoveUsbMsDeviceNode* removeNode = 
         new (ELeave) TRemoveUsbMsDeviceNode(parameter, device);
     iSubCommandQueue.PushL(removeNode);
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORREMOVINGUSBMSDEVICEL_EXIT );
     }
 
 void CDeviceEventHandler::ResetHandler()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_RESETHANDLER_ENTRY );
+    
     ResetHandlerData();
     ResetHandlerError();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RESETHANDLER_EXIT );
     }
 
 void CDeviceEventHandler::ResetHandlerData()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_RESETHANDLERDATA_ENTRY );
+    
     // Reset event buffer
     iIncomingEvent.iDeviceId = 0;
     iIncomingEvent.iEvent = EDeviceEventEndMark;
@@ -371,25 +420,30 @@ void CDeviceEventHandler::ResetHandlerData()
     
     // Destory sub-command queue
     iSubCommandQueue.Release();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RESETHANDLERDATA_EXIT );
     }
 
 void CDeviceEventHandler::ResetHandlerError()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_RESETHANDLERERROR_ENTRY );
+    
     // Reset error notification data
     iErrNotiData->iDriveName = 0x0;
     iErrNotiData->iError = EHostMsErrorEndMarker;
     iErrNotiData->iE32Error = KErrNone;
     iErrNotiData->iManufacturerString.Zero();
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_RESETHANDLERERROR_EXIT );
     }
 
 void CDeviceEventHandler::CompleteClient(TInt aError/* = KErrNone*/)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTHANDLER_COMPLETECLIENT_ENTRY );
+    
     if (iEvtQueueStatus)
         {
         User::RequestComplete(iEvtQueueStatus, aError);
         }
+    OstTraceFunctionExit0( CDEVICEEVENTHANDLER_COMPLETECLIENT_EXIT );
     }
 
 // End of file

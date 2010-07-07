@@ -37,3 +37,4 @@ SOURCEPATH    ../src
 SOURCE        ncminternalsrv.cpp
 
 LIBRARY       euser.lib
+

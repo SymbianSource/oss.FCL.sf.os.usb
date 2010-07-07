@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,20 +21,22 @@
  @file
 */
 
+#include <e32property.h> //Publish & Subscribe header
 #include "CUsbOtg.h"
 #include "cusbotgwatcher.h"
 #include "CUsbDevice.h"
 #include "musbotghostnotifyobserver.h"
 #include "CUsbServer.h"
-#include <e32property.h> //Publish & Subscribe header
 #include "usberrors.h"
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CUsbOtgTraces.h"
+#endif
+
 
 //Name used in call to User::LoadLogicalDevice/User::FreeLogicalDevice
 _LIT(KUsbOtgLDDName,"otgdi");
 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBSVR-OTG");
-#endif
 
 
 CUsbOtg* CUsbOtg::NewL()
@@ -44,12 +46,13 @@ CUsbOtg* CUsbOtg::NewL()
  * @return	A new CUsbOtg object
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CUSBOTG_NEWL_ENTRY );
 
 	CUsbOtg* self = new (ELeave) CUsbOtg();
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CUSBOTG_NEWL_EXIT );
 	return self;
 	}
 
@@ -59,8 +62,7 @@ CUsbOtg::~CUsbOtg()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CUSBOTG_CUSBOTG_DES_ENTRY );
 	// Cancel any outstanding asynchronous operation.
 	Stop();
 	
@@ -69,76 +71,93 @@ CUsbOtg::~CUsbOtg()
 	// the observers themselves.
 	iObservers.Reset();
 	
-	LOGTEXT2(_L8("about to stop Id-Pin watcher @ %08x"), (TUint32) iIdPinWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG, "CUsbOtg::~CUsbOtg;iIdPinWatcher=%08x", (TUint32)iIdPinWatcher );
+	
 	if (iIdPinWatcher)
 		{
 		iIdPinWatcher->Cancel();
 		delete iIdPinWatcher;
 		iIdPinWatcher = NULL;
-		LOGTEXT(_L8("deleted Id-Pin watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP1, "CUsbOtg::~CUsbOtg;deleted Id-Pin watcher" );
+		
 		}
-	LOGTEXT2(_L8("about to stop Vbus watcher @ %08x"), (TUint32) iVbusWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP2, "CUsbOtg::~CUsbOtg;about to stop Vbus watcher @ %08x", (TUint32)iVbusWatcher );
+	
 	if (iVbusWatcher)
 		{
 		iVbusWatcher->Cancel();
 		delete iVbusWatcher;
 		iVbusWatcher = NULL;
-		LOGTEXT(_L8("deleted Vbus watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP3, "CUsbOtg::~CUsbOtg;deleted Vbus watcher" );
+		
 		}
-	LOGTEXT2(_L8("about to stop OTG State watcher @ %08x"), (TUint32) iVbusWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP4, "CUsbOtg::~CUsbOtg;about to stop OTG State watcher @ %08x", (TUint32) iVbusWatcher );
+	
 	if (iOtgStateWatcher)
 		{
 		iOtgStateWatcher->Cancel();
 		delete iOtgStateWatcher;
 		iOtgStateWatcher = NULL;
-		LOGTEXT(_L8("deleted OTG State watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP5, "CUsbOtg::~CUsbOtg;deleted OTG State watcher" );
+		
 		}
-	LOGTEXT2(_L8("about to stop OTG Event watcher @ %08x"), (TUint32) iVbusWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP6, "CUsbOtg::~CUsbOtg;about to stop OTG Event watcher @ %08x", (TUint32) iVbusWatcher );
+	
 	if (iOtgEventWatcher)
 		{
 		iOtgEventWatcher->Cancel();
 		delete iOtgEventWatcher;
 		iOtgEventWatcher = NULL;
-		LOGTEXT(_L8("deleted OTG Event watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP7, "CUsbOtg::~CUsbOtg;deleted OTG Event watcher" );
+
 		}
 	
 	if (iRequestSessionWatcher)
 		{
 		delete iRequestSessionWatcher;
-		LOGTEXT(_L8("deleted Session Request watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP8, "CUsbOtg::~CUsbOtg;deleted Session Request watcher" );
+		
 		}
 
-	LOGTEXT2(_L8("about to stop Connection Idle watcher @ %08x"), (TUint32)iOtgConnectionIdleWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP9, 
+	        "CUsbOtg::~CUsbOtg;about to stop Connection Idle watcher @ %08x", (TUint32)iOtgConnectionIdleWatcher );
+	
 	if (iOtgConnectionIdleWatcher)
 		{
 		iOtgConnectionIdleWatcher->Cancel();
 		delete iOtgConnectionIdleWatcher;
 		iOtgConnectionIdleWatcher= NULL;
-		LOGTEXT(_L8("deleted Connection Idle watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP10, "CUsbOtg::~CUsbOtg;deleted Connection Idle watcher" );
+		
 		}
 
 	// Unload OTGDI components if it was ever started
 	if ( iOtgDriver.Handle() )
 		{
-		LOGTEXT(_L8("Stopping stacks"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP11, "CUsbOtg::~CUsbOtg; Stopping stacks" );
+		
 		iOtgDriver.StopStacks();
 		iOtgDriver.Close();
 		}
 	else
 		{
-		LOGTEXT(_L8("No OTG Driver session was opened, nothing to do"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP12, "CUsbOtg::~CUsbOtg; No OTG Driver session was opened, nothing to do" );
+		
 		}
 
-	LOGTEXT(_L8("Freeing logical device"));
+	OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP13, "CUsbOtg::~CUsbOtg; Freeing logical device" );
+	
 	TInt err = User::FreeLogicalDevice(KUsbOtgLDDName);
 	//Putting the LOGTEXT2 inside the if statement prevents a compiler
 	//warning about err being unused in UREL builds.
 	if(err)
 		{
-		LOGTEXT2(_L8("     User::FreeLogicalDevice returned %d"),err);
+		OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP14, "CUsbOtg::~CUsbOtg;     User::FreeLogicalDevice returned %d", err );
+		
 		}
 	
 	iCriticalSection.Close();
+	OstTraceFunctionExit0( CUSBOTG_CUSBOTG_DES_EXIT );
 	}
 
 
@@ -147,7 +166,9 @@ CUsbOtg::CUsbOtg()
  * Constructor.
  */
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CUSBOTG_CUSBOTG_CONS_ENTRY );
+    
+	OstTraceFunctionExit0( CUSBOTG_CUSBOTG_CONS_EXIT );
 	}
 
 
@@ -156,31 +177,41 @@ void CUsbOtg::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_CONSTRUCTL_ENTRY );
 	
-	LOGTEXT(_L8("About to open LDD"));
+	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL, "CUsbOtg::ConstructL; About to open LDD" );
+	
 	iLastError = User::LoadLogicalDevice(KUsbOtgLDDName);
 	if ( (iLastError != KErrNone) && (iLastError != KErrAlreadyExists) )
 		{
-		LOGTEXT3(_L8("Error %d: Unable to load driver: %S"), iLastError, &KUsbOtgLDDName);
-		LEAVEIFERRORL(iLastError);
+        if(iLastError < 0)
+            {
+            OstTraceExt2( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP1, "CUsbOtg::ConstructL; Error %d: Unable to load driver: %S", iLastError, KUsbOtgLDDName );
+            User::Leave(iLastError);
+            }
 		}
-
-	LOGTEXT(_L8("About to open RUsbOtgDriver"));
+	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP3, "CUsbOtg::ConstructL; About to open RUsbOtgDriver" );
+	
 	iLastError = iOtgDriver.Open();
 	if ( (iLastError != KErrNone) && (iLastError != KErrAlreadyExists) )
 		{
-		LOGTEXT2(_L8("Error %d: Unable to open RUsbOtgDriver session"), iLastError);
-		LEAVEIFERRORL(iLastError);
+        if(iLastError < 0)
+            {
+            OstTrace1( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP4, "CUsbOtg::ConstructL; Error %d: Unable to open RUsbOtgDriver session", iLastError );
+            User::Leave(iLastError);
+            }	
 		}
 
-
-	LOGTEXT(_L8("About to start OTG stacks"));
+	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP2, "CUsbOtg::ConstructL; About to start OTG stacks" );
+	
 	iLastError = iOtgDriver.StartStacks();
 	if (iLastError != KErrNone)
 		{
-		LOGTEXT2(_L8("Error %d: Unable to open start OTG stacks"), iLastError);
-		LEAVEIFERRORL(iLastError);
+        if(iLastError < 0)
+            {
+            OstTrace1( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP5, "CUsbOtg::ConstructL; Error %d: Unable to open start OTG stacks", iLastError );
+            User::Leave(iLastError);
+            }
 		}
 
 	// Request Otg notifications
@@ -203,7 +234,9 @@ void CUsbOtg::ConstructL()
 	
 	iCriticalSection.CreateLocal(EOwnerProcess);
 	
-	LOGTEXT(_L8("UsbOtg::ConstructL() finished"));
+	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP6, "CUsbOtg::ConstructL; UsbOtg::ConstructL() finished" );
+	
+	OstTraceFunctionExit0( CUSBOTG_CONSTRUCTL_EXIT );
 	}
 	
 void CUsbOtg::NotifyMessage(TInt aMessage)
@@ -275,7 +308,9 @@ void CUsbOtg::NotifyOtgEvent()
 	TInt otgEvent = TranslateOtgEvent();
 	if ( otgEvent == KErrBadName )
 		{
-		LOGTEXT2(_L8("CUsbOtg::NotifyOtgEvent(): OTG event %d was reported, but not propagated"), (TInt) iOtgEvent);
+		OstTrace1( TRACE_NORMAL, CUSBOTG_NOTIFYOTGEVENT,
+		        "CUsbOtg::NotifyOtgEvent;OTG event %d was reported, but not propagated", (TInt)iOtgEvent );
+		
 		return;
 		}
 
@@ -293,9 +328,16 @@ void CUsbOtg::RegisterObserverL(MUsbOtgHostNotifyObserver& aObserver)
  * @param	aObserver	New Observer of the OTG events
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_REGISTEROBSERVERL_ENTRY );
 
-	LEAVEIFERRORL(iObservers.Append(&aObserver));
+    TInt err = iObservers.Append(&aObserver);
+    if(err < 0)
+        {
+        OstTrace1( TRACE_NORMAL, CUSBOTG_REGISTEROBSERVERL, "CUsbOtg::RegisterObserverL; iObservers.Append(&aObserver) error, Leave error=%d", err );
+        User::Leave(err);
+        }
+
+	OstTraceFunctionExit0( CUSBOTG_REGISTEROBSERVERL_EXIT );
 	}
 
 
@@ -306,7 +348,7 @@ void CUsbOtg::DeRegisterObserver(MUsbOtgHostNotifyObserver& aObserver)
  * @param	aObserver	The existing OTG events observer to be de-registered
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_DEREGISTEROBSERVER_ENTRY );
 
 	TInt index = iObservers.Find(&aObserver);
 
@@ -314,6 +356,7 @@ void CUsbOtg::DeRegisterObserver(MUsbOtgHostNotifyObserver& aObserver)
 		{
 		iObservers.Remove(index);
 		}
+	OstTraceFunctionExit0( CUSBOTG_DEREGISTEROBSERVER_EXIT );
 	}
 
 
@@ -323,10 +366,11 @@ void CUsbOtg::StartL()
  * Reports errors and OTG events via observer interface.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_STARTL_ENTRY );
 
 	iOtgWatcher = CUsbOtgWatcher::NewL(*this, iOtgDriver, iOtgMessage);
 	iOtgWatcher->Start();
+	OstTraceFunctionExit0( CUSBOTG_STARTL_EXIT );
 	}
 
 void CUsbOtg::Stop()
@@ -334,41 +378,44 @@ void CUsbOtg::Stop()
  * Stop the USB OTG events watcher
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_STOP_ENTRY );
 
-	LOGTEXT2(_L8("about to stop OTG watcher @ %08x"), (TUint32) iOtgWatcher);
+	OstTrace1( TRACE_NORMAL, CUSBOTG_STOP, "CUsbOtg::Stop;about to stop OTG watcher @ %08x", (TUint32)iOtgWatcher );
+	
 	
 	if (iOtgWatcher)
 		{
 		iOtgWatcher->Cancel();
 		delete iOtgWatcher;
 		iOtgWatcher = NULL;
-		LOGTEXT(_L8("deleted OTG watcher"));
+		OstTrace0( TRACE_NORMAL, CUSBOTG_STOP_DUP1, "CUsbOtg::Stop" );
+		
 		}
 	
 	iLastError = KErrNone;
+	OstTraceFunctionExit0( CUSBOTG_STOP_EXIT );
 	}
 
 TInt CUsbOtg::BusRequest()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_BUSREQUEST_ENTRY );
 	return iOtgDriver.BusRequest();
 	}
 	
 TInt CUsbOtg::BusRespondSrp()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_BUSRESPONDSRP_ENTRY );
 	return iOtgDriver.BusRespondSrp();
 	}
 
 TInt CUsbOtg::BusClearError()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_BUSCLEARERROR_ENTRY );
 	return iOtgDriver.BusClearError();
 	}
 
 TInt CUsbOtg::BusDrop()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CUSBOTG_BUSDROP_ENTRY );
 	return iOtgDriver.BusDrop();
 	}

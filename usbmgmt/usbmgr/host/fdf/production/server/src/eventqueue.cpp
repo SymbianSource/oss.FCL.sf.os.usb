@@ -15,33 +15,33 @@
 *
 */
 
-#include "eventqueue.h"
 #include <usb/usblogger.h>
+#include "eventqueue.h"
 #include "fdf.h"
 #include "fdfsession.h"
 #include "utils.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdf      ");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "eventqueueTraces.h"
 #endif
 
-#ifdef __FLOG_ACTIVE
+#ifdef _DEBUG
 #define LOG Log()
+_LIT(KPanicCategory, "eventqueue");
 #else
 #define LOG
 #endif
 
-#ifdef _DEBUG
-PANICCATEGORY("eventq");
-#endif
+
 
 class CFdfSession;
 
 CEventQueue* CEventQueue::NewL(CFdf& aFdf)
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+    OstTraceFunctionEntry0( CEVENTQUEUE_NEWL_ENTRY );
+    
 	CEventQueue* self = new(ELeave) CEventQueue(aFdf);
+	OstTraceFunctionExit0( CEVENTQUEUE_NEWL_EXIT );
 	return self;
 	}
 
@@ -49,12 +49,12 @@ CEventQueue::CEventQueue(CFdf& aFdf)
 :	iFdf(aFdf),
 	iDeviceEvents(_FOFF(TDeviceEvent, iLink))
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CEVENTQUEUE_CEVENTQUEUE_CONS_ENTRY );
 	}
 
 CEventQueue::~CEventQueue()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CEVENTQUEUE_CEVENTQUEUE_DES_ENTRY );
 
 	// There will be things left on the queue at this time if USBMAN shuts us
 	// down without having picked up everything that was on the queue.
@@ -66,14 +66,16 @@ CEventQueue::~CEventQueue()
 		{
 		delete event;
 		}
+	OstTraceFunctionExit0( CEVENTQUEUE_CEVENTQUEUE_DES_EXIT );
 	}
 
 // Increments the count of failed attachments.
 void CEventQueue::AttachmentFailure(TInt aError)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taError = %d"), aError);
-	LOG;
+	OstTraceFunctionEntry0( CEVENTQUEUE_ATTACHMENTFAILURE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CEVENTQUEUE_ATTACHMENTFAILURE, "\taError = %d", aError );
+	
+    LOG;
 
 	TUint index = 0;
 	switch ( aError )
@@ -114,7 +116,8 @@ void CEventQueue::AttachmentFailure(TInt aError)
 
 	default:
 		// we must deal with every error we are ever given
-		LOGTEXT2(_L8("\tFDF did not expect this error %d as a fail attachment"), aError);
+	    OstTrace1( TRACE_NORMAL, CEVENTQUEUE_ATTACHMENTFAILURE_DUP1, "\tFDF did not expect this error %d as a fail attachment", aError );
+	    
 		index = KAttachmentFailureGeneralError;
 		break;
 		}
@@ -122,20 +125,23 @@ void CEventQueue::AttachmentFailure(TInt aError)
 
 	PokeSession();
 	LOG;
+	OstTraceFunctionExit0( CEVENTQUEUE_ATTACHMENTFAILURE_EXIT );
 	}
 
 // Called to add an event to the tail of the queue.
 // Takes ownership of aEvent.
 void CEventQueue::AddDeviceEvent(TDeviceEvent& aEvent)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\t&aEvent = 0x%08x"), &aEvent);
+    OstTraceFunctionEntry0( CEVENTQUEUE_ADDDEVICEEVENT_ENTRY );
+
+	OstTrace1( TRACE_NORMAL, CEVENTQUEUE_ADDDEVICEEVENT, "\t&aEvent = 0x%08x", &aEvent );
 	LOG;
 
 	iDeviceEvents.AddLast(aEvent);
 
 	PokeSession();
 	LOG;
+	OstTraceFunctionExit0( CEVENTQUEUE_ADDDEVICEEVENT_EXIT );
 	}
 
 // Poke the session object (if it exists) to complete any outstanding event
@@ -143,8 +149,7 @@ void CEventQueue::AddDeviceEvent(TDeviceEvent& aEvent)
 // It only makes sense to call this function if there's some event to give up.
 void CEventQueue::PokeSession()
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CEVENTQUEUE_POKESESSION_ENTRY );
 	// If the session exists, and has a notification outstanding, give them
 	// the head event.
 	CFdfSession* sess = iFdf.Session();
@@ -167,6 +172,7 @@ void CEventQueue::PokeSession()
 				}
 			}
 		}
+	OstTraceFunctionExit0( CEVENTQUEUE_POKESESSION_EXIT );
 	}
 
 // This is called to get a device event. Attachment failures are given up
@@ -175,7 +181,7 @@ void CEventQueue::PokeSession()
 // in aEvent.
 TBool CEventQueue::GetDeviceEvent(TDeviceEvent& aEvent)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CEVENTQUEUE_GETDEVICEEVENT_ENTRY );
 	LOG;
 
 	TBool ret = EFalse;
@@ -230,13 +236,13 @@ TBool CEventQueue::GetDeviceEvent(TDeviceEvent& aEvent)
 			case KNumberOfAttachmentFailureTypes:
 			default:
 				// this switch should deal with every error type we store
-				ASSERT_DEBUG(0);
-
+			    OstTrace0( TRACE_FATAL, CEVENTQUEUE_GETDEVICEEVENT, "Empty handler" );
+			    __ASSERT_DEBUG(EFalse, User::Panic(KPanicCategory,__LINE__));
 				}
 
 			ret = ETrue;
 			aEvent.iInfo.iEventType = EDeviceAttachment;
-			LOGTEXT2(_L8("\treturning attachment failure event (code %d)"), aEvent.iInfo.iError);
+			OstTrace1( TRACE_NORMAL, CEVENTQUEUE_GETDEVICEEVENT_DUP1, "\treturning attachment failure event (code %d)", aEvent.iInfo.iError );
 			// Only give the client one error at a time.
 			break;
 			}
@@ -245,7 +251,7 @@ TBool CEventQueue::GetDeviceEvent(TDeviceEvent& aEvent)
 	if ( !ret && !iDeviceEvents.IsEmpty() )
 		{
 		TDeviceEvent* const event = iDeviceEvents.First();
-		LOGTEXT2(_L8("\tevent = 0x%08x"), event);
+		OstTrace1( TRACE_NORMAL, CEVENTQUEUE_GETDEVICEEVENT_DUP2, "\tevent = 0x%08x", event );
 		iDeviceEvents.Remove(*event);
 		(void)Mem::Copy(&aEvent, event, sizeof(TDeviceEvent));
 		delete event;
@@ -253,14 +259,15 @@ TBool CEventQueue::GetDeviceEvent(TDeviceEvent& aEvent)
 		}
 
 	LOG;
-	LOGTEXT2(_L8("\treturning %d"), ret);
+	OstTrace1( TRACE_NORMAL, CEVENTQUEUE_GETDEVICEEVENT_DUP3, "\treturning %d", ret );
+	OstTraceFunctionExit0( CEVENTQUEUE_GETDEVICEEVENT_EXIT );
 	return ret;
 	}
 
 TBool CEventQueue::GetDevmonEvent(TInt& aEvent)
 	{
-	LOG_FUNC
-	LOG;
+    OstTraceFunctionEntry0( CEVENTQUEUE_GETDEVMONEVENT_ENTRY );
+    LOG;
 
 	TBool ret = EFalse;
 
@@ -294,8 +301,8 @@ TBool CEventQueue::GetDevmonEvent(TInt& aEvent)
 			
 			case KNumberOfDevmonEventTypes:
 			default:
-				LOGTEXT2(_L8("\tUnexpected devmon error, not handled properly %d"), ii);
-				ASSERT_DEBUG(0);
+			    OstTrace1( TRACE_FATAL, CEVENTQUEUE_GETDEVMONEVENT, "\tUnexpected devmon error, not handled properly %d", ii );
+			    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
 				aEvent = KErrUsbDeviceRejected;
 				// this switch should deal with every error type we store
 				}
@@ -307,16 +314,17 @@ TBool CEventQueue::GetDevmonEvent(TInt& aEvent)
 		}
 
 	LOG;
-	LOGTEXT2(_L8("\treturning %d"), ret);
+	OstTrace1( TRACE_NORMAL, CEVENTQUEUE_GETDEVMONEVENT_DUP1, "\treturning %d", ret );
+	OstTraceFunctionExit0( CEVENTQUEUE_GETDEVMONEVENT_EXIT );
 	return ret;
 	}
 
 void CEventQueue::AddDevmonEvent(TInt aEvent)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taEvent = %d"), aEvent);
-
-	// Increment the relevant count.
+    OstTraceFunctionEntry0( CEVENTQUEUE_ADDDEVMONEVENT_ENTRY );
+    OstTrace1( TRACE_NORMAL, CEVENTQUEUE_ADDDEVMONEVENT, "\taEvent = %d", aEvent );
+ 
+    // Increment the relevant count.
 	TInt index = 0;
 	switch ( aEvent )
 		{
@@ -341,30 +349,35 @@ void CEventQueue::AddDevmonEvent(TInt aEvent)
 			break;			
 
 		default:
-			LOGTEXT2(_L8("\tUnexpected devmon error, not handled properly %d"), aEvent);
-			ASSERT_DEBUG(0);
-			// this switch should deal with every type of event we ever receive from devmon
-			}
+		    
+		    OstTrace1( TRACE_FATAL, CEVENTQUEUE_ADDDEVMONEVENT_DUP1, "Unexpected devmon error, not handled properly %d", aEvent );
+		    // this switch should deal with every type of event we ever receive from devmon
+		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+            }
 
 	TUint& eventCount = iDevmonEventCount[index];
-	ASSERT_DEBUG(eventCount < KMaxTUint);
+	if(!(eventCount < KMaxTUint))
+	    {
+        OstTrace1( TRACE_FATAL, CEVENTQUEUE_ADDDEVMONEVENT_DUP2, "eventCount is too big;eventCount=%d", eventCount );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 	++eventCount;
 	PokeSession();
+	OstTraceFunctionExit0( CEVENTQUEUE_ADDDEVMONEVENT_EXIT );
 	}
 
-#ifdef __FLOG_ACTIVE
-
+#ifdef _DEBUG
 void CEventQueue::Log()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CEVENTQUEUE_LOG_ENTRY );
 
 	for ( TUint ii = 0 ; ii < KNumberOfAttachmentFailureTypes ; ++ii )
 		{
 		const TInt& errorCount = iAttachmentFailureCount[ii];
 		if ( errorCount )
 			{
-			LOGTEXT3(_L8("\tNumber of attachment failures of type %d is %d"), ii, errorCount);
-			}
+            OstTraceExt2( TRACE_DUMP, CEVENTQUEUE_LOG, "Number of attachment failures of type %d is %d", ii, errorCount );
+            }
 		}
 
 	for ( TUint ii = 0 ; ii < KNumberOfDevmonEventTypes ; ++ii )
@@ -372,7 +385,7 @@ void CEventQueue::Log()
 		const TInt& eventCount = iDevmonEventCount[ii];
 		if ( eventCount )
 			{
-			LOGTEXT3(_L8("\tNumber of devmon events of type %d is %d"), ii, eventCount);
+            OstTraceExt2( TRACE_DUMP, CEVENTQUEUE_LOG_DUP1, "Number of devmon events of type %d is %d", ii, eventCount );
 			}
 		}
 
@@ -382,11 +395,12 @@ void CEventQueue::Log()
 	TDeviceEvent* event;
 	while ( ( event = iter++ ) != NULL )
 		{
-		LOGTEXT2(_L8("\tLogging event at position %d"), pos);
-		event->Log();
+		OstTrace1( TRACE_DUMP, DUP1_CEVENTQUEUE_LOG_DUP2, "Logging event at position %d", pos );
+		
+        event->Log();
 		++pos;
 		}
+	OstTraceFunctionExit0( CEVENTQUEUE_LOG_EXIT );
 	}
-
-#endif // __FLOG_ACTIVE
+#endif
 

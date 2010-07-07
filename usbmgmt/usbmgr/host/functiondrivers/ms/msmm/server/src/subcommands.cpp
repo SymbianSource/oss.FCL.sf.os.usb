@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -30,10 +30,11 @@
 #include <usb/hostms/srverr.h>
 
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "subcommandsTraces.h"
 #endif
+
 
 /**
  *  TRegisterInterface member functions
@@ -43,12 +44,12 @@ TSubCommandBase(aParam),
 iDeviceNode(NULL),
 iInterfaceNode(NULL)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREGISTERINTERFACE_TREGISTERINTERFACE_CONS_ENTRY );
     }
 
 void TRegisterInterface::DoExecuteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREGISTERINTERFACE_DOEXECUTEL_ENTRY );
       
     // Add new interface node into data engine
     iInterfaceNode = iServer.Engine().AddUsbMsInterfaceL(iEvent.iDeviceId, 
@@ -74,26 +75,32 @@ void TRegisterInterface::DoExecuteL()
     iMsConfig.iRemoteWakeup = device.iRemoteWakeup;
     iMsConfig.iIsOtgClient = device.iIsOtgClient;
 
-    LOGTEXT2(_L8("\t iMsConfig.iProtocolId %d"), iMsConfig.iProtocolId);
-    LOGTEXT2(_L8("\t iMsConfig.iTransportId %d"), iMsConfig.iTransportId);
-    LOGTEXT2(_L8("\t iMsConfig.iRemoteWakeup %d"), iMsConfig.iRemoteWakeup);
-    LOGTEXT2(_L8("\t iMsConfig.iIsOtgClient %d"), iMsConfig.iIsOtgClient);
-
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL, 
+            "iMsConfig.iProtocolId %d", iMsConfig.iProtocolId );
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL_DUP1, 
+            "iMsConfig.iTransportId %d", iMsConfig.iTransportId );
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL_DUP2, 
+            "iMsConfig.iRemoteWakeup %d", iMsConfig.iRemoteWakeup );
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL_DUP3, 
+            "iMsConfig.iIsOtgClient %d", iMsConfig.iIsOtgClient );
+            
     TSuspensionPolicy suspensionPolicy;
     iServer.PolicyPlugin()->GetSuspensionPolicy(suspensionPolicy);
     iMsConfig.iOtgSuspendTime = suspensionPolicy.iOtgSuspendTime;
     iMsConfig.iStatusPollingInterval = suspensionPolicy.iStatusPollingInterval;
-
-    LOGTEXT2(_L8("\t iMsConfig.iStatusPollingInterval %d"), iMsConfig.iStatusPollingInterval);
-    LOGTEXT2(_L8("\t iMsConfig.iOtgSuspendTime %d"), iMsConfig.iOtgSuspendTime);
-
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL_DUP4, 
+            "iMsConfig.iStatusPollingInterval %d", iMsConfig.iStatusPollingInterval );
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOEXECUTEL_DUP5, 
+            "iMsConfig.iOtgSuspendTime %d", iMsConfig.iOtgSuspendTime );
+ 
     iHandler.Start();
     iInterfaceNode->iUsbMsDevice.Add(iMsConfig, iHandler.Status());
+    OstTraceFunctionExit0( TREGISTERINTERFACE_DOEXECUTEL_EXIT );
     }
 
 void TRegisterInterface::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREGISTERINTERFACE_HANDLEERROR_ENTRY );
     
     switch (aError)
         {
@@ -120,11 +127,12 @@ void TRegisterInterface::HandleError(THostMsErrData& aData, TInt aError)
         iServer.Engine().RemoveUsbMsNode(iInterfaceNode);
         iInterfaceNode = NULL;
         }
+    OstTraceFunctionExit0( TREGISTERINTERFACE_HANDLEERROR_EXIT );
     }
 
 void TRegisterInterface::DoAsyncCmdCompleteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREGISTERINTERFACE_DOASYNCCMDCOMPLETEL_ENTRY );
     
     User::LeaveIfError(iHandler.Status().Int());
     if(iInterfaceNode)
@@ -133,14 +141,16 @@ void TRegisterInterface::DoAsyncCmdCompleteL()
                 iInterfaceNode->iUsbMsDevice.GetNumLun(iMaxLogicalUnit));
         }
 
-    LOGTEXT2(_L8("\tGetNumLun %d"), iMaxLogicalUnit);
+    OstTrace1( TRACE_NORMAL, TREGISTERINTERFACE_DOASYNCCMDCOMPLETEL, 
+            "GetNumLun %d", iMaxLogicalUnit );
     
     iCreator.CreateSubCmdForRetrieveDriveLetterL(iMaxLogicalUnit);
+    OstTraceFunctionExit0( TREGISTERINTERFACE_DOASYNCCMDCOMPLETEL_EXIT );
     }
 
 void TRegisterInterface::DoCancelAsyncCmd()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREGISTERINTERFACE_DOCANCELASYNCCMD_ENTRY );
 
     if(iInterfaceNode)
         {
@@ -148,6 +158,7 @@ void TRegisterInterface::DoCancelAsyncCmd()
         iServer.Engine().RemoveUsbMsNode(iInterfaceNode);
         iInterfaceNode = NULL;
         }
+    OstTraceFunctionExit0( TREGISTERINTERFACE_DOCANCELASYNCCMD_EXIT );
     }
 
 /**
@@ -160,12 +171,12 @@ TSubCommandBase(aParameter),
 iLuNumber(aLuNumber),
 iDrive(0)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TRETRIEVEDRIVELETTER_TRETRIEVEDRIVELETTER_CONS_ENTRY );
     }
 
 void TRetrieveDriveLetter::DoExecuteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TRETRIEVEDRIVELETTER_DOEXECUTEL_ENTRY );
         
     TUsbMsDevice* deviceEntry(NULL);
     deviceEntry = iServer.Engine().SearchDevice(iEvent.iDeviceId);
@@ -194,11 +205,12 @@ void TRetrieveDriveLetter::DoExecuteL()
         iServer.PolicyPlugin()->RetrieveDriveLetterL(
                 iDrive, iRequestData, status);
         }
+    OstTraceFunctionExit0( TRETRIEVEDRIVELETTER_DOEXECUTEL_EXIT );
     }
 
 void TRetrieveDriveLetter::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TRETRIEVEDRIVELETTER_HANDLEERROR_ENTRY );
     
     switch (aError)
         {
@@ -218,22 +230,25 @@ void TRetrieveDriveLetter::HandleError(THostMsErrData& aData, TInt aError)
     aData.iManufacturerString = iRequestData.iManufacturerString;
     aData.iProductString = iRequestData.iProductString;
     aData.iDriveName = iDrive;
+    OstTraceFunctionExit0( TRETRIEVEDRIVELETTER_HANDLEERROR_EXIT );
     }
 
 void TRetrieveDriveLetter::DoAsyncCmdCompleteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TRETRIEVEDRIVELETTER_DOASYNCCMDCOMPLETEL_ENTRY );
     
     User::LeaveIfError(iHandler.Status().Int());
     
     iCreator.CreateSubCmdForMountingLogicalUnitL(iDrive, iLuNumber);
+    OstTraceFunctionExit0( TRETRIEVEDRIVELETTER_DOASYNCCMDCOMPLETEL_EXIT );
     }
 
 void TRetrieveDriveLetter::DoCancelAsyncCmd()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TRETRIEVEDRIVELETTER_DOCANCELASYNCCMD_ENTRY );
     
     iServer.PolicyPlugin()->CancelRetrieveDriveLetter();
+    OstTraceFunctionExit0( TRETRIEVEDRIVELETTER_DOCANCELASYNCCMD_EXIT );
     }
 
 /**
@@ -246,14 +261,16 @@ TSubCommandBase(aParameter),
 iDrive(aDrive),
 iLuNumber(aLuNumber)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_TMOUNTLOGICALUNIT_CONS_ENTRY );
     
     iIsKeyCommand = EFalse;
+    OstTraceFunctionExit0( TMOUNTLOGICALUNIT_TMOUNTLOGICALUNIT_CONS_EXIT );
     }
 
 void TMountLogicalUnit::DoExecuteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_DOEXECUTEL_ENTRY );
+    
     TInt ret(KErrNone);
     RFs& fs = iServer.FileServerSession();
     
@@ -277,16 +294,18 @@ void TMountLogicalUnit::DoExecuteL()
     if ((KErrNone != ret) && (KErrAlreadyExists != ret)
             && (KErrNotReady != ret))
         {
-        User::Leave (ret);
+        if (KErrAbort != ret)
+            User::Leave (ret);
         }
 
     iHandler.Start();
     iHandler.Complete();
+    OstTraceFunctionExit0( TMOUNTLOGICALUNIT_DOEXECUTEL_EXIT );
     }
 
 void TMountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_HANDLEERROR_ENTRY );
     
     switch (aError)
         {
@@ -336,16 +355,18 @@ void TMountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
         aData.iProductString.Copy(deviceNode->iDevice.iProductString);
         }
     aData.iDriveName = iDrive;
+    OstTraceFunctionExit0( TMOUNTLOGICALUNIT_HANDLEERROR_EXIT );
     }
 
 void TMountLogicalUnit::DoAsyncCmdCompleteL()
     {
-    LOG_FUNC
-   
+    OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_DOASYNCCMDCOMPLETEL_ENTRY );
+    
     iServer.Engine().AddUsbMsLogicalUnitL(
             iEvent.iDeviceId, iEvent.iInterfaceNumber, 
             iLuNumber, iDrive);
     iCreator.CreateSubCmdForSaveLatestMountInfoL(iDrive, iLuNumber);
+    OstTraceFunctionExit0( TMOUNTLOGICALUNIT_DOASYNCCMDCOMPLETEL_EXIT );
     }
 
 /**
@@ -359,15 +380,16 @@ TSubCommandBase(aParameter),
 iDrive(aDrive),
 iLuNumber(aLuNumber)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSAVELATESTMOUNTINFO_TSAVELATESTMOUNTINFO_CONS_ENTRY );
     
     iIsKeyCommand = EFalse;
+    OstTraceFunctionExit0( TSAVELATESTMOUNTINFO_TSAVELATESTMOUNTINFO_CONS_EXIT );
     }
 
 void TSaveLatestMountInfo::DoExecuteL()
     {
-    LOG_FUNC
-        
+    OstTraceFunctionEntry0( TSAVELATESTMOUNTINFO_DOEXECUTEL_ENTRY );
+    
     TUsbMsDevice* deviceEntry(NULL);
     deviceEntry = iServer.Engine().SearchDevice(iEvent.iDeviceId);
     if (!deviceEntry)
@@ -398,18 +420,21 @@ void TSaveLatestMountInfo::DoExecuteL()
         
         iServer.PolicyPlugin()->SaveLatestMountInfoL(iRecord, status);
         }
+    OstTraceFunctionExit0( TSAVELATESTMOUNTINFO_DOEXECUTEL_EXIT );
     }
 
 void TSaveLatestMountInfo::DoAsyncCmdCompleteL()
     {
-    LOG_FUNC    
+    OstTraceFunctionEntry0( TSAVELATESTMOUNTINFO_DOASYNCCMDCOMPLETEL_ENTRY );
+        
     User::LeaveIfError(iHandler.Status().Int());
+    OstTraceFunctionExit0( TSAVELATESTMOUNTINFO_DOASYNCCMDCOMPLETEL_EXIT );
     }
 
 void TSaveLatestMountInfo::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
-        
+    OstTraceFunctionEntry0( TSAVELATESTMOUNTINFO_HANDLEERROR_ENTRY );
+    
     switch (aError)
         {
     case KErrNoMemory:
@@ -425,13 +450,15 @@ void TSaveLatestMountInfo::HandleError(THostMsErrData& aData, TInt aError)
     aData.iManufacturerString = iRecord.iLogicUnit.iManufacturerString;
     aData.iProductString = iRecord.iLogicUnit.iProductString;
     aData.iDriveName = iDrive;
+    OstTraceFunctionExit0( TSAVELATESTMOUNTINFO_HANDLEERROR_EXIT );
     }
 
 void TSaveLatestMountInfo::DoCancelAsyncCmd()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TSAVELATESTMOUNTINFO_DOCANCELASYNCCMD_ENTRY );
     
     iServer.PolicyPlugin()->CancelSaveLatestMountInfo();
+    OstTraceFunctionExit0( TSAVELATESTMOUNTINFO_DOCANCELASYNCCMD_EXIT );
     }
 
 
@@ -448,13 +475,13 @@ iInterfaceToken(aInterfaceToken),
 iDeviceNode(NULL),
 iInterfaceNode(NULL)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_TDEREGISTERINTERFACE_CONS_ENTRY );
     }
 
 void TDeregisterInterface::DoExecuteL()
     {
-    LOG_FUNC
-   
+    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_DOEXECUTEL_ENTRY );
+    
     iDeviceNode = iServer.Engine().SearchDevice(iEvent.iDeviceId);
     if (!iDeviceNode)
         {
@@ -483,12 +510,13 @@ void TDeregisterInterface::DoExecuteL()
     iHandler.Start();
     // Simulate a async request be completed.
     iHandler.Complete();
+    OstTraceFunctionExit0( TDEREGISTERINTERFACE_DOEXECUTEL_EXIT );
     }
 
 void TDeregisterInterface::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
-     
+    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_HANDLEERROR_ENTRY );
+    
     switch (aError)
         {
     case KErrNoMemory:
@@ -507,6 +535,7 @@ void TDeregisterInterface::HandleError(THostMsErrData& aData, TInt aError)
         aData.iProductString.Copy(iDeviceNode->iDevice.iProductString);
         }
     aData.iDriveName = 0;
+    OstTraceFunctionExit0( TDEREGISTERINTERFACE_HANDLEERROR_EXIT );
     }
 
 /**
@@ -519,12 +548,13 @@ TDismountLogicalUnit::TDismountLogicalUnit(
 TSubCommandBase(aParameter),
 iLogicalUnit(aLogicalUnit)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_TDISMOUNTLOGICALUNIT_CONS_ENTRY );
     }
 
 void TDismountLogicalUnit::DoExecuteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_DOEXECUTEL_ENTRY );
+    
     RFs& fs = iServer.FileServerSession();
     TInt driveNum;
     fs.CharToDrive(iLogicalUnit.iDrive, driveNum);
@@ -541,11 +571,12 @@ void TDismountLogicalUnit::DoExecuteL()
     iHandler.Start();
     // Simulate a async request be completed.
     iHandler.Complete();
+    OstTraceFunctionExit0( TDISMOUNTLOGICALUNIT_DOEXECUTEL_EXIT );
     }
 
 void TDismountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_HANDLEERROR_ENTRY );
     
     switch (aError)
         {
@@ -566,6 +597,7 @@ void TDismountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
         aData.iProductString.Copy(deviceNode->iDevice.iProductString);
         }
     aData.iDriveName = iLogicalUnit.iDrive;
+    OstTraceFunctionExit0( TDISMOUNTLOGICALUNIT_HANDLEERROR_EXIT );
     }
 
 /**
@@ -578,12 +610,13 @@ TRemoveUsbMsDeviceNode::TRemoveUsbMsDeviceNode(
 TSubCommandBase(aParameter),
 iNodeToBeRemoved(aNodeToBeRemoved)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_TREMOVEUSBMSDEVICENODE_CONS_ENTRY );
     }
 
 void TRemoveUsbMsDeviceNode::DoExecuteL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_DOEXECUTEL_ENTRY );
+    
     if(iNodeToBeRemoved)
         {
         iServer.Engine().RemoveUsbMsNode(iNodeToBeRemoved);
@@ -598,11 +631,13 @@ void TRemoveUsbMsDeviceNode::DoExecuteL()
     iHandler.Start();
     // Simulate a async request be completed.
     iHandler.Complete();
+    OstTraceFunctionExit0( TREMOVEUSBMSDEVICENODE_DOEXECUTEL_EXIT );
     }
 
 void TRemoveUsbMsDeviceNode::HandleError(THostMsErrData& aData, TInt aError)
     {
-    LOG_FUNC  
+      OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_HANDLEERROR_ENTRY );
+      
     switch (aError)
         {
     case KErrArgument:
@@ -619,6 +654,7 @@ void TRemoveUsbMsDeviceNode::HandleError(THostMsErrData& aData, TInt aError)
         aData.iProductString.Copy(deviceNode->iDevice.iProductString);
         }
     aData.iDriveName = 0;
+    OstTraceFunctionExit0( TREMOVEUSBMSDEVICENODE_HANDLEERROR_EXIT );
     }
 
 // End of file

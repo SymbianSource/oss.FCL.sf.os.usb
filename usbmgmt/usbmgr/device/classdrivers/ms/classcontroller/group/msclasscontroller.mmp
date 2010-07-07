@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2004-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2004-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -28,13 +28,15 @@ targettype		plugin
 uid			0x10009d8d 0x10204bbb
 
 
-userinclude		../inc
-
-OS_LAYER_SYSTEMINCLUDE_SYMBIAN
-
 sourcepath		../src
 source			CUsbMsClassController.cpp
 source			CUsbMsClassImpCollection.cpp
+
+USERINCLUDE			../inc
+USERINCLUDE			../traces
+
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
+
 
 start resource usbms.rss
 targetpath /private/10204bbb
@@ -49,7 +51,5 @@ library			euser.lib
 LIBRARY			usbclasscontroller.lib
 LIBRARY			efsrv.lib
 LIBRARY			bafl.lib
-
-#include <usb/usblogger.mmh>
 
 VENDORID 0x70000001

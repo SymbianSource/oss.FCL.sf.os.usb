@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -18,10 +18,12 @@
 #include "activewaitforbusevent.h"
 #include <usb/usblogger.h>
 #include "utils.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdf      ");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "activewaitforbuseventTraces.h"
 #endif
+
+
 
 
 CActiveWaitForBusEvent::CActiveWaitForBusEvent(RUsbHubDriver& aHubDriver,
@@ -32,16 +34,18 @@ CActiveWaitForBusEvent::CActiveWaitForBusEvent(RUsbHubDriver& aHubDriver,
 	iBusEvent(aBusEvent),
 	iObserver(aObserver)
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CACTIVEWAITFORBUSEVENT_CACTIVEWAITFORBUSEVENT_CONS_ENTRY );
+    
 	CActiveScheduler::Add(this);
+	OstTraceFunctionExit0( CACTIVEWAITFORBUSEVENT_CACTIVEWAITFORBUSEVENT_CONS_EXIT );
 	}
 
 CActiveWaitForBusEvent::~CActiveWaitForBusEvent()
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CACTIVEWAITFORBUSEVENT_CACTIVEWAITFORBUSEVENT_DES_ENTRY );
+    
 	Cancel();
+	OstTraceFunctionExit0( CACTIVEWAITFORBUSEVENT_CACTIVEWAITFORBUSEVENT_DES_EXIT );
 	}
 
 CActiveWaitForBusEvent* CActiveWaitForBusEvent::NewL(RUsbHubDriver& aHubDriver,
@@ -54,24 +58,26 @@ CActiveWaitForBusEvent* CActiveWaitForBusEvent::NewL(RUsbHubDriver& aHubDriver,
 
 void CActiveWaitForBusEvent::Wait()
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CACTIVEWAITFORBUSEVENT_WAIT_ENTRY );
+    
 	iHubDriver.WaitForBusEvent(iBusEvent, iStatus);
 	SetActive();
+	OstTraceFunctionExit0( CACTIVEWAITFORBUSEVENT_WAIT_EXIT );
 	}
 
 void CActiveWaitForBusEvent::RunL()
 	{
-	LOG_LINE
-	LOG_FUNC
-	LOGTEXT3(_L8("\tiStatus = %d , iBusEvent.iError=%d "), iStatus.Int(),iBusEvent.iError);
-
+	OstTraceFunctionEntry0( CACTIVEWAITFORBUSEVENT_RUNL_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACTIVEWAITFORBUSEVENT_RUNL, "\tiStatus = %d , iBusEvent.iError=%d ", iStatus.Int(),iBusEvent.iError );
+	
 	iObserver.MbeoBusEvent();
+	OstTraceFunctionExit0( CACTIVEWAITFORBUSEVENT_RUNL_EXIT );
 	}
 
 void CActiveWaitForBusEvent::DoCancel()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CACTIVEWAITFORBUSEVENT_DOCANCEL_ENTRY );
 
 	iHubDriver.CancelWaitForBusEvent();
+	OstTraceFunctionExit0( CACTIVEWAITFORBUSEVENT_DOCANCEL_EXIT );
 	}

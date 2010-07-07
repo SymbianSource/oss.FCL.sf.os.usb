@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -26,10 +26,12 @@
 #include <usbhost/internal/fdcpluginobserver.h>
 #include <d32usbdi.h>
 #include <d32usbdescriptors.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "MsFdc");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "msfdcTraces.h"
 #endif
+
+
 /**
   NewL function of CMsFdc, allocate the memory that needed for instantiating this object.
  
@@ -39,12 +41,13 @@ _LIT8(KLogComponent, "MsFdc");
  */
 CMsFdc* CMsFdc::NewL(MFdcPluginObserver& aObserver)
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CMSFDC_NEWL_ENTRY );
+	
 	CMsFdc* self = new(ELeave) CMsFdc(aObserver);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CMSFDC_NEWL_EXIT );
 	return self;
 	} 
 
@@ -53,13 +56,11 @@ CMsFdc* CMsFdc::NewL(MFdcPluginObserver& aObserver)
  */
 CMsFdc::~CMsFdc()
 	{
-	LOG_FUNC
-	
+	OstTraceFunctionEntry0( CMSFDC_CMSFDC_DES_ENTRY );
 	iMsmmSession.Disconnect();
-	LOGTEXT(_L("Disconnected to MSMM OK"));
-#ifdef __FLOG_ACTIVE
-	CUsbLog::Close();
-#endif
+	OstTrace0( TRACE_NORMAL, CMSFDC_CMSFDC, "Disconnected to MSMM OK" );
+
+	OstTraceFunctionExit0( CMSFDC_CMSFDC_DES_EXIT );
 	}
 /**
   Constructor of CMsFdc.
@@ -73,23 +74,22 @@ CMsFdc::CMsFdc(MFdcPluginObserver& aObserver)
  */
 void CMsFdc::ConstructL()
 	{
-
-#ifdef __FLOG_ACTIVE
-	CUsbLog::Connect();
-#endif
-	LOG_FUNC
+	OstTraceFunctionEntry0( CMSFDC_CONSTRUCTL_ENTRY );
 	
 	//Set up the connection with mount manager
 	TInt error = iMsmmSession.Connect();
 	if ( error )
 		{
-		LOGTEXT2(_L("Failed to connect to MSMM %d"),error);
-		User::Leave(error);
+        OstTrace1( TRACE_NORMAL, CMSFDC_CONSTRUCTL, 
+                "Failed to connect to MSMM %d",error );
+        User::Leave(error);
 		}
 	else
 		{
-		LOGTEXT(_L("Connected to MSMM OK"));
-		}
+        OstTrace0( TRACE_NORMAL, CMSFDC_CONSTRUCTL_DUP1, 
+                "Connected to MSMM OK" );
+ 		}
+	OstTraceFunctionExit0( CMSFDC_CONSTRUCTL_EXIT );
 	}
 /**
   Get called when FDF is trying to load the driver for Mass Storage Device. 
@@ -106,17 +106,23 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 		const TUsbDeviceDescriptor& aDeviceDescriptor,
 		const TUsbConfigurationDescriptor& aConfigurationDescriptor)
 	{
-	LOG_FUNC // this is the evidence that the message got through.
-	LOGTEXT2(_L8("\t***** Mass Storage FD notified of device (ID %d) attachment!"), aDeviceId);
-	
+	OstTraceFunctionEntry0( CMSFDC_MFI1NEWFUNCTION_ENTRY );
+	 
+	// this is the evidence that the message got through.
+	OstTrace1( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION, 
+	        "***** Mass Storage FD notified of device (ID %d) attachment!", aDeviceId );	
 
 	// Mass Storage FDC only claims one interface.
-	LOGTEXT2(_L8("\t***** Mass Storage FD interface to request token is %d"), aInterfaces[0]);
+	OstTrace1( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP1, 
+	            "***** Mass Storage FD interface to request token is %d", aInterfaces[0] );    
 	TUint32 token = Observer().TokenForInterface(aInterfaces[0]);
-	LOGTEXT2(_L8("\t***** Mass Storage FD tokenInterface  %d"), token);
+	OstTrace1( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP2, 
+	        "***** Mass Storage FD tokenInterface  %d", token );
 	if (token == 0)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC device containing this function is removed."));
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP3, 
+	            "***** Mass Storage FDC device containing this function is removed." );
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT );
 		return KErrGeneral;
 		}
 
@@ -126,7 +132,9 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 
 	if (error)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC getting language array failed"));
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP4, 
+	                "***** Mass Storage FDC getting language array failed" );
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP1 );
 		return error;
 		}
 	
@@ -134,7 +142,9 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 	TRAP(error, data = new (ELeave) TUSBMSDeviceDescription);
 	if (error)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC Memory allocation Failed"));		
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP5, 
+	                    "***** Mass Storage FDC Memory allocation Failed" );
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP2 );
 		return error;
 		}
 
@@ -144,27 +154,33 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 	
 	if (error)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC getting Serial Number failed"));
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP6, 
+                    "***** Mass Storage FDC getting Serial Number Failed" );
 		delete data;
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP3 );
 		return error;
 		}
 	else
 		{
-		LOGTEXT2(_L("\t***** Mass Storage FDC Serial String is %S"), &data->iSerialNumber);
-		}
+        OstTraceExt1( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP7, 
+	                    "***** Mass Storage FDC Serial String is %S", data->iSerialNumber );
+	    }
 	//Get Product string descriptor
 	error = Observer().GetProductStringDescriptor(aDeviceId, defaultlangid, data->iProductString);
 	
 
 	if (error)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC getting Product string failed"));
-		delete data;
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP8, 
+	                    "***** Mass Storage FDC getting Product string Failed" );
+	    delete data;
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP4 );
 		return error;
 		}
 	else
 		{
-		LOGTEXT2(_L("\t***** Mass Storage FDC Product String is %S"), &data->iProductString);
+        OstTraceExt1( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP9, 
+	                        "***** Mass Storage FDC Product String is %S", data->iProductString );
 		}
 
 	//Get Manufacturer string descriptor
@@ -173,14 +189,16 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 	
 	if (error)
 		{
-		LOGTEXT(_L8("\t***** Mass Storage FDC getting Manufacturer string failed"));
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP10, 
+                    "***** Mass Storage FDC getting Manufacturer string Failed" );
 		delete data;
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP5 );
 		return error;
 		}
 	else
 		{
-		LOGTEXT2(_L("\t***** Mass Storage FDC Manufacturer String is %S"), 
-				&data->iManufacturerString);		
+        OstTraceExt1( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP11, 
+	                            "***** Mass Storage FDC Manufacturer String is %S", data->iManufacturerString );
 		}	
 	
 	/************************Remote Wakeup Attribute acquiring***********************/
@@ -192,26 +210,32 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
     error = interface_ep0.Open(token);
     if (error)
     	{
-		LOGTEXT(_L8("\t***** Mass Storage FDC Open interface handle failed"));
-		delete data;
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP12, 
+                        "***** Mass Storage FDC Open interface handle Failed" );
+    	delete data;
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP6 );
 		return error;
     	}
     else
     	{
-		LOGTEXT(_L8("\t***** Mass Storage FDC Open interface handle OK"));
+        OstTrace0( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP13, 
+                         "***** Mass Storage FDC Open interface handle OK" );
     	}
 
     error = interface_ep0.GetInterfaceDescriptor(ifDescriptor);
     if (error)
     	{
-		LOGTEXT(_L8("\t***** Mass Storage FDC get interface descriptor failed"));
-		interface_ep0.Close();
+        OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP14, 
+                        "***** Mass Storage FDC get interface descriptor Failed" );
+ 		interface_ep0.Close();
 		delete data;
+		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP7 );
 		return error;
     	}
     else
     	{
-		LOGTEXT(_L8("\t***** Mass Storage FDC get interface descriptor OK"));
+        OstTrace0( TRACE_NORMAL, CMSFDC_MFI1NEWFUNCTION_DUP15, 
+                         "***** Mass Storage FDC get interface descriptor OK" );
     	}
 	
 	/*********************************************************************************/
@@ -239,6 +263,7 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 	
 	interface_ep0.Close();
 	delete data;
+	OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP8 );
 	return error;
 	}
 /**
@@ -248,10 +273,13 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
  */
 void CMsFdc::Mfi1DeviceDetached(TUint aDeviceId)
 	{
-	LOG_FUNC // this is the evidence that the message got through.
-	LOGTEXT2(_L8("\t***** Mass Storage FD notified of device (ID %d) detachment!"), aDeviceId);
+	OstTraceFunctionEntry0( CMSFDC_MFI1DEVICEDETACHED_ENTRY );
+    // this is the evidence that the message got through.
+	OstTrace1( TRACE_NORMAL, CMSFDC_MFI1DEVICEDETACHED, 
+	        "***** Mass Storage FD notified of device (ID %d) detachment!", aDeviceId );
 	iMsmmSession.RemoveDevice(aDeviceId);
 
+	OstTraceFunctionExit0( CMSFDC_MFI1DEVICEDETACHED_EXIT );
 	}
 
 /**
@@ -262,10 +290,9 @@ void CMsFdc::Mfi1DeviceDetached(TUint aDeviceId)
  */
 TAny* CMsFdc::GetInterface(TUid aUid)
 	{
-	LOG_LINE
-	LOG_FUNC;
-	LOGTEXT2(_L8("\taUid = 0x%08x"), aUid);
-
+	OstTraceFunctionEntry0( CMSFDC_GETINTERFACE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CMSFDC_GETINTERFACE, "aUid = 0x%08x", aUid.iUid );
+	
 	TAny* ret = NULL;
 	if ( aUid == TUid::Uid(KFdcInterfaceV1) )
 		{
@@ -273,8 +300,9 @@ TAny* CMsFdc::GetInterface(TUid aUid)
 			static_cast<MFdcInterfaceV1*>(this)
 			);
 		}
-
-	LOGTEXT2(_L8("\tret = [0x%08x]"), ret);
+	OstTrace1( TRACE_NORMAL, CMSFDC_GETINTERFACE_DUP1, 
+        "ret = [0x%08x]", ret );
+	OstTraceFunctionExit0( CMSFDC_GETINTERFACE_EXIT );
 	return ret;
 	}
 /**
