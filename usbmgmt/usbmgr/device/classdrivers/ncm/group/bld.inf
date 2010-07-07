@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,9 +15,14 @@
 *
 */
 
-#include "acm/bld.inf"
-#include "ms/bld.inf"
-#include "obex/bld.inf"
-#include "whcm/bld.inf"
-#include "ncm/group/bld.inf"
+#if !(defined(WINS) || defined(WINSCW))	
+#include "../classimplementation/group/bld.inf"
+#include "../classcontroller/group/bld.inf"
+#endif
 
+PRJ_EXPORTS
+../public/usbncm.h SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/usbncm.h)
+
+PRJ_MMPFILES
+
+PRJ_TESTMMPFILES

@@ -67,6 +67,8 @@ REM Feature USB is not included in this ROM (usbman.iby)
 
 #include <usbacm.iby>
 
+#include <usbncm.iby>
+
 #ifndef __OBEX_OVER_USB__
   #ifndef __TEST_USB_ZLP__
     #ifdef __EXAMPLE_OBEX_CC__

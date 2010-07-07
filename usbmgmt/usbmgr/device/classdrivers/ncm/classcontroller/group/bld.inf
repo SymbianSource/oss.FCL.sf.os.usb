@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -11,13 +11,17 @@
 *
 * Contributors:
 *
-* Description:
+* Description: 
 *
 */
 
-#include "acm/bld.inf"
-#include "ms/bld.inf"
-#include "obex/bld.inf"
-#include "whcm/bld.inf"
-#include "ncm/group/bld.inf"
+PRJ_PLATFORMS
+armv5
+
+PRJ_MMPFILES
+ncmclasscontroller.mmp
+
+PRJ_EXPORTS
+usbncmconfiguration.hby     /epoc32/rom/include/usbncmconfiguration.hby
+usbncm.iby                  /epoc32/rom/include/usbncm.iby
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,9 +15,16 @@
 *
 */
 
-#include "acm/bld.inf"
-#include "ms/bld.inf"
-#include "obex/bld.inf"
-#include "whcm/bld.inf"
-#include "ncm/group/bld.inf"
+/**
+@file
+@internalComponent
+*/
+#ifndef NCMDATARECEIVER_INL
+#define NCMDATARECEIVER_INL
 
+inline TUint CNcmDataReceiver::NtbOutMaxSize() const
+    {
+    return iNtbParser ? iNtbParser->NtbOutMaxSize() : 0xFFFF;
+    }
+
+#endif //NCMDATARECEIVER_INL
