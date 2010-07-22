@@ -119,17 +119,6 @@ TInt CommonStart()
 			   current_test_state = EUSBManConnected;
 			   break;
 		  case EUSBManConnected:
-			   // Register as primary client.
-			   // *** Obsolete ***
-			   /*
-			   r = usbman->RegisterAsPrimarySession();
-			   if (r != KErrNone)
-			   {
-					test.Printf(_L("    Failed to register as primary client. Error = %d\n"), r);
-					return r;
-			   }
-			   test.Printf(_L("    Registered as primary client.\n"));
-			   */
 			   current_test_state = EPrimaryRegistered;
 			   break;
 		  default:
@@ -162,8 +151,6 @@ TInt CommonCleanup()
 			   current_test_state = EPrimaryRegistered;
 			   break;
 		  case EPrimaryRegistered:
-			   // *** Obsolete ***
-			   // usbman->DeregisterAsPrimarySession();
 			   current_test_state = EUSBManConnected;
 			   break;
 		  case EUSBManConnected:
@@ -240,44 +227,6 @@ static TInt RunTest_B1()
 	}
 
 /**
- * Executes test B2 (as detailed in the USB Manager Test Specification).
- * No longer a relevant test.
- */
-/*static TInt RunTest_B2()
-	{
-	TInt r;
-
-	test.Next(_L("Test B2.\n"));
-
-	// Perform common startup
-	current_test_state = EStart;
-	r = CommonStart();
-	if (r != KErrNone)
-		 return r;
-
-	// Start the USB Manager
-	TRequestStatus status;
-	test.Printf(_L("Starting.\n"));
-	usbman->Start(status);
-
-	// Wait for specific time (has to be less than the time to process a start request)
-	timer.After(status, CANCEL_START_REQ_DELAY);
-	User::WaitForRequest(status);
-
-	// Cancel the start request
-	test.Printf(_L("Cancelling.\n"));
-	usbman->StartCancel();
-
-	// Check service status
-	test.Printf(_L("Checking service status.\n"));
-	r = CheckServiceState(EUsbServiceIdle);
-	if ( r != KErrNone)
-		 return r;
-
-	return KErrNone;
-	}
-*/
-/**
  * Executes test B3 (as detailed in the USB Manager Test Specification).
  */
 static TInt RunTest_B3()
@@ -313,47 +262,6 @@ static TInt RunTest_B3()
 	return KErrNone;
 	}
 
-/**
- * Executes test B4 (as detailed in the USB Manager Test Specification).
- * No longer a relevant test.
- */
-/*static TInt RunTest_B4()
-	{
-	TInt r;
-
-	test.Next(_L("Test B4.\n"));
-
-	// Perform common startup
-	current_test_state = EStart;
-	r = CommonStart();
-	if (r != KErrNone)
-		 return r;
-
-	// Start the USB Manager
-	TRequestStatus status, timerStatus;
-	usbman->Start(status);
-	User::WaitForRequest(status);
-	test.Printf(_L("Start completed with status %d\n"), status.Int());
-	current_test_state = EUSBManStarted;
-
-	// Stop the USB Manager
-	usbman->Stop(status);
-
-	// Wait for specific time (has to be less than the time to process a start request)
-	timer.After(timerStatus, CANCEL_STOP_REQ_DELAY);
-	User::WaitForRequest(status, timerStatus);
-
-	// Cancel the stop request
-	usbman->StopCancel();
-
-	// Check service status
-	r = CheckServiceState(EUsbServiceStarted);
-	if ( r != KErrNone)
-		 return r;
-
-	return KErrNone;
-	}
-*/
 /**
  * Executes test B5 (as detailed in the USB Manager Test Specification).
  */
@@ -507,16 +415,6 @@ void mainL()
 		test.Printf(_L("Test B1 passed.\n\n"));
 	CommonCleanup();
 
-/*	Depreciated test.
-	err=RunTest_B2();
-	if (err != KErrNone)
-	{
-		test.Printf(_L("Test B2 failed, code: %d\n\n"), err);
-	}
-	else
-		test.Printf(_L("Test B2 passed.\n\n"));
-	CommonCleanup();
-*/
 	err=RunTest_B3();
 	if (err != KErrNone)
 	{
@@ -526,16 +424,6 @@ void mainL()
 		test.Printf(_L("Test B3 passed.\n\n"));
 	CommonCleanup();
 
-/*	Depreciated test.
-	err=RunTest_B4();
-	if (err != KErrNone)
-	{
-		test.Printf(_L("Test B4 failed, code: %d\n\n"), err);
-	}
-	else
-		test.Printf(_L("Test B4 passed.\n\n"));
-	CommonCleanup();
-*/
 	err=RunTest_B5();
 	if (err != KErrNone)
 	{

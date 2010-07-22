@@ -56,8 +56,6 @@ private: // owned
 	CActivePropertyReadChargingCurrent* iActiveReadChargingCurrent;
 	CRepository* iRepository;
 	
-	//RProperty iPropertyWrittenToRepositoryAck;
-	//RProperty iPropertyReadChargingCurrentAck;
 	RProperty iProperty; // only one protected needed ?
 	
 	

@@ -205,11 +205,6 @@ LOCAL_C void ConfigString(TDes &aBuf, const TCommConfigV01 &aConfig, const SSett
 		aBuf.Append(_L("DSR/DTR "));
 	if (aConfig.iHandshake&KConfigWriteBufferedComplete)
 		aBuf.Append(_L("Early "));
-	//|KConfigObeyDCD|KConfigFailDCD|))
-
-
-//	if (aConfig.iBreak==TEiger::EBreakOn)
-//		aBuf.Append(_L("Brk "));
 	if (aConfig.iFifo==EFifoEnable)
 		aBuf.Append(_L("Fifo "));
 	
@@ -223,10 +218,6 @@ LOCAL_C void ConfigString(TDes &aBuf, const TCommConfigV01 &aConfig, const SSett
 		aBuf.Append(_L("LpBk"));
 	else if ((aSettings.iRxMode&~ECapture)==ECountChars)
 		aBuf.Append(_L("CtCh"));
-	//else if (aSettings.iRxMode==ERxOff)
-		//{
-		//aBuf.Append(_L("NoRx"));
-		//}
 	aBuf.Append(_L(" "));
 	aBuf.AppendNum((TInt)(RThread().Priority()));
 	if (aSettings.iInfraRed==1)
@@ -357,23 +348,6 @@ LOCAL_C void GetWaitMode(TBool &aWait, const TDesC &aDes)
 		aWait=ETrue;
 	}
 
-/*LOCAL_C void GetBreak(const TDesC &aDes)
-	{
-
-	if (aDes==_L(""))
-		{
-		if (data.iBreak==TEiger::EBreakOn)
-			data.iBreak=TEiger::EBreakOff;
-		else
-			data.iBreak=TEiger::EBreakOn;
-		}
-	if (aDes.FindF(_L("N"))>=0)
-		data.iBreak=TEiger::EBreakOn;
-	if (aDes.FindF(_L("F"))>=0)
-		data.iBreak=TEiger::EBreakOff;
-	SetConfig();
-	}
-*/
 LOCAL_C void GetFifo(TUint& aFifo, const TDesC &aDes)
 	{
 
@@ -468,8 +442,6 @@ LOCAL_C void GetDump(SSettings &aSettings, const TDesC &aDes)
 		TPtrC s(&a,1);
 		dialog.Write(s);
 		aSettings.iDumpData.Append(k.Code());
-		//if (a=='\r')
-		//	dialog.Write(_L("\n"));
 		} while (aSettings.iDumpData.Length()<KMaxDumpLength);
 
 	dialog.Destroy();
@@ -528,8 +500,6 @@ LOCAL_C void CommandWindow(TCommConfigV01 &aConfig, SSettings &aSettings)
 			GetStopBit(aConfig.iStopBits, right);
 		if (des[0]=='L')
 			GetLength(aConfig.iDataBits, right);
-//		if (des[0]=='K')
-//			GetBreak(aSettings.iBreak, right);
 		if (des[0]=='F')
 			GetFifo(aConfig.iFifo, right);
 		if (des[0]=='I')
@@ -747,7 +717,7 @@ GLDEF_C TInt E32Main()
 	TheWindow.Write(_L("Opened USB Comm Port\r\n"));
 
 	TheCommPort.Config(TheConfigBuf);	// get config
-	TheConfig.iHandshake=0; //KConfigObeyXoff|KConfigSendXoff;
+	TheConfig.iHandshake=0; 
 	TheCommPort.SetConfig(TheConfigBuf);
 	TheCommPort.SetReceiveBufferLength(8192);
 

@@ -42,7 +42,7 @@ private:
 inline TInt RDevUsbcClient::GetConfigurationDescriptor(TDes8& aConfigurationDescriptor)
 	{
 	// 8th byte is bMaxPower
-	aConfigurationDescriptor.Copy(iConfigDesc);//[8] = iConfigDesc[8];
+	aConfigurationDescriptor.Copy(iConfigDesc);
 	return KErrNone;
 	}
 

@@ -80,11 +80,6 @@ CUsbstub3ClassController::~CUsbstub3ClassController()
 	Cancel();
 
 	iTimer.Close();
-
-#ifndef __WINS__	
-//	iLdd.Close();
-#endif
-
 	}
 
 
@@ -255,7 +250,7 @@ TInt CUsbstub3ClassController::SetUpInterface()
  * endpoint and, if found, configuring the interface.
  */
 	{
-return 0;
+    return 0;
 	}
 
 	

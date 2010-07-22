@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -35,7 +35,11 @@ const TInt KUsbMaxSupportedClasses = 64;		// Max number of supported USB classes
 
 const TInt KUsbMaxSupportedPersonalities = 64;	// Max number of supported personalities
 
+#ifndef __OVER_DUMMYUSBDI__
 _LIT(KUsbServerName, "!usbman");
+#else
+_LIT(KUsbServerName, "!usbman_over_dummyusbdi");
+#endif
 
 enum TUsbMessages
 	{
@@ -81,7 +85,6 @@ enum TUsbMessages
 	EUsbGetOtgDescriptor,
 	EUsbDbgAlloc,
 	EUsbRequestSession,
-	EUsbGetDetailedDescription,
 	EUsbGetPersonalityProperty
 	};
 
