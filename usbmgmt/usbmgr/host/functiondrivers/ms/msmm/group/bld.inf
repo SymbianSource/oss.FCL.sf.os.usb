@@ -26,7 +26,6 @@ ARMV5 GCCXML
 #include "../client/group/bld.inf"
 #include "../server/group/bld.inf"
 #include "../referencepolicyplugin/group/bld.inf"
-#include "../refppnotifier/group/bld.inf"
 
 PRJ_EXPORTS
 usbhostmsmm.iby /epoc32/rom/include/usbhostmsmm.iby

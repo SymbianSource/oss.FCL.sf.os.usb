@@ -223,11 +223,11 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
     	}
 
     error = interface_ep0.GetInterfaceDescriptor(ifDescriptor);
+	interface_ep0.Close();
     if (error)
     	{
         OstTrace0( TRACE_ERROR, CMSFDC_MFI1NEWFUNCTION_DUP14, 
                         "***** Mass Storage FDC get interface descriptor Failed" );
- 		interface_ep0.Close();
 		delete data;
 		OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP7 );
 		return error;
@@ -261,7 +261,6 @@ TInt CMsFdc::Mfi1NewFunction(TUint aDeviceId,
 	
 	error = iMsmmSession.AddFunction(*data, aInterfaces[0], token);
 	
-	interface_ep0.Close();
 	delete data;
 	OstTraceFunctionExit0( CMSFDC_MFI1NEWFUNCTION_EXIT_DUP8 );
 	return error;

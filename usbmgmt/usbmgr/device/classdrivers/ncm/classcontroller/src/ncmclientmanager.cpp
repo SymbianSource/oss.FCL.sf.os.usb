@@ -184,16 +184,17 @@ void CNcmClientManager::SetCommunicationInterfaceL()
     User::LeaveIfError(iCommLdd.EndpointCaps(dataptr));
 
     TBool foundIntIN = EFalse;
+    const TUint KEndPointType = KUsbEpTypeInterrupt | KUsbEpDirIn;
     for (TInt i = 0; i < epNum; i++)
         {
-        const TUsbcEndpointCaps* caps = &data[i].iCaps;
-        if ((caps->iTypesAndDir & (KUsbEpTypeInterrupt | KUsbEpDirIn))
-                == (KUsbEpTypeInterrupt | KUsbEpDirIn))
+        const TUsbcEndpointData* epData = &data[i];
+        if ((!epData->iInUse) && // Not in use
+            ((epData->iCaps.iTypesAndDir & KEndPointType) == KEndPointType))
             {
             // EEndpoint1 is going to be our INTERRUPT (IN, write) endpoint
             ifc0().iEndpointData[0].iType = KUsbEpTypeInterrupt;
             ifc0().iEndpointData[0].iDir = KUsbEpDirIn;
-            ifc0().iEndpointData[0].iSize = caps->MinPacketSize();
+            ifc0().iEndpointData[0].iSize = epData->iCaps.MinPacketSize();
             ifc0().iEndpointData[0].iInterval = 0x01;
             ifc0().iEndpointData[0].iInterval_Hs = 0x01;
 
@@ -273,18 +274,27 @@ void CNcmClientManager::SetDataInterfaceL(TUint& aDataEpBufferSize)
     TBool foundBulkIN = EFalse;
     TBool foundBulkOUT = EFalse;
     TInt maxPacketSize = 0;
+    const TUint KEndPointBulkInType = KUsbEpTypeBulk | KUsbEpDirIn;
+    const TUint KEndPointBulkOutType = KUsbEpTypeBulk | KUsbEpDirOut;
     for (TInt i = 0; i < epNum; i++)
         {
-        const TUsbcEndpointCaps* caps = &data[i].iCaps;
-        maxPacketSize = caps->MaxPacketSize();
-        if (!foundBulkIN && (caps->iTypesAndDir & (KUsbEpTypeBulk
-                | KUsbEpDirIn)) == (KUsbEpTypeBulk | KUsbEpDirIn))
+        const TUsbcEndpointData* epData = &data[i];
+        
+        // Check if this endpoint is in use 
+        if (epData->iInUse)
+            {
+            continue;
+            }
+        
+        maxPacketSize = epData->iCaps.MaxPacketSize();
+        if (!foundBulkIN && 
+                ((epData->iCaps.iTypesAndDir & KEndPointBulkInType) == KEndPointBulkInType))
             {
             // EEndpoint1 is going to be our TX (IN, write) endpoint
             ifc1().iEndpointData[0].iType = KUsbEpTypeBulk;
             ifc1().iEndpointData[0].iDir = KUsbEpDirIn;
             ifc1().iEndpointData[0].iSize = maxPacketSize;
-            ifc1().iEndpointData[0].iInterval_Hs = 0x01;
+            ifc1().iEndpointData[0].iInterval_Hs = 0x0;
             ifc1().iEndpointData[0].iBufferSize = KMaxScBufferSize;
 
             if (isResourceAllocationV2)
@@ -301,14 +311,14 @@ void CNcmClientManager::SetDataInterfaceL(TUint& aDataEpBufferSize)
             continue;
             }
 
-        if (!foundBulkOUT && (caps->iTypesAndDir & (KUsbEpTypeBulk
-                | KUsbEpDirOut)) == (KUsbEpTypeBulk | KUsbEpDirOut))
+        if (!foundBulkOUT && 
+                ((epData->iCaps.iTypesAndDir & KEndPointBulkOutType) == KEndPointBulkOutType))
             {
             // EEndpoint2 is going to be our RX (OUT, read) endpoint
             ifc1().iEndpointData[1].iType = KUsbEpTypeBulk;
             ifc1().iEndpointData[1].iDir = KUsbEpDirOut;
             ifc1().iEndpointData[1].iSize = maxPacketSize;
-            ifc1().iEndpointData[1].iInterval_Hs = 0;
+            ifc1().iEndpointData[1].iInterval_Hs = 0x1;
             ifc1().iEndpointData[1].iBufferSize = KMaxScBufferSize;
             ifc1().iEndpointData[1].iReadSize = KMaxScReadSize;
 

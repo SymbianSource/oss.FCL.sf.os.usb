@@ -414,16 +414,15 @@ void CNcmConnectionManager::MdnoHandleDhcpNotification(TInt aError)
     aError = KErrNone;
 
     // Configuring DHCP server to assign the IP address to PC(host)
-    // Using static IP temporarily and will swithch to use DHCP server to do provision.
-//    TRequestStatus stat;
-//    OstTrace0(TRACE_NORMAL, CNCMCONNECTIONMANAGER_MDNOHANDLEDHCPNOTIFICATION_CALL_IOCTL, "About to call to Ioctl()");
-//    
-//    TNcmMacAddress macAddr = iHostMacAddress;
-//    iConnection.Ioctl(KCOLConfiguration, KConnDhcpSetHwAddressParams, stat,
-//            &macAddr);
-//    User::WaitForRequest(stat);
-//    aError = stat.Int();
-//    OstTrace1( TRACE_NORMAL, CNCMCONNECTIONMANAGER_MDNOHANDLEDHCPNOTIFICATION_RETURN_IOCTL, "Return from Ioctl:;aError=%d", aError );
+    TRequestStatus stat;
+    OstTrace0(TRACE_NORMAL, CNCMCONNECTIONMANAGER_MDNOHANDLEDHCPNOTIFICATION_CALL_IOCTL, "About to call to Ioctl()");
+    
+    TNcmMacAddress macAddr = iHostMacAddress;
+    iConnection.Ioctl(KCOLConfiguration, KConnDhcpSetHwAddressParams, stat,
+            &macAddr);
+    User::WaitForRequest(stat);
+    aError = stat.Int();
+    OstTrace1( TRACE_NORMAL, CNCMCONNECTIONMANAGER_MDNOHANDLEDHCPNOTIFICATION_RETURN_IOCTL, "Return from Ioctl:aError=%d", aError );
     
     if (KErrNone == aError)
         {
