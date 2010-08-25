@@ -20,6 +20,7 @@ PRJ_EXPORTS
 10208DD7.txt				/epoc32/data/z/private/10202be9/10208dd7.txt
 10208DD7.txt				/epoc32/release/winscw/udeb/z/private/10202be9/10208dd7.txt
 10208DD7.txt				/epoc32/release/winscw/urel/z/private/10202be9/10208dd7.txt
+../public/usbchargingpublishedinfo.h                 SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(/)
 
 // ConfML Files
 ../conf/usbmanager_10208dd7.crml	       OS_LAYER_EXPORTS_CRML(usbmanager_10208dd7.crml)

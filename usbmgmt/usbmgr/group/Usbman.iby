@@ -140,22 +140,6 @@ file=ABI_DIR\USB_DIR\usbmsexampleapp.exe		usbmsexampleapp.exe
 // *** only.
 // USB_PLUGIN(Obexclasscontroller.dll,101fbf27.rsc)
 
-#ifdef SYMBIAN_INCLUDE_USB_RNDIS
-// *** RNDIS Class Controller.
-
-#include <ether802.iby>
-
-USB_PLUGIN(rndisclasscontroller.dll, rndisclasscontroller.rsc)
-USB_PLUGIN(rndisproviders.dll, rndisproviders.rsc)
-
-// RNDIS IAP ID Backup registration file
-data=ZPRIVATE\101fe1db\backup_registration_rndis.xml  private\101fe1db\backup_registration_rndis.xml
-
-file=ABI_DIR\USB_DIR\rndispkt.drv        System\Libs\rndispkt.drv
-file=ABI_DIR\USB_DIR\rndismessages.dll	 System\Libs\rndismessages.dll
-file=ABI_DIR\USB_DIR\rndisagt.agt	 System\Libs\rndisagt.agt
-#endif  // SYMBIAN_INCLUDE_USB_RNDIS
-
 #endif // !defined(__USB) || !defined(EUSBC)
 
 #endif // __USBMAN_IBY__
