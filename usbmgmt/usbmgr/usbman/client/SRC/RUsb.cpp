@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -19,15 +19,18 @@
 #include <usbman.h>
 #include <usb.h>
 #include <e32base.h>
-#include "rusb.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBMAN");
-#endif
 
 #ifdef __USBMAN_NO_PROCESSES__
 #include <e32math.h>
+#endif
+
+#include <usb/usblogger.h>
+
+#include "rusb.h"
+
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "RUsbTraces.h"
 #endif
 
 
@@ -109,7 +112,8 @@ static TInt StartServer()
 
 	server.Close();
 	
-	LOGTEXT2(_L8("USB server started successfully: err = %d\n"),err);
+	OstTrace1( TRACE_NORMAL, RUSB_STARTSERVER, "::StartServer;USB server started successfully: err=%d", err );
+	
 
 	return err;
 	}
@@ -121,14 +125,14 @@ EXPORT_C RUsb::RUsb()
 	: iDeviceStatePkg(0), iServiceStatePkg(0), iMessagePkg(0), 
 	  iHostPkg(TDeviceEventInformation())
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_RUSB_CONS_ENTRY );
+	OstTraceFunctionExit0( RUSB_RUSB_CONS_EXIT );
 	}
 
 EXPORT_C RUsb::~RUsb()
 	{
-	LOG_LINE
-	LOG_FUNC
+    OstTraceFunctionEntry0( RUSB_RUSB_DES_ENTRY );
+	OstTraceFunctionExit0( RUSB_RUSB_DES_EXIT );
 	}
 
 EXPORT_C TVersion RUsb::Version() const
@@ -138,9 +142,7 @@ EXPORT_C TVersion RUsb::Version() const
 
 EXPORT_C TInt RUsb::Connect()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_CONNECT_ENTRY );
 	TInt retry = 2;
 	
 	FOREVER
@@ -150,11 +152,13 @@ EXPORT_C TInt RUsb::Connect()
 
 		if ((err != KErrNotFound) && (err != KErrServerTerminated))
 			{
+			OstTraceFunctionExit0( RUSB_CONNECT_EXIT );
 			return err;
 			}
 
 		if (--retry == 0)
 			{
+			OstTraceFunctionExit0( RUSB_CONNECT_EXIT_DUP1 );
 			return err;
 			}
 
@@ -162,6 +166,7 @@ EXPORT_C TInt RUsb::Connect()
 
 		if ((err != KErrNone) && (err != KErrAlreadyExists))
 			{
+			OstTraceFunctionExit0( RUSB_CONNECT_EXIT_DUP2 );
 			return err;
 			}
 		}
@@ -169,149 +174,134 @@ EXPORT_C TInt RUsb::Connect()
 
 EXPORT_C void RUsb::Start(TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_START_ENTRY );
+	
 	SendReceive(EUsbStart, aStatus);
+	OstTraceFunctionExit0( RUSB_START_EXIT );
 	}
 
 EXPORT_C void RUsb::StartCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STARTCANCEL_ENTRY );
 	SendReceive(EUsbStartCancel);
+	OstTraceFunctionExit0( RUSB_STARTCANCEL_EXIT );
 	}
 
 EXPORT_C void RUsb::Stop()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STOP_ENTRY );
 	SendReceive(EUsbStop);
+	OstTraceFunctionExit0( RUSB_STOP_EXIT );
 	}
 
 EXPORT_C void RUsb::Stop(TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STOP_TREQUESTSTATUS_ENTRY );
 	SendReceive(EUsbStop, aStatus);
+	OstTraceFunctionExit0( RUSB_STOP_TREQUESTSTATUS_EXIT );
 	}
 
 EXPORT_C void RUsb::StopCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STOPCANCEL_ENTRY );
 	SendReceive(EUsbStopCancel);
+	OstTraceFunctionExit0( RUSB_STOPCANCEL_EXIT );
 	}
 
 EXPORT_C TInt RUsb::GetServiceState(TUsbServiceState& aState)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETSERVICESTATE_ENTRY );
 	TPckg<TUint32> pkg(aState);
 	TInt ret=SendReceive(EUsbGetCurrentState, TIpcArgs(&pkg));
 	aState=(TUsbServiceState)pkg();
+	OstTraceFunctionExit0( RUSB_GETSERVICESTATE_EXIT );
 	return ret;
 	}
 
 EXPORT_C TInt RUsb::GetCurrentState(TUsbServiceState& aState)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETCURRENTSTATE_ENTRY );
 	return GetServiceState(aState);
 	}
 
 EXPORT_C void RUsb::ServiceStateNotification(TUsbServiceState& aState,
 	TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_SERVICESTATENOTIFICATION_ENTRY );
 
 	iServiceStatePkg.Set((TUint8*)&aState, sizeof(TUint32), sizeof(TUint32));
 
 	SendReceive(EUsbRegisterServiceObserver, TIpcArgs(&iServiceStatePkg), aStatus);
+	OstTraceFunctionExit0( RUSB_SERVICESTATENOTIFICATION_EXIT );
 	}
 
 EXPORT_C void RUsb::ServiceStateNotificationCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_SERVICESTATENOTIFICATIONCANCEL_ENTRY );
 	SendReceive(EUsbCancelServiceObserver);
+	OstTraceFunctionExit0( RUSB_SERVICESTATENOTIFICATIONCANCEL_EXIT );
 	}
 
 EXPORT_C TInt RUsb::GetDeviceState(TUsbDeviceState& aState)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETDEVICESTATE_ENTRY );
 	TPckg<TUint32> pkg(aState);
 	TInt ret=SendReceive(EUsbGetCurrentDeviceState, TIpcArgs(&pkg));
 	aState=(TUsbDeviceState)pkg();
+	OstTraceFunctionExit0( RUSB_GETDEVICESTATE_EXIT );
 	return ret;
 	}
 
 EXPORT_C void RUsb::DeviceStateNotification(TUint aEventMask, TUsbDeviceState& aState,
 											TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_DEVICESTATENOTIFICATION_ENTRY );
 	iDeviceStatePkg.Set((TUint8*)&aState, sizeof(TUint32), sizeof(TUint32));
 
 	SendReceive(EUsbRegisterObserver, TIpcArgs(aEventMask, &iDeviceStatePkg), aStatus);
+	OstTraceFunctionExit0( RUSB_DEVICESTATENOTIFICATION_EXIT );
 	}
 
 EXPORT_C void RUsb::DeviceStateNotificationCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_DEVICESTATENOTIFICATIONCANCEL_ENTRY );
 	SendReceive(EUsbCancelObserver);
+	OstTraceFunctionExit0( RUSB_DEVICESTATENOTIFICATIONCANCEL_EXIT );
 	}
 
 EXPORT_C void RUsb::StateNotification(TUint aEventMask, TUsbDeviceState& aState, TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STATENOTIFICATION_ENTRY );
 	DeviceStateNotification(aEventMask, aState, aStatus);
+	OstTraceFunctionExit0( RUSB_STATENOTIFICATION_EXIT );
 	}
 
 EXPORT_C void RUsb::StateNotificationCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_STATENOTIFICATIONCANCEL_ENTRY );
 	DeviceStateNotificationCancel();
+	OstTraceFunctionExit0( RUSB_STATENOTIFICATIONCANCEL_EXIT );
 	}
 	
 EXPORT_C void RUsb::TryStart(TInt aPersonalityId, TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_TRYSTART_ENTRY );
 
 	TIpcArgs ipcArgs(aPersonalityId);
 	SendReceive(EUsbTryStart, ipcArgs, aStatus);
+	OstTraceFunctionExit0( RUSB_TRYSTART_EXIT );
 	}
 
 EXPORT_C void RUsb::TryStop(TRequestStatus& aStatus)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_TRYSTOP_ENTRY );
 	SendReceive(EUsbTryStop, aStatus);
+	OstTraceFunctionExit0( RUSB_TRYSTOP_EXIT );
 	}
 	
 EXPORT_C TInt RUsb::CancelInterest(TUsbReqType aMessageId)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_CANCELINTEREST_ENTRY );
 
 	TInt messageId;
 	switch (aMessageId)
@@ -338,9 +328,7 @@ EXPORT_C TInt RUsb::CancelInterest(TUsbReqType aMessageId)
 
 EXPORT_C TInt RUsb::GetDescription(TInt aPersonalityId, HBufC*& aLocalizedPersonalityDescriptor)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETDESCRIPTION_ENTRY );
 	TInt ret = KErrNone;
 	// caller is responsible for freeing up memory allocatd for aLocalizedPersonalityDescriptor
 	TRAP(ret, aLocalizedPersonalityDescriptor = HBufC::NewL(KUsbStringDescStringMaxSize));
@@ -357,31 +345,31 @@ EXPORT_C TInt RUsb::GetDescription(TInt aPersonalityId, HBufC*& aLocalizedPerson
 		aLocalizedPersonalityDescriptor = NULL;
 		}
 
+	OstTraceFunctionExit0( RUSB_GETDESCRIPTION_EXIT );
 	return ret;	
 	}
 	
 EXPORT_C TInt RUsb::GetCurrentPersonalityId(TInt& aPersonalityId)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_GETCURRENTPERSONALITYID_ENTRY );
 
 	TPckg<TInt> pkg0(aPersonalityId);
 	TInt ret = SendReceive(EUsbGetCurrentPersonalityId, TIpcArgs(&pkg0));
 	aPersonalityId = static_cast<TInt>(pkg0());
+	OstTraceFunctionExit0( RUSB_GETCURRENTPERSONALITYID_EXIT );
 	return ret;	
 	}
 
 EXPORT_C TInt RUsb::GetSupportedClasses(TInt aPersonalityId, RArray<TUid>& aClassUids)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETSUPPORTEDCLASSES_ENTRY );
 	TInt ret = KErrNone;
 	HBufC8* buf = NULL;
 	// +1 for the actual count of personality ids
 	TRAP(ret, buf = HBufC8::NewL((KUsbMaxSupportedClasses + 1)*sizeof (TInt32)));
 	if (ret != KErrNone)
 		{
+		OstTraceFunctionExit0( RUSB_GETSUPPORTEDCLASSES_EXIT );
 		return ret;
 		}
 
@@ -394,6 +382,7 @@ EXPORT_C TInt RUsb::GetSupportedClasses(TInt aPersonalityId, RArray<TUid>& aClas
 		if (!recvedIds)
 			{
 			delete buf;
+			OstTraceFunctionExit0( RUSB_GETSUPPORTEDCLASSES_EXIT_DUP1 );
 			return KErrCorrupt;
 			}
 			
@@ -432,13 +421,13 @@ EXPORT_C TInt RUsb::GetSupportedClasses(TInt aPersonalityId, RArray<TUid>& aClas
 		}
 		
 	delete buf;
+	OstTraceFunctionExit0( RUSB_GETSUPPORTEDCLASSES_EXIT_DUP2 );
 	return ret;
 	}
 	
 EXPORT_C TInt RUsb::ClassSupported(TInt aPersonalityId, TUid aClassUid, TBool& aSupported)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_CLASSSUPPORTED_ENTRY );
 
 	TPckg<TInt32>  	pkg2(aSupported);
 	TIpcArgs ipcArgs(aPersonalityId, aClassUid.iUid, &pkg2);
@@ -450,20 +439,20 @@ EXPORT_C TInt RUsb::ClassSupported(TInt aPersonalityId, TUid aClassUid, TBool& a
 		aSupported = static_cast<TBool>(pkg2());		
 		}
 		
+	OstTraceFunctionExit0( RUSB_CLASSSUPPORTED_EXIT );
 	return ret;
 	}
 	
 EXPORT_C TInt RUsb::GetPersonalityIds(RArray<TInt>& aPersonalityIds)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETPERSONALITYIDS_ENTRY );
 	TInt ret = KErrNone;
 	HBufC8* buf = NULL;
 	// +1 for the actual count of personality ids
 	TRAP(ret, buf = HBufC8::NewL((KUsbMaxSupportedPersonalities + 1)*sizeof (TInt)));
 	if (ret != KErrNone)
 		{
+		OstTraceFunctionExit0( RUSB_GETPERSONALITYIDS_EXIT );
 		return ret;
 		}
 
@@ -476,6 +465,7 @@ EXPORT_C TInt RUsb::GetPersonalityIds(RArray<TInt>& aPersonalityIds)
 		if (!recvedIds)
 			{
 			delete buf;
+			OstTraceFunctionExit0( RUSB_GETPERSONALITYIDS_EXIT_DUP1 );
 			return KErrCorrupt;
 			}
 			
@@ -515,6 +505,7 @@ EXPORT_C TInt RUsb::GetPersonalityIds(RArray<TInt>& aPersonalityIds)
 		}
 		
 	delete buf;
+	OstTraceFunctionExit0( RUSB_GETPERSONALITYIDS_EXIT_DUP2 );
 	return ret;
 	}
 	
@@ -567,14 +558,14 @@ EXPORT_C TInt RUsb::__DbgAlloc()
 	}
 
 EXPORT_C void panic()
-	{
-	_USB_PANIC(KUsbCliPncCat, EUsbPanicRemovedExport);
+    { 
+    OstTrace1( TRACE_FATAL, RUSB_PANIC, "::panic;Panic reason=%d", EUsbPanicRemovedExport );
+    User::Panic(KUsbCliPncCat, EUsbPanicRemovedExport);
 	}
 
 EXPORT_C TInt RUsb::SetCtlSessionMode(TBool aValue)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_SETCTLSESSIONMODE_ENTRY );
 
 	TPckg<TBool> pkg(aValue);
 	return SendReceive(EUsbSetCtlSessionMode, TIpcArgs(&pkg));
@@ -582,94 +573,82 @@ EXPORT_C TInt RUsb::SetCtlSessionMode(TBool aValue)
 
 EXPORT_C TInt RUsb::BusRequest()
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_BUSREQUEST_ENTRY );
 
 	return SendReceive(EUsbBusRequest);
 	}
 
 EXPORT_C TInt RUsb::BusRespondSrp()
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_BUSRESPONDSRP_ENTRY );
 
 	return SendReceive(EUsbBusRespondSrp);
 	}
 
 EXPORT_C TInt RUsb::BusClearError()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_BUSCLEARERROR_ENTRY );
 	return SendReceive(EUsbBusClearError);
 	}
 
 
 EXPORT_C TInt RUsb::BusDrop()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_BUSDROP_ENTRY );
 	return SendReceive(EUsbBusDrop);
 	}
 
 EXPORT_C void RUsb::MessageNotification(TRequestStatus& aStatus, TInt& aMessage)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_MESSAGENOTIFICATION_ENTRY );
 	iMessagePkg.Set((TUint8*)&aMessage, sizeof(TInt), sizeof(TInt));
 
 	SendReceive(EUsbRegisterMessageObserver, TIpcArgs(&iMessagePkg), aStatus);
+	OstTraceFunctionExit0( RUSB_MESSAGENOTIFICATION_EXIT );
 	}
 
 EXPORT_C void RUsb::MessageNotificationCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_MESSAGENOTIFICATIONCANCEL_ENTRY );
 	SendReceive(EUsbCancelMessageObserver);
+	OstTraceFunctionExit0( RUSB_MESSAGENOTIFICATIONCANCEL_EXIT );
 	}
 
 EXPORT_C void RUsb::HostEventNotification(TRequestStatus& aStatus,
 										  TDeviceEventInformation& aDeviceInformation)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_HOSTEVENTNOTIFICATION_ENTRY );
 
 	iHostPkg.Set((TUint8*)&aDeviceInformation, sizeof(TDeviceEventInformation), sizeof(TDeviceEventInformation));
 
 	SendReceive(EUsbRegisterHostObserver, TIpcArgs(&iHostPkg), aStatus);
+	OstTraceFunctionExit0( RUSB_HOSTEVENTNOTIFICATION_EXIT );
 	}
 	
 EXPORT_C void RUsb::HostEventNotificationCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_HOSTEVENTNOTIFICATIONCANCEL_ENTRY );
 	SendReceive(EUsbCancelHostObserver);
+	OstTraceFunctionExit0( RUSB_HOSTEVENTNOTIFICATIONCANCEL_EXIT );
 	}
 
 EXPORT_C TInt RUsb::EnableFunctionDriverLoading()
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_ENABLEFUNCTIONDRIVERLOADING_ENTRY );
 
 	return SendReceive(EUsbEnableFunctionDriverLoading);
 	}
 
 EXPORT_C void RUsb::DisableFunctionDriverLoading()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_DISABLEFUNCTIONDRIVERLOADING_ENTRY );
 	SendReceive(EUsbDisableFunctionDriverLoading);
+	OstTraceFunctionExit0( RUSB_DISABLEFUNCTIONDRIVERLOADING_EXIT );
 	}
 
 EXPORT_C TInt RUsb::GetSupportedLanguages(TUint aDeviceId, RArray<TUint>& aLangIds)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_GETSUPPORTEDLANGUAGES_ENTRY );
 
 	aLangIds.Reset();
 
@@ -679,6 +658,7 @@ EXPORT_C TInt RUsb::GetSupportedLanguages(TUint aDeviceId, RArray<TUint>& aLangI
 	TRAP(ret, buf = HBufC8::NewL((KUsbMaxSupportedLanguageIds + 1)*sizeof (TUint)));
 	if (ret != KErrNone)
 		{
+		OstTraceFunctionExit0( RUSB_GETSUPPORTEDLANGUAGES_EXIT );
 		return ret;
 		}
 
@@ -691,6 +671,7 @@ EXPORT_C TInt RUsb::GetSupportedLanguages(TUint aDeviceId, RArray<TUint>& aLangI
 		if (!recvedIds)
 			{
 			delete buf;
+			OstTraceFunctionExit0( RUSB_GETSUPPORTEDLANGUAGES_EXIT_DUP1 );
 			return KErrCorrupt;
 			}
 			
@@ -708,30 +689,26 @@ EXPORT_C TInt RUsb::GetSupportedLanguages(TUint aDeviceId, RArray<TUint>& aLangI
 		}
 		
 	delete buf;	
+	OstTraceFunctionExit0( RUSB_GETSUPPORTEDLANGUAGES_EXIT_DUP2 );
 	return ret;
 	}
 	
 EXPORT_C TInt RUsb::GetManufacturerStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_GETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
 
 	return SendReceive(EUsbGetManufacturerStringDescriptor, TIpcArgs(aDeviceId, aLangId, &aString));
 	}
 
 EXPORT_C TInt RUsb::GetProductStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSB_GETPRODUCTSTRINGDESCRIPTOR_ENTRY );
 	return SendReceive(EUsbGetProductStringDescriptor, TIpcArgs(aDeviceId, aLangId, &aString));
 	}
 
 EXPORT_C TInt RUsb::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& aDescriptor)
 	{
-	LOG_LINE
-	LOG_FUNC
-		
+	OstTraceFunctionEntry0( RUSB_GETOTGDESCRIPTOR_ENTRY );
 	TPckg<TOtgDescriptor> otgDescPkg(aDescriptor);
 	
 	TIpcArgs args;
@@ -744,40 +721,22 @@ EXPORT_C TInt RUsb::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& aDescripto
 
 EXPORT_C TInt RUsb::RequestSession()
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_REQUESTSESSION_ENTRY );
 
 	return SendReceive(EUsbRequestSession);
 	}
 
-EXPORT_C TInt RUsb::GetDetailedDescription(TInt aPersonalityId, HBufC*& aLocalizedPersonalityDescriptor)
+EXPORT_C TInt RUsb::GetDetailedDescription(TInt /*aPersonalityId*/, HBufC*& /*aLocalizedPersonalityDescriptor*/)
 	{
-	LOG_LINE
-	LOG_FUNC
-
- 	TInt ret = KErrNone;
-	// caller is responsible for freeing up memory allocated for aLocalizedPersonalityDescriptor
-	TRAP(ret, aLocalizedPersonalityDescriptor = HBufC::NewL(KUsbStringDescStringMaxSize));
-	if (ret == KErrNone)
-		{
-		TPtr ptr = aLocalizedPersonalityDescriptor->Des();
-		TIpcArgs ipcArgs(0, &ptr);
-		ipcArgs.Set(0, aPersonalityId);
-		ret = SendReceive(EUsbGetDetailedDescription, ipcArgs);
-		}
-	else
-		{
-		// just in case caller tries to free the memory before checking the return code
-		aLocalizedPersonalityDescriptor = NULL;
-		}
-
-	return ret; 
+	OstTraceFunctionEntry0( RUSB_GETDETAILEDDESCRIPTION_ENTRY );
+	//This API has been deprecated
+	OstTraceFunctionExit0( RUSB_GETDETAILEDDESCRIPTION_EXIT );
+	return KErrNotSupported; 
 	}
 
 EXPORT_C TInt RUsb::GetPersonalityProperty(TInt aPersonalityId, TUint32& aProperty)
 	{
-	LOG_LINE
-	LOG_FUNC
+	OstTraceFunctionEntry0( RUSB_GETPERSONALITYPROPERTY_ENTRY );
 
 	TPckg<TUint32> pkg(aProperty);
 	TInt ret = SendReceive(EUsbGetPersonalityProperty, TIpcArgs(aPersonalityId, &pkg));
@@ -785,6 +744,7 @@ EXPORT_C TInt RUsb::GetPersonalityProperty(TInt aPersonalityId, TUint32& aProper
 		{
 		aProperty = static_cast<TUint32>(pkg());
 		}
+	OstTraceFunctionExit0( RUSB_GETPERSONALITYPROPERTY_EXIT );
 	return ret;	
 	}
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -26,11 +26,12 @@
 #include <e32cmn.h>
 
 #include "srvdef.h"
- 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmClient");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "msmmclientTraces.h"
 #endif
 
+ 
 // Costants
 const TInt KConnectRetry = 0x2;
 
@@ -40,7 +41,7 @@ const TInt KConnectRetry = 0x2;
 
 static TInt StartServer()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( MSMMCLIENT_SRC_STARTSERVER_ENTRY );
     
     TInt ret = KErrNone;
 
@@ -53,6 +54,7 @@ static TInt StartServer()
     // Was server process created OK?
     if (KErrNone != ret)
         {
+        OstTraceFunctionExit0( MSMMCLIENT_SRC_STARTSERVER_EXIT );
         return ret;
         }
 
@@ -77,6 +79,7 @@ static TInt StartServer()
     TInt exitReason = (EExitPanic == server.ExitType()) ? 
             KErrGeneral : serverDiedRequestStatus.Int();
     server.Close();
+    OstTraceFunctionExit0( MSMMCLIENT_SRC_STARTSERVER_EXIT_DUP1 );
     return exitReason;
     }
 
@@ -87,7 +90,7 @@ static TInt StartServer()
 
 EXPORT_C TInt RMsmmSession::Connect()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_CONNECT_ENTRY );
     
     TInt retry = KConnectRetry; // Attempt connect twice then give up
     TInt ret(KErrNone);
@@ -113,25 +116,28 @@ EXPORT_C TInt RMsmmSession::Connect()
 
     if (KErrNone != ret)
         {
-        LOGTEXT2(_L("Underlying error value = %d"), ret)
+        OstTrace1( TRACE_ERROR, RMSMMSESSION_CONNECT, 
+                "Underlying error value = %d", ret );
+        
         ret = KErrCouldNotConnect;
         }
     
+    OstTraceFunctionExit0( RMSMMSESSION_CONNECT_EXIT );
     return ret; 
     }
 
 EXPORT_C TInt RMsmmSession::Disconnect()
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( RMSMMSESSION_DISCONNECT_ENTRY );
     Close();
+    OstTraceFunctionExit0( RMSMMSESSION_DISCONNECT_EXIT );
     return KErrNone;
     }
 
 // Called to provide the version number of the server we require for this API
 EXPORT_C TVersion RMsmmSession::Version() const
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_VERSION_ENTRY );
     
     return TVersion(KMsmmServMajorVersionNumber,
                     KMsmmServMinorVersionNumber,
@@ -142,7 +148,7 @@ EXPORT_C TInt RMsmmSession::AddFunction(
         const TUSBMSDeviceDescription& aDevice,
         TUint8 aInterfaceNumber, TUint32 aInterfaceToken)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_ADDFUNCTION_ENTRY );
     
     TInt ret(KErrNone);
     
@@ -154,12 +160,13 @@ EXPORT_C TInt RMsmmSession::AddFunction(
 
     ret = SendReceive(EHostMsmmServerAddFunction, usbmsIpcArgs);
     
+    OstTraceFunctionExit0( RMSMMSESSION_ADDFUNCTION_EXIT );
     return ret;
     }
 
 EXPORT_C TInt RMsmmSession::RemoveDevice(TUint aDevice)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_REMOVEDEVICE_ENTRY );
     
     TInt ret(KErrNone);
 
@@ -167,28 +174,31 @@ EXPORT_C TInt RMsmmSession::RemoveDevice(TUint aDevice)
 
     ret = SendReceive(EHostMsmmServerRemoveDevice, usbmsIpcArgs);
     
+    OstTraceFunctionExit0( RMSMMSESSION_REMOVEDEVICE_EXIT );
     return ret;
     }
 
 EXPORT_C TInt RMsmmSession::__DbgFailNext(TInt aCount)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_DBGFAILNEXT_ENTRY );
     
 #ifdef _DEBUG
     return SendReceive(EHostMsmmServerDbgFailNext, TIpcArgs(aCount));
 #else
     (void)aCount;
+    OstTraceFunctionExit0( RMSMMSESSION_DBGFAILNEXT_EXIT );
     return KErrNone;
 #endif
     }
 
 EXPORT_C TInt RMsmmSession::__DbgAlloc()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( RMSMMSESSION_DBGALLOC_ENTRY );
     
 #ifdef _DEBUG
     return SendReceive(EHostMsmmServerDbgAlloc);
 #else
+    OstTraceFunctionExit0( RMSMMSESSION_DBGALLOC_EXIT );
     return KErrNone;
 #endif
     }

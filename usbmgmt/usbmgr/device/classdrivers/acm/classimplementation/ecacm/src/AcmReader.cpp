@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,11 +23,11 @@
 #include "CdcAcmClass.h"
 #include "AcmPanic.h"
 #include "AcmPort.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "AcmReaderTraces.h"
 #endif
+
 
 CAcmReader* CAcmReader::NewL(CAcmPort& aPort,
 							 TUint aBufSize)
@@ -39,12 +39,12 @@ CAcmReader* CAcmReader::NewL(CAcmPort& aPort,
  * @return Ownership of a new CAcmReader.
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CACMREADER_NEWL_ENTRY );	
 	CAcmReader* self = new(ELeave) CAcmReader(aPort, aBufSize);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CLEANUPSTACK_POP(self);
+	OstTraceFunctionExit0( CACMREADER_NEWL_EXIT );
 	return self;
 	}
 
@@ -53,11 +53,10 @@ CAcmReader::~CAcmReader()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_CACMREADER_DES_ENTRY );
 	ReadCancel();
-	
 	delete iBuffer;
+	OstTraceFunctionExit0( CACMREADER_CACMREADER_DES_EXIT );
 	}
 
 CAcmReader::CAcmReader(CAcmPort& aPort,
@@ -72,6 +71,8 @@ CAcmReader::CAcmReader(CAcmPort& aPort,
 	iInBuf(NULL,0,0),
 	iPort(aPort)
 	{
+	OstTraceFunctionEntry0( CACMREADER_CACMREADER_CONS_ENTRY );
+	OstTraceFunctionExit0( CACMREADER_CACMREADER_CONS_EXIT );
 	}
 
 void CAcmReader::ConstructL()
@@ -79,9 +80,16 @@ void CAcmReader::ConstructL()
  * 2nd-phase construction.
  */
 	{
+	OstTraceFunctionEntry0( CACMREADER_CONSTRUCTL_ENTRY );
 	// Create iBuffer. 
-	LOGTEXT(_L8("\tabout to create iBuffer"));
-	LEAVEIFERRORL(SetBufSize(iBufSize));
+	OstTrace0( TRACE_NORMAL, CACMREADER_CONSTRUCTL, "CAcmReader::ConstructL;\tabout to create iBuffer" );
+	TInt	err = SetBufSize(iBufSize);
+	if (err < 0)
+		{
+		OstTrace1( TRACE_ERROR, CACMREADER_CONSTRUCTL_DUP1, "CAcmReader::ConstructL;err=%d", err );
+		User::Leave(err);
+		}
+	OstTraceFunctionExit0( CACMREADER_CONSTRUCTL_EXIT );
 	}
 
 void CAcmReader::Read(const TAny* aClientBuffer, TUint aMaxLen)
@@ -92,9 +100,8 @@ void CAcmReader::Read(const TAny* aClientBuffer, TUint aMaxLen)
  * @param aMaxLen Maximum length to read.
  */
 	{
-	LOG_FUNC
-	LOGTEXT3(_L8("\taClientBuffer=0x%08x, aMaxLen=%d"), 
-		aClientBuffer, aMaxLen);
+	OstTraceFunctionEntry0( CACMREADER_READ_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMREADER_READ, "CAcmReader::Read;\taClientBuffer=%p, aMaxLen=%d", aClientBuffer, (TInt)aMaxLen );
 
 	// Check we're open to requests and make a note of interesting data.
 	// including iLengthToGo
@@ -112,6 +119,7 @@ void CAcmReader::Read(const TAny* aClientBuffer, TUint aMaxLen)
 		{
 		ReadWithTerminators();
 		}
+	OstTraceFunctionExit0( CACMREADER_READ_EXIT );
 	}
 
 void CAcmReader::ReadWithoutTerminators()
@@ -119,18 +127,22 @@ void CAcmReader::ReadWithoutTerminators()
  * Process a read request given that no terminator characters are set.
  */
 	{
-	LOG_FUNC
-	
+	OstTraceFunctionEntry0( CACMREADER_READWITHOUTTERMINATORS_ENTRY );
 	// Can we complete immediately from the buffer?
 	const TUint bufLen = BufLen();
-	LOGTEXT2(_L8("\thave %d bytes in buffer"), bufLen);
-	LOGTEXT2(_L8("\tLength to go is %d bytes"), iLengthToGo);
+	OstTraceExt2( TRACE_NORMAL, CACMREADER_READWITHOUTTERMINATORS, 
+			"CAcmReader::ReadWithoutTerminators;\thave %d bytes in buffer;\tLength to go is %d bytes", 
+			(TInt)bufLen, (TInt)iLengthToGo );
 	if ( iLengthToGo <= bufLen )
 		{
-		LOGTEXT2(_L8("\tcompleting request immediately from buffer with %d "
-			"bytes"), iLengthToGo);
+		OstTrace1( TRACE_NORMAL, CACMREADER_READWITHOUTTERMINATORS_DUP1, 
+				"CAcmReader::ReadWithoutTerminators;\tcompleting  "
+				"request immediately from buffer with %d bytes", 
+				(TInt)iLengthToGo );
+		
 		WriteBackData(iLengthToGo);
 		CompleteRequest(KErrNone);
+		OstTraceFunctionExit0( CACMREADER_READWITHOUTTERMINATORS_EXIT );
 		return;
 		}
 
@@ -138,14 +150,17 @@ void CAcmReader::ReadWithoutTerminators()
 	// back as much as we have, and issue a Read for more.
 	if ( bufLen )
 		{
-		LOGTEXT2(_L8("\twriting back %d bytes"), bufLen);
+		OstTrace1( TRACE_NORMAL, CACMREADER_READWITHOUTTERMINATORS_DUP2, 
+				"CAcmReader::ReadWithoutTerminators;\twriting back %d bytes", (TInt)bufLen );
 		// Write back as much data as we've got already.
 		WriteBackData(bufLen);
 		}
 
 	// Issue a read for the data we still need. 
-	LOGTEXT2(_L8("\tRequesting read - require %d bytes"),iLengthToGo);
+	OstTrace1( TRACE_NORMAL, CACMREADER_READWITHOUTTERMINATORS_DUP3, 
+			"CAcmReader::ReadWithoutTerminators;iLengthToGo=%d", (TInt)iLengthToGo );
 	IssueRead();
+	OstTraceFunctionExit0( CACMREADER_READWITHOUTTERMINATORS_EXIT_DUP1 );
 	}
 
 void CAcmReader::ReadWithTerminators()
@@ -153,23 +168,24 @@ void CAcmReader::ReadWithTerminators()
  * Process a read request given that terminator characters are set.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_READWITHTERMINATORS_ENTRY );
 	// Can we complete immediately from the buffer? Search the buffer we have 
 	// for any terminators. If found, complete back to the client. If not 
 	// found, start issuing ReadOneOrMores until we either find one or run out 
 	// of client buffer.
 
 	const TUint bufLen = BufLen();
-	LOGTEXT2(_L8("\tbufLen = %d"), bufLen);
+	OstTrace1( TRACE_NORMAL, CACMREADER_READWITHTERMINATORS, "CAcmReader::ReadWithTerminators;bufLen=%d", (TInt)bufLen );
 	if ( bufLen )
 		{
 		CheckForBufferedTerminatorsAndProceed();
+		OstTraceFunctionExit0( CACMREADER_READWITHTERMINATORS_EXIT );
 		return;
 		}
 
 	// There's no buffered data. Get some.
 	IssueReadOneOrMore();
+	OstTraceFunctionExit0( CACMREADER_READWITHTERMINATORS_EXIT_DUP1 );
 	}
 
 void CAcmReader::ReadOneOrMore(const TAny* aClientBuffer, TUint aMaxLen)
@@ -181,31 +197,31 @@ void CAcmReader::ReadOneOrMore(const TAny* aClientBuffer, TUint aMaxLen)
  * @param aMaxLen Maximum length to read.
  */
 	{
-	LOG_FUNC
-	LOGTEXT3(_L8("\taClientBuffer=0x%08x, aMaxLen=%d"), 
-		aClientBuffer, aMaxLen);
-
+	OstTraceFunctionEntry0( CACMREADER_READONEORMORE_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CACMREADER_READONEORMORE, 
+			"CAcmReader::ReadOneOrMore;aClientBuffer=%p;aMaxLen=%d", aClientBuffer, (TInt)aMaxLen );
 	// Check we're open to requests and make a note of interesting data.
 	CheckNewRequest(aClientBuffer, aMaxLen);
-
 	iCurrentRequest.iRequestType = EReadOneOrMore;	
-	
+
 	// Check to see if there's anything in our buffer- if there is, we can 
 	// complete immediately.
 	const TUint bufLen = BufLen();
-	LOGTEXT2(_L8("\tbufLen = %d"), bufLen);
+	OstTrace1( TRACE_NORMAL, CACMREADER_READONEORMORE_DUP1, "CAcmReader::ReadOneOrMore;bufLen=%d", (TInt)bufLen );
 	if ( bufLen )
 		{
 		// Complete request with what's in the buffer
-		LOGTEXT2(_L8("\tcompleting request immediately from buffer with %d "
-			"bytes"), bufLen);
+		OstTrace1( TRACE_FLOW, CACMREADER_READONEORMORE_DUP2, 
+				"CAcmReader::ReadOneOrMore;\tcompleting request immediately from buffer with %d bytes", (TInt)bufLen );
 		WriteBackData(bufLen);
 		CompleteRequest(KErrNone);
+		OstTraceFunctionExit0( CACMREADER_READONEORMORE_EXIT );
 		return;
 		}
 
 	// Get some more data.
 	IssueReadOneOrMore();
+	OstTraceFunctionExit0( CACMREADER_READONEORMORE_EXIT_DUP1 );
 	}
 
 void CAcmReader::NotifyDataAvailable()
@@ -213,15 +229,17 @@ void CAcmReader::NotifyDataAvailable()
  * NotifyDataAvailable API. If a request is pending completes the client with KErrInUse.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMREADER_NOTIFYDATAAVAILABLE_ENTRY );
 	if(iCurrentRequest.iClientPtr) // a request is pending
 		{
 		iPort.NotifyDataAvailableCompleted(KErrInUse);
+		OstTraceFunctionExit0( CACMREADER_NOTIFYDATAAVAILABLE_EXIT );
 		return;
 		}
 	iCurrentRequest.iClientPtr = iBuffer;
 	iCurrentRequest.iRequestType = ENotifyDataAvailable;	 	
 	iPort.Acm()->NotifyDataAvailable(*this);		
+	OstTraceFunctionExit0( CACMREADER_NOTIFYDATAAVAILABLE_EXIT_DUP1 );
 	} 
 		
 void CAcmReader::NotifyDataAvailableCancel()
@@ -230,19 +248,21 @@ void CAcmReader::NotifyDataAvailableCancel()
  *
  */
 	{
-	LOG_FUNC	
+	OstTraceFunctionEntry0( CACMREADER_NOTIFYDATAAVAILABLECANCEL_ENTRY );	
 	if (ENotifyDataAvailable == iCurrentRequest.iRequestType)
 		{
 		// Cancel any outstanding request on the LDD.		
 		if (iPort.Acm())
 			{
-			LOGTEXT(_L8("\tiPort.Acm() exists- calling NotifyDataAvailableCancel() on it"));
+			OstTrace0( TRACE_NORMAL, CACMREADER_NOTIFYDATAAVAILABLECANCEL, 
+					"CAcmReader::NotifyDataAvailableCancel;\tiPort.Acm() exists- calling NotifyDataAvailableCancel() on it" );
 			iPort.Acm()->NotifyDataAvailableCancel();
 			}
 		// Reset our flag to say there's no current outstanding request. What's 
 		// already in our buffer can stay there.
 		iCurrentRequest.iClientPtr = NULL;
 		}	
+	OstTraceFunctionExit0( CACMREADER_NOTIFYDATAAVAILABLECANCEL_EXIT );
 	}
 
 void CAcmReader::ReadCancel()
@@ -250,14 +270,14 @@ void CAcmReader::ReadCancel()
  * Cancel API. Cancels any outstanding (Read or ReadOneOrMore) request.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_READCANCEL_ENTRY );
 	if (ENotifyDataAvailable != iCurrentRequest.iRequestType)
 		{
 		// Cancel any outstanding request on the LDD.
 		if (iPort.Acm())
 			{
-			LOGTEXT(_L8("\tiPort.Acm() exists- calling ReadCancel on it"));
+			OstTrace0( TRACE_NORMAL, CACMREADER_READCANCEL, 
+					"CAcmReader::ReadCancel;\tiPort.Acm() exists- calling ReadCancel on it" );
 			iPort.Acm()->ReadCancel();
 			}
 		
@@ -265,6 +285,7 @@ void CAcmReader::ReadCancel()
 		// already in our buffer can stay there.
 		iCurrentRequest.iClientPtr = NULL;
 		}
+	OstTraceFunctionExit0( CACMREADER_READCANCEL_EXIT );
 	}
 	
 TUint CAcmReader::BufLen() const
@@ -275,21 +296,22 @@ TUint CAcmReader::BufLen() const
  * @return Length of data in buffer.
  */
 	{
-	LOGTEXT(_L8(">>CAcmReader::BufLen"));
-
+	OstTraceFunctionEntry0( CACMREADER_BUFLEN_ENTRY );
+	OstTrace0( TRACE_NORMAL, CACMREADER_BUFLEN, "CAcmReader::BufLen;>>CAcmReader::BufLen" );
 	TUint len = 0;
 	if ( BufWrap() )
 		{
-		LOGTEXT(_L8("\tbuf wrapped"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_BUFLEN_DUP1, "CAcmReader::BufLen;\tbuf wrapped" );
 		len = iBufSize - ( iOutPtr - iInPtr );
 		}
 	else
 		{
-		LOGTEXT(_L8("\tbuf not wrapped"));
+	OstTrace0( TRACE_NORMAL, CACMREADER_BUFLEN_DUP2, "CAcmReader::BufLen;\tbuf not wrapped" );
 		len = iInPtr - iOutPtr;
 		}
 
-	LOGTEXT2(_L8("<<CAcmReader::BufLen len=%d"), len);
+	OstTrace1( TRACE_NORMAL, CACMREADER_BUFLEN_DUP3, "CAcmReader::BufLen;len=%d", (TInt)len );
+	OstTraceFunctionExit0( CACMREADER_BUFLEN_EXIT );
 	return len;
 	}
 
@@ -298,14 +320,18 @@ void CAcmReader::ResetBuffer()
  * Called by the port to clear the buffer.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_RESETBUFFER_ENTRY );
 	// A request is outstanding- C32 should protect against this.
-	__ASSERT_DEBUG(!iCurrentRequest.iClientPtr, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (iCurrentRequest.iClientPtr)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMREADER_RESETBUFFER, 
+				"CAcmReader::ResetBuffer;iCurrentRequest.iClientPtr=%p", iCurrentRequest.iClientPtr );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	// Reset the pointers. All data is 'lost'.
 	iOutPtr = iInPtr = iBufStart;
+	OstTraceFunctionExit0( CACMREADER_RESETBUFFER_EXIT );
 	}
 
 TInt CAcmReader::SetBufSize(TUint aSize)
@@ -317,13 +343,14 @@ TInt CAcmReader::SetBufSize(TUint aSize)
  * @param aSize The required size of the buffer.
  */
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taSize=%d"), aSize);
-
+	OstTraceFunctionEntry0( CACMREADER_SETBUFSIZE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMREADER_SETBUFSIZE, "CAcmReader::SetBufSize;aSize=%d", (TInt)aSize );
 	if ( iCurrentRequest.iClientPtr )
 		{
 		// A request is outstanding. C32 does not protect us against this.
-		LOGTEXT(_L8("\t***a request is outstanding- returning KErrInUse"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_SETBUFSIZE_DUP1, 
+				"CAcmReader::SetBufSize;\t***a request is outstanding- returning KErrInUse" );
+		OstTraceFunctionExit0( CACMREADER_SETBUFSIZE_EXIT );
 		return KErrInUse;
 		}
 
@@ -331,7 +358,9 @@ TInt CAcmReader::SetBufSize(TUint aSize)
 	HBufC8* newBuf = HBufC8::New(aSize);
 	if ( !newBuf )
 		{
-		LOGTEXT(_L8("\tfailed to create new buffer- returning KErrNoMemory"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_SETBUFSIZE_DUP2, 
+				"CAcmReader::SetBufSize;\tfailed to create new buffer- returning KErrNoMemory" );
+		OstTraceFunctionExit0( CACMREADER_SETBUFSIZE_EXIT_DUP1 );
 		return KErrNoMemory;
 		}
 	delete iBuffer;
@@ -343,6 +372,7 @@ TInt CAcmReader::SetBufSize(TUint aSize)
 	iBufSize = aSize;
 	CheckBufferEmptyAndResetPtrs();
 
+	OstTraceFunctionExit0( CACMREADER_SETBUFSIZE_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -353,20 +383,28 @@ void CAcmReader::SetTerminators(const TCommConfigV01& aConfig)
  * @param aConfig The new configuration.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CACMREADER_SETTERMINATORS_ENTRY );
 	
 	// C32 protects the port against having config set while there's a request 
 	// outstanding.
-	__ASSERT_DEBUG(!iCurrentRequest.iClientPtr, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (iCurrentRequest.iClientPtr)
+		{
+		OstTraceExt1( TRACE_FATAL, CACMREADER_SETTERMINATORS_DUP2, 
+				"CAcmReader::SetTerminators;iCurrentRequest.iClientPtr=%p", iCurrentRequest.iClientPtr );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	iTerminatorCount = aConfig.iTerminatorCount;
-	LOGTEXT2(_L8("\tnow %d terminators:"), iTerminatorCount);
+	OstTrace1( TRACE_NORMAL, CACMREADER_SETTERMINATORS, 
+			"CAcmReader::SetTerminators;\tnow %d terminators:", (TInt)iTerminatorCount );
+	
 	for ( TUint ii = 0; ii < static_cast<TUint>(KConfigMaxTerminators) ; ii++ )
 		{
 		iTerminator[ii] = aConfig.iTerminator[ii];
-		LOGTEXT2(_L8("\t\t%d"), iTerminator[ii]);
+		OstTrace1( TRACE_NORMAL, CACMREADER_SETTERMINATORS_DUP1, 
+				"CAcmReader::SetTerminators;\t\t%d", iTerminator[ii]);
 		}
+	OstTraceFunctionExit0( CACMREADER_SETTERMINATORS_EXIT );
 	}
 	
 void CAcmReader::ReadCompleted(TInt aError)
@@ -376,18 +414,20 @@ void CAcmReader::ReadCompleted(TInt aError)
  * @param aError Error.
  */
 	{
-	LOGTEXT2(_L8(">>CAcmReader::ReadCompleted aError=%d"), aError);						   	
+	OstTraceFunctionEntry0( CACMREADER_READCOMPLETED_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMREADER_READCOMPLETED, 
+			"CAcmReader::ReadCompleted;>>CAcmReader::ReadCompleted aError=%d", aError );				   	
 
 	const TUint justRead = static_cast<TUint>(iInBuf.Length());
-	LOGTEXT3(_L8("\tiInBuf length=%d, iLengthToGo=%d"), 
-		justRead,
-		iLengthToGo);
+	OstTraceExt2( TRACE_NORMAL, CACMREADER_READCOMPLETED_DUP1, 
+			"CAcmReader::ReadCompleted;\tiInBuf length=%d, iLengthToGo=%d", (TInt)justRead, (TInt)iLengthToGo );
 
 	// This protects against a regression in the LDD- read requests shouldn't 
 	// ever complete with zero bytes and KErrNone.
 	if ( justRead == 0 && aError == KErrNone )
 		{
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError);
+		OstTrace0( TRACE_FATAL, CACMREADER_READCOMPLETED_DUP3, "CAcmReader::ReadCompleted;ustRead == 0 && aError == KErrNone" );	
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
 		}
 
 	// The new data will have been added to our buffer. Move iInPtr up by the 
@@ -401,6 +441,7 @@ void CAcmReader::ReadCompleted(TInt aError)
 		// multi-stage Read the client will get any data already written back 
 		// to them with IPCWrite.
 		CompleteRequest(aError);
+		OstTraceFunctionExit0( CACMREADER_READCOMPLETED_EXIT );
 		return;
 		}
 
@@ -408,8 +449,8 @@ void CAcmReader::ReadCompleted(TInt aError)
 	// it will also complete the request if we've given the client enough data
 	// or will reissue another read if not
 	ReadWithoutTerminators();
-	
-	LOGTEXT(_L8("<<CAcmReader::ReadCompleted"));
+	OstTrace0( TRACE_NORMAL, CACMREADER_READCOMPLETED_DUP2, "CAcmReader::ReadCompleted;<<CAcmReader::ReadCompleted" );
+	OstTraceFunctionExit0( CACMREADER_READCOMPLETED_EXIT_DUP1 );
 	}
 
 void CAcmReader::ReadOneOrMoreCompleted(TInt aError)
@@ -419,21 +460,24 @@ void CAcmReader::ReadOneOrMoreCompleted(TInt aError)
  * @param aError Error.
  */
 	{
-	LOGTEXT2(_L8(">>CAcmReader::ReadOneOrMoreCompleted aError=%d"), aError);						   	
+	OstTraceFunctionEntry0( CACMREADER_READONEORMORECOMPLETED_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED, 
+			"CAcmReader::ReadOneOrMoreCompleted;>>CAcmReader::ReadOneOrMoreCompleted aError=%d", aError );						   	
 
 	const TUint justRead = static_cast<TUint>(iInBuf.Length());
-	LOGTEXT2(_L8("\tjustRead = %d"), justRead);
+	OstTrace1( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED_DUP1, 
+			"CAcmReader::ReadOneOrMoreCompleted;\tjustRead = %d", (TInt)justRead );
 
 	// The new data will have been added to our buffer. Move iInPtr 
 	// up by the length just read.
 	iInPtr += justRead;
-
 	if ( aError )
 		{
 		// If the ReadOneOrMore failed, we complete back to the client and 
 		// don't do anything more. The client will get any data already 
 		// written back to them with IPCWrite.
 		CompleteRequest(aError);
+		OstTraceFunctionExit0( CACMREADER_READONEORMORECOMPLETED_EXIT );
 		return;
 		}
 
@@ -444,8 +488,10 @@ void CAcmReader::ReadOneOrMoreCompleted(TInt aError)
 	// data. 
 	if ( justRead == 0 )
 		{
-		LOGTEXT(_L8("\twe appear to have a ZLP- reissuing ReadOneOrMore"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED_DUP2, 
+				"CAcmReader::ReadOneOrMoreCompleted;\twe appear to have a ZLP- reissuing ReadOneOrMore" );
 		IssueReadOneOrMore();
+		OstTraceFunctionExit0( CACMREADER_READONEORMORECOMPLETED_EXIT_DUP1 );
 		return;
 		}
 
@@ -454,8 +500,8 @@ void CAcmReader::ReadOneOrMoreCompleted(TInt aError)
 		// Complete the client's request with as much data as we can. NB 
 		// Opinion may be divided over whether to do this, or complete with 
 		// just 1 byte. We implement the more generous approach.
-		LOGTEXT2(_L8("\tcurrent request is ReadOneOrMore- completing with "
-			"%d bytes"), justRead);
+		OstTrace1( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED_DUP3, 
+				"CAcmReader::ReadOneOrMoreCompleted;\tcurrent request is ReadOneOrMore- completing with %d bytes", (TInt)justRead );
 		WriteBackData(justRead);
 		CompleteRequest(KErrNone);
 		}
@@ -465,28 +511,33 @@ void CAcmReader::ReadOneOrMoreCompleted(TInt aError)
 		// ReadOneOrMore, we only request LDD::ReadOneOrMore in this case.)
 
 		// Process the buffer for terminators. 
-		LOGTEXT(_L8("\tcurrent request is Read with terminators"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED_DUP4, 
+				"CAcmReader::ReadOneOrMoreCompleted;\tcurrent request is Read with terminators" );
 		CheckForBufferedTerminatorsAndProceed();
 		}
 
-	LOGTEXT(_L8("<<CAcmReader::ReadOneOrMoreCompleted"));
+	OstTrace0( TRACE_NORMAL, CACMREADER_READONEORMORECOMPLETED_DUP5, 
+			"CAcmReader::ReadOneOrMoreCompleted;<<CAcmReader::ReadOneOrMoreCompleted" );
+	OstTraceFunctionExit0( CACMREADER_READONEORMORECOMPLETED_EXIT_DUP2 );
 	}
 
 void CAcmReader::NotifyDataAvailableCompleted(TInt aError)
 	{
+	OstTraceFunctionEntry0( CACMREADER_NOTIFYDATAAVAILABLECOMPLETED_ENTRY );
 /**
  * Called by lower classes when data has arrived at the LDD after a 
  * NotifyDataAvailable request has been posted on the port. 
  *
  * @param aError Error.
  */
-	LOGTEXT2(_L8(">>CAcmReader::NotifyDataAvailableCompleted aError=%d"), aError);	
-		
+	OstTrace1( TRACE_NORMAL, CACMREADER_NOTIFYDATAAVAILABLECOMPLETED, 
+			"CAcmReader::NotifyDataAvailableCompleted;aError=%d", aError );
+	
 	// If the NotifyDataAvailable request failed, we complete back 
 	// to the client and don't do anything more.
-	CompleteRequest(aError);		
-	
-	LOGTEXT(_L8("<<CAcmReader::NotifyDataAvailableCompleted"));	
+	CompleteRequest(aError);
+	OstTrace0( TRACE_NORMAL, CACMREADER_NOTIFYDATAAVAILABLECOMPLETED_DUP2, "<<CAcmReader::NotifyDataAvailableCompleted" );
+	OstTraceFunctionExit0( CACMREADER_NOTIFYDATAAVAILABLECOMPLETED_EXIT );
 	}
 
 void CAcmReader::CheckBufferEmptyAndResetPtrs()
@@ -496,14 +547,16 @@ void CAcmReader::CheckBufferEmptyAndResetPtrs()
  * fiddling around wrapping at the end of the buffer.
  */
 	{
-	LOGTEXT(_L8("CAcmReader::CheckBufferEmptyAndResetPtrs"));
-
-	if ( BufLen() != 0 )
+	OstTraceFunctionEntry0( CACMREADER_CHECKBUFFEREMPTYANDRESETPTRS_ENTRY );
+	TInt	blen = BufLen();
+	if ( blen != 0 )
 		{
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError);
+		OstTrace1( TRACE_FATAL, CACMREADER_CHECKBUFFEREMPTYANDRESETPTRS, "CAcmReader::CheckBufferEmptyAndResetPtrs;blen=%d", blen );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
 		}
 
 	iOutPtr = iInPtr = iBufStart;
+	OstTraceFunctionExit0( CACMREADER_CHECKBUFFEREMPTYANDRESETPTRS_EXIT );
 	}
 
 void CAcmReader::CheckNewRequest(const TAny* aClientBuffer, TUint aMaxLen)
@@ -516,25 +569,41 @@ void CAcmReader::CheckNewRequest(const TAny* aClientBuffer, TUint aMaxLen)
  * @param aMaxLen Maximum length to read.
  */
 	{
+	OstTraceFunctionEntry0( CACMREADER_CHECKNEWREQUEST_ENTRY );
+	
 	// The port should handle zero-length reads, not us.
-	__ASSERT_DEBUG(aMaxLen > 0, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
-	__ASSERT_DEBUG(aMaxLen <= static_cast<TUint>(KMaxTInt), 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (aMaxLen <= 0)
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_CHECKNEWREQUEST, "CAcmReader::CheckNewRequest;aMaxLen <= 0" );
+		
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
+	if (aMaxLen > static_cast<TUint>(KMaxTInt))
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_CHECKNEWREQUEST_DUP1, "CAcmReader::CheckNewRequest;aMaxLen > static_cast<TUint>(KMaxTInt)" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	// Check we have no outstanding request already.
 	if ( iCurrentRequest.iClientPtr )// just panic in case of concurrent Read or ReadOneOrMore queries.
 		{							 // in case of NotifyDataAvailable queries, we already have completed the client with KErrInUse.
 									 // This code is kept for legacy purpose. That justifies the existence of IsNotifyDataAvailableQueryPending
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError);
+		OstTraceExt1( TRACE_FATAL, CACMREADER_CHECKNEWREQUEST_DUP3, 
+				"CAcmReader::CheckNewRequest;iCurrentRequest.iClientPtr=%p", iCurrentRequest.iClientPtr );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
 		}
 	// Sanity check on what C32 gave us.
-	__ASSERT_DEBUG(aClientBuffer, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!aClientBuffer)
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_CHECKNEWREQUEST_DUP2, "CAcmReader::CheckNewRequest;aClientBuffer = NULL" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	// Make a note of interesting data.
 	iCurrentRequest.iClientPtr = aClientBuffer;
 	iLengthToGo = aMaxLen;
 	iOffsetIntoClientsMemory = 0;
+	OstTraceFunctionExit0( CACMREADER_CHECKNEWREQUEST_EXIT );
 	}
 
 void CAcmReader::CheckForBufferedTerminatorsAndProceed()
@@ -544,23 +613,29 @@ void CAcmReader::CheckForBufferedTerminatorsAndProceed()
  * amount if not.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_ENTRY );
+	
 	TInt ret = FindTerminator();
-	LOGTEXT2(_L8("\tFindTerminator = %d"), ret);
+	OstTrace1( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP6, 
+			"CAcmReader::CheckForBufferedTerminatorsAndProceed;\tFindTerminator = %d", ret );
+
 	if ( ret < KErrNone )
 		{
-		LOGTEXT(_L8("\tno terminator found"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED, 
+				"CAcmReader::CheckForBufferedTerminatorsAndProceed;\tno terminator found" );
+		
 		const TUint bufLen = BufLen();
-		LOGTEXT2(_L8("\tbufLen = %d"), bufLen);
+		OstTrace1( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP1, 
+				"CAcmReader::CheckForBufferedTerminatorsAndProceed;\tbufLen = %d", (TInt)bufLen );
+		
 		// No terminator was found. Does the buffer already exceed the 
 		// client's descriptor?
 		if ( bufLen >= iLengthToGo )
 			{
 			// Yes- complete as much data to the client as their 
 			// descriptor can handle.
-			LOGTEXT2(_L8("\tbuffer >= client descriptor- "
-				"writing back %d bytes"), iLengthToGo);
+			OstTrace1( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP2, 
+					"CAcmReader::CheckForBufferedTerminatorsAndProceed;iLengthToGo=%d", (TInt)iLengthToGo );
 			WriteBackData(iLengthToGo);
 			CompleteRequest(KErrNone);
 			}
@@ -574,13 +649,15 @@ void CAcmReader::CheckForBufferedTerminatorsAndProceed()
 		}
 	else
 		{
-		LOGTEXT(_L8("\tterminator found!"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP3, 
+				"CAcmReader::CheckForBufferedTerminatorsAndProceed;\tterminator found!" );
 		// Will the terminator position fit within the client's descriptor?
 		if ( static_cast<TUint>(ret) <= iLengthToGo )
 			{
 			// Yes- complete (up to the terminator) back to the client.
-			LOGTEXT2(_L8("\tterminator will fit in client's descriptor- "
-				"writing back %d bytes"), ret);
+			OstTrace1( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP4, 
+					"CAcmReader::CheckForBufferedTerminatorsAndProceed;\tterminator will fit "
+					"in client's descriptor- writing back %d bytes ", (TInt)ret );
 			WriteBackData(static_cast<TUint>(ret));
 			CompleteRequest(KErrNone);
 			}
@@ -588,12 +665,14 @@ void CAcmReader::CheckForBufferedTerminatorsAndProceed()
 			{
 			// No- complete as much data to the client as their descriptor can 
 			// handle.
-			LOGTEXT2(_L8("\tterminator won't fit in client's descriptor- "
-				"writing back %d bytes"), iLengthToGo);
+			OstTrace1( TRACE_NORMAL, CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_DUP5, 
+							"CAcmReader::CheckForBufferedTerminatorsAndProceed; "
+							"\tterminator won't fit in client's descriptor- writing back %d bytes", (TInt)iLengthToGo );
 			WriteBackData(iLengthToGo);
 			CompleteRequest(KErrNone);
 			}
 		}
+	OstTraceFunctionExit0( CACMREADER_CHECKFORBUFFEREDTERMINATORSANDPROCEED_EXIT );
 	}
 
 void CAcmReader::WriteBackData(TUint aLength)
@@ -608,36 +687,44 @@ void CAcmReader::WriteBackData(TUint aLength)
  * @param aLength Amount of data to write back.
  */
 	{
-	LOGTEXT2(_L8("CAcmReader::WriteBackData aLength = %d"), aLength);
-	LOGTEXT2(_L8("\tBufLen() = %d"), BufLen());
+	OstTraceFunctionEntry0( CACMREADER_WRITEBACKDATA_ENTRY );
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA, "CAcmReader::WriteBackData;aLength=%d", (TInt)aLength );
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA_DUP1, "CAcmReader::WriteBackData;\tBufLen() = %d", (TInt)BufLen() );
 
-	LOGTEXT2(_L8("\tBufLen() = %d"), BufLen());
-
-	__ASSERT_DEBUG(aLength <= BufLen(), 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (aLength > BufLen())
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP15, "CAcmReader::WriteBackData;aLength > BufLen()" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	const TUint lenBeforeWrap = iBufStart + iBufSize - iOutPtr;
 
-	LOGTEXT2(_L8("\tiOutPtr=%d"), iOutPtr - iBufStart);
-	LOGTEXT2(_L8("\tiInPtr=%d"), iInPtr - iBufStart);
-	LOGTEXT2(_L8("\tiOffsetIntoClientsMemory=%d"), iOffsetIntoClientsMemory);
-	LOGTEXT2(_L8("\tlenBeforeWrap=%d"), lenBeforeWrap);
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA_DUP2, "CAcmReader::WriteBackData;\tiOutPtr=%d", (TInt)(iOutPtr - iBufStart) );
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA_DUP3, "CAcmReader::WriteBackData;\tiInPtr=%d", (TInt)(iInPtr - iBufStart) );
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA_DUP4, "CAcmReader::WriteBackData;\tiOffsetIntoClientsMemory=%d", (TInt)iOffsetIntoClientsMemory );
+	OstTrace1( TRACE_DUMP, CACMREADER_WRITEBACKDATA_DUP5, "CAcmReader::WriteBackData;\tlenBeforeWrap=%d", (TInt)lenBeforeWrap );
 	
 	if ( aLength > lenBeforeWrap )
 		{ 
 		// We'll have to do this in two stages...
-		LOGTEXT(_L8("\twriting back in two stages"));
-
-		__ASSERT_DEBUG(BufWrap(), 
-			_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace0( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP6, "CAcmReader::WriteBackData;\twriting back in two stages" );
+		if (!BufWrap())
+			{
+			OstTrace0( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP16, "CAcmReader::WriteBackData;BufWrap() is NULL" );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 
 		// Stage 1...
 		TPtrC8 ptrBeforeWrap(iOutPtr, lenBeforeWrap);
 		TInt err = iPort.IPCWrite(iCurrentRequest.iClientPtr,
 			ptrBeforeWrap,
 			iOffsetIntoClientsMemory);
-		LOGTEXT2(_L8("\tIPCWrite = %d"), err);
-		__ASSERT_DEBUG(!err, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace1( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP7, "CAcmReader::WriteBackData;\tIPCWrite = %d", (TInt)err );
+		if (err)
+			{
+			OstTrace1( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP17, "CAcmReader::WriteBackData;err=%d", err );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		static_cast<void>(err);
 		iOffsetIntoClientsMemory += lenBeforeWrap;
 
@@ -647,39 +734,54 @@ void CAcmReader::WriteBackData(TUint aLength)
 		err = iPort.IPCWrite(iCurrentRequest.iClientPtr,
 			ptrAfterWrap,
 			iOffsetIntoClientsMemory);
-		LOGTEXT2(_L8("\tIPCWrite = %d"), err);
-		__ASSERT_DEBUG(!err, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace1( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP8, "CAcmReader::WriteBackData;\tIPCWrite = %d", (TInt)err );
+		if (err)
+			{
+			OstTrace1( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP18, "CAcmReader::WriteBackData;err=%d", err );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		iOffsetIntoClientsMemory += seg2Len;
 
 		// and set the pointers to show that we've consumed the data...
 		iOutPtr = iBufStart + seg2Len;
-		LOGTEXT(_L8("\twrite in two segments completed"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP9, "CAcmReader::WriteBackData;\twrite in two segments completed" );
 		}
 	else // We can do it in one go...
 		{
-		LOGTEXT(_L8("\twriting in one segment"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP10, "CAcmReader::WriteBackData;\twriting in one segment" );
 
 		TPtrC8 ptr(iOutPtr, aLength);
 		TInt err = iPort.IPCWrite(iCurrentRequest.iClientPtr,
 			ptr,
 			iOffsetIntoClientsMemory);
-		LOGTEXT2(_L8("\tIPCWrite = %d"), err);
-		__ASSERT_DEBUG(!err, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		OstTrace1( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP11, "CAcmReader::WriteBackData;\tIPCWrite = %d", (TInt)err );
+		if (err)
+			{
+			OstTrace1( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP19, "CAcmReader::WriteBackData;err=%d", err );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		static_cast<void>(err);
 		iOffsetIntoClientsMemory += aLength;
 
 		// Set the pointers to show that we've consumed the data...
 		iOutPtr += aLength;
-		LOGTEXT(_L8("\twrite in one segment completed"));
+		OstTrace0( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP12, "CAcmReader::WriteBackData;\twrite in one segments completed" );
 		}
 
-	LOGTEXT2(_L8("\tiOutPtr=%d"), iOutPtr - iBufStart);
-	LOGTEXT2(_L8("\tiOffsetIntoClientsMemory=%d"), iOffsetIntoClientsMemory);
+	OstTrace1( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP13, 
+			"CAcmReader::WriteBackData;\tiOutPtr=%d", (TInt)(iOutPtr - iBufStart) );
+	OstTrace1( TRACE_NORMAL, CACMREADER_WRITEBACKDATA_DUP14, 
+			"CAcmReader::WriteBackData;\tiOffsetIntoClientsMemory=%d", (TInt)iOffsetIntoClientsMemory );
 
 	// Adjust iLengthToGo
-	__ASSERT_DEBUG(iLengthToGo >= aLength, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (iLengthToGo < aLength)
+		{
+		OstTraceExt2( TRACE_FATAL, CACMREADER_WRITEBACKDATA_DUP20, 
+				"CAcmReader::WriteBackData;iLengthToGo=%d;aLength=%d", (TInt)iLengthToGo, (TInt)aLength );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iLengthToGo -= aLength;
+	OstTraceFunctionExit0( CACMREADER_WRITEBACKDATA_EXIT );
 	}
 
 void CAcmReader::CompleteRequest(TInt aError)
@@ -691,21 +793,24 @@ void CAcmReader::CompleteRequest(TInt aError)
  * @param aError The error code to complete with.
  */
 	{
-	LOGTEXT2(_L8("CAcmReader::CompleteRequest aError=%d"), aError);
+	OstTraceFunctionEntry0( CACMREADER_COMPLETEREQUEST_ENTRY );
+	OstTrace1( TRACE_NORMAL, CACMREADER_COMPLETEREQUEST, "CAcmReader::CompleteRequest;aError=%d", (TInt)aError );
 
 	// Set our flag to say that we no longer have an outstanding request.
 	iCurrentRequest.iClientPtr = NULL;
-
 	if(ENotifyDataAvailable==iCurrentRequest.iRequestType)
 		{
-		LOGTEXT2(_L8("\tcalling NotifyDataAvailableCompleted with error %d"), aError);
+		OstTrace1( TRACE_NORMAL, CACMREADER_COMPLETEREQUEST_DUP1, 
+				"CAcmReader::CompleteRequest;\tcalling NotifyDataAvailableCompleted with error %d", aError );
 		iPort.NotifyDataAvailableCompleted(aError);	
 		}
 	else // read and readoneormore
 		{
-		LOGTEXT2(_L8("\tcalling ReadCompleted with error %d"), aError);
+		OstTrace1( TRACE_NORMAL, CACMREADER_COMPLETEREQUEST_DUP2, 
+					"CAcmReader::CompleteRequest;\tcalling ReadCompleted with error %d", aError );
 		iPort.ReadCompleted(aError);
 		}
+	OstTraceFunctionExit0( CACMREADER_COMPLETEREQUEST_EXIT );
 	}
 
 void CAcmReader::IssueRead()
@@ -717,25 +822,27 @@ void CAcmReader::IssueRead()
  * buffer being wrapped and the consequent risk of overwriting.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_ISSUEREAD_ENTRY );
 	CheckBufferEmptyAndResetPtrs();
 
-	LOGTEXT2(_L8("\tiBufSize = %d"), iBufSize);
-	LOGTEXT2(_L8("\tiInPtr = %d"), iInPtr - iBufStart);
-
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREAD, "CAcmReader::IssueRead;iBufSize=%d", (TInt)iBufSize );
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREAD_DUP1, "CAcmReader::IssueRead;\tiInPtr = %d", (TInt)(iInPtr - iBufStart) );
 	const TUint lenBeforeWrap = iBufStart + iBufSize - iInPtr;
 	
-	LOGTEXT2(_L8("\tiLengthToGo = %d"), iLengthToGo);
-	LOGTEXT2(_L8("\tlenBeforeWrap = %d"), lenBeforeWrap);
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREAD_DUP2, "CAcmReader::IssueRead;\tiLengthToGo = %d", (TInt)iLengthToGo );
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREAD_DUP3, "CAcmReader::IssueRead;\tlenBeforeWrap = %d", (TInt)lenBeforeWrap );
 
 	const TUint limit = Min(static_cast<TInt>(iLengthToGo), 
 		static_cast<TInt>(lenBeforeWrap));
-	LOGTEXT2(_L8("\tissuing read for %d bytes"), limit);
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREAD_DUP4, "CAcmReader::IssueRead;\tissuing read for %d bytes", (TInt)limit );
 	iInBuf.Set(iInPtr, 0, limit);
-	__ASSERT_DEBUG(iPort.Acm(), 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iPort.Acm())
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_ISSUEREAD_DUP5, "CAcmReader::IssueRead;iPort.Acm() is null" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iPort.Acm()->Read(*this, iInBuf, limit);
+	OstTraceFunctionExit0( CACMREADER_ISSUEREAD_EXIT );
 	}
 
 void CAcmReader::IssueReadOneOrMore()
@@ -747,25 +854,29 @@ void CAcmReader::IssueReadOneOrMore()
  * buffer being wrapped and the consequent risk of overwriting.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_ISSUEREADONEORMORE_ENTRY );
 	CheckBufferEmptyAndResetPtrs();
 
-	LOGTEXT2(_L8("\tiBufSize = %d"), iBufSize);
-	LOGTEXT2(_L8("\tiInPtr = %d"), iInPtr - iBufStart);
-
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREADONEORMORE, "CAcmReader::IssueReadOneOrMore;iBufSize=%d", (TInt)iBufSize );
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREADONEORMORE_DUP1, 
+			"CAcmReader::IssueReadOneOrMore;\tiInPtr = %d",(TInt)(iInPtr - iBufStart) );
 	const TUint lenBeforeWrap = iBufStart + iBufSize - iInPtr;
 	
-	LOGTEXT2(_L8("\tiLengthToGo = %d"), iLengthToGo);
-	LOGTEXT2(_L8("\tlenBeforeWrap = %d"), lenBeforeWrap);
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREADONEORMORE_DUP2, "CAcmReader::IssueReadOneOrMore;iLengthToGo=%d", (TInt)iLengthToGo );
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREADONEORMORE_DUP3, "CAcmReader::IssueReadOneOrMore;lenBeforeWrap=%d", (TInt)lenBeforeWrap );
 
 	const TUint limit1 = Min(static_cast<TInt>(lenBeforeWrap), iLengthToGo);
-	
-	LOGTEXT2(_L8("\tissuing read one or more for %d bytes"), limit1);
+	OstTrace1( TRACE_DUMP, CACMREADER_ISSUEREADONEORMORE_DUP4, 
+			"CAcmReader::IssueReadOneOrMore;\tissuing read one or more for %d bytes", (TInt)limit1 );
+
 	iInBuf.Set(iInPtr, 0, limit1);
-	__ASSERT_DEBUG(iPort.Acm(), 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iPort.Acm())
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_ISSUEREADONEORMORE_DUP5, "CAcmReader::IssueReadOneOrMore;iPort.Acm() is null" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iPort.Acm()->ReadOneOrMore(*this, iInBuf, limit1);
+	OstTraceFunctionExit0( CACMREADER_ISSUEREADONEORMORE_EXIT );
 	}
 
 TInt CAcmReader::FindTerminator() const
@@ -780,8 +891,8 @@ TInt CAcmReader::FindTerminator() const
  * account. If negative: error.
  */
 	{
-	LOGTEXT(_L8(">>CAcmReader::FindTerminator"));
-
+	OstTraceFunctionEntry0( CACMREADER_FINDTERMINATOR_ENTRY );
+	
 	TInt pos = 0;
 	TInt ret = KErrNone;
 	if ( !BufWrap() )
@@ -816,10 +927,14 @@ TInt CAcmReader::FindTerminator() const
 		}
 
 	// Check we're returning what we said we would.
-	__ASSERT_DEBUG(ret != KErrNone, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (ret == KErrNone)
+		{
+		OstTrace0( TRACE_FATAL, CACMREADER_FINDTERMINATOR_DUP1, "CAcmReader::FindTerminator;ret == KErrNone" );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	
-	LOGTEXT2(_L8("<<CAcmReader::FindTerminator ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CACMREADER_FINDTERMINATOR, "CAcmReader::FindTerminator;ret=%d", ret );
+	OstTraceFunctionExit0( CACMREADER_FINDTERMINATOR_EXIT );
 	return ret;
 	}
 
@@ -843,26 +958,33 @@ TInt CAcmReader::PartialFindTerminator(TUint8* aFrom,
  * found.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CACMREADER_PARTIALFINDTERMINATOR_ENTRY );
+	
 	aPos = 1;
-	LOGTEXT3(_L8("\taFrom=%d, aTo=%d"), aFrom-iBufStart, aTo-iBufStart);
-
+	OstTraceExt2( TRACE_NORMAL, CACMREADER_PARTIALFINDTERMINATOR, 
+			"CAcmReader::PartialFindTerminator;\taFrom=%d, aTo=%d", (TInt)(aFrom-iBufStart), (TInt)(aTo-iBufStart) );
+	
 	for ( TUint8* p = aFrom ; p < aTo ; p++, aPos++ )
 		{
 		for ( TUint i = 0 ; i < iTerminatorCount ; i++ )
 			{
-			__ASSERT_DEBUG(p, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+			if (!p)
+				{
+				OstTraceExt1( TRACE_FATAL, CACMREADER_PARTIALFINDTERMINATOR_DUP3, "CAcmReader::PartialFindTerminator;p=%p", p );
+				__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+				}
 			if ( *p == iTerminator[i] )
 				{
-				LOGTEXT3(_L8("\tterminator %d found at aPos %d"), 
-					iTerminator[i], aPos);
+				OstTraceExt2( TRACE_FLOW, CACMREADER_PARTIALFINDTERMINATOR_DUP1, 
+						"CAcmReader::PartialFindTerminator;\tterminator %d found at aPos %d", (TInt)iTerminator[i], (TInt)aPos );
+				OstTraceFunctionExit0( CACMREADER_PARTIALFINDTERMINATOR_EXIT );
 				return KErrNone;
 				}
 			}
 		}
 	
-	LOGTEXT(_L8("\tno terminator found"));
+	OstTrace0( TRACE_NORMAL, CACMREADER_PARTIALFINDTERMINATOR_DUP2, "CAcmReader::PartialFindTerminator;\tno terminator found" );
+	OstTraceFunctionExit0( CACMREADER_PARTIALFINDTERMINATOR_EXIT_DUP2 );
 	return KErrNotFound;
 	}
 

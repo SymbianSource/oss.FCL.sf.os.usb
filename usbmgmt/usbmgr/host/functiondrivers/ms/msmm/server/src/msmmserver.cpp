@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,18 +21,20 @@
 */
 
 #include "msmmserver.h"
-#include <usb/hostms/msmmpolicypluginbase.h>
 #include "msmm_internal_def.h"
 #include "msmmsession.h"
 #include "msmmengine.h"
 #include "eventqueue.h"
 #include "msmmterminator.h"
+#include "msmmdismountusbdrives.h"
 
+#include <usb/hostms/msmmpolicypluginbase.h>
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "msmmserverTraces.h"
 #endif
+
 
 //  Static public functions
 TInt CMsmmServer::ThreadFunction()
@@ -44,15 +46,7 @@ TInt CMsmmServer::ThreadFunction()
     CTrapCleanup* cleanupStack = CTrapCleanup::New();
     if (cleanupStack)
         {
-#ifdef __FLOG_ACTIVE
-        (void)CUsbLog::Connect();
-#endif
-
         TRAP(ret, ThreadFunctionL());
-
-#ifdef __FLOG_ACTIVE
-        CUsbLog::Close();
-#endif
         
         delete cleanupStack;
         }
@@ -67,7 +61,7 @@ TInt CMsmmServer::ThreadFunction()
 
 void CMsmmServer::ThreadFunctionL()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CMSMMSERVER_THREADFUNCTIONL_ENTRY );
     
     TSecureId creatorSID = User::CreatorSecureId();
     if (KFDFWSecureId != creatorSID)
@@ -95,13 +89,35 @@ void CMsmmServer::ThreadFunctionL()
 
     // Free the server and active scheduler.
     CleanupStack::PopAndDestroy(2, scheduler);
+    OstTraceFunctionExit0( CMSMMSERVER_THREADFUNCTIONL_EXIT );
     }
+
+CPolicyServer::TCustomResult CMsmmServer::CustomSecurityCheckL(
+    const RMessage2&  aMsg,
+     TInt&  /*aAction*/,
+     TSecurityInfo&  /*aMissing*/)
+ {
+     CPolicyServer::TCustomResult returnValue = CPolicyServer::EFail;    
+     
+     TSecureId ClientSID = aMsg.SecureId();
+ 
+     if (KFDFWSecureId == ClientSID)
+         {
+         returnValue = CPolicyServer::EPass;
+         }     
+     else if ((KSidHbDeviceDialogAppServer == ClientSID) && SessionNumber() > 0)
+         {
+         returnValue = CPolicyServer::EPass;
+         }
+     return returnValue;
+ }
 
 // Public functions
 // Construction and destruction
 CMsmmServer* CMsmmServer::NewLC()
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CMSMMSERVER_NEWLC_ENTRY );
+    
     CMsmmServer* self = new (ELeave) CMsmmServer(EPriorityHigh);
     CleanupStack::PushL(self);
     
@@ -109,34 +125,39 @@ CMsmmServer* CMsmmServer::NewLC()
     self->StartL(KMsmmServerName);
     self->ConstructL();
     
+    OstTraceFunctionExit0( CMSMMSERVER_NEWLC_EXIT );
     return self;
     }
 
 CMsmmServer::~CMsmmServer()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_CMSMMSERVER_DES_ENTRY );
+    
     delete iPolicyPlugin;
     delete iEventQueue;
     delete iEngine;
     delete iTerminator;
+    delete iDismountErrData;
+    delete iDismountManager;
     REComSession::FinalClose();
 
 #ifndef __OVER_DUMMYCOMPONENT__
     iFs.RemoveProxyDrive(KPROXYDRIVENAME);
     iFs.Close();
 #endif
+    OstTraceFunctionExit0( CMSMMSERVER_CMSMMSERVER_DES_EXIT );
     }
     
     // CMsmmServer APIs
 CSession2* CMsmmServer::NewSessionL(const TVersion& aVersion, 
         const RMessage2& aMessage) const
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_NEWSESSIONL_ENTRY );
     
     if (KMaxClientCount <= SessionNumber())
         {
         // There is a connection to MSMM server already.
-        // Currently design of MSMM allows only one activated client 
+        // Currently design of MSMM can have two clients, one FDF and the other Indicator UI
         // at any time.
         User::Leave(KErrInUse);
         }
@@ -159,22 +180,22 @@ CSession2* CMsmmServer::NewSessionL(const TVersion& aVersion,
 
 TInt CMsmmServer::SessionNumber() const
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( CMSMMSERVER_SESSIONNUMBER_ENTRY );
     return iNumSessions;
     }
 
 void CMsmmServer::AddSession()
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( CMSMMSERVER_ADDSESSION_ENTRY );
+     
     ++iNumSessions;
     iTerminator->Cancel();
+    OstTraceFunctionExit0( CMSMMSERVER_ADDSESSION_EXIT );
     }
 
 void CMsmmServer::RemoveSession()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_REMOVESESSION_ENTRY );
     
     --iNumSessions;
     if (iNumSessions == 0)
@@ -186,25 +207,49 @@ void CMsmmServer::RemoveSession()
         iTerminator->Cancel();
         iTerminator->Start();
         }
+		
+    OstTraceFunctionExit0( CMSMMSERVER_REMOVESESSION_EXIT );
     }
+	
+	void CMsmmServer::DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice)
+    {
+    OstTraceFunctionEntry0( CMSMMSERVER_DISMOUNTUSBDRIVERSL_ENTRY );
+    delete iDismountManager;
+    iDismountManager = NULL;
+    iDismountManager= CMsmmDismountUsbDrives::NewL();
+    
+    //Also notify the MSMM plugin of beginning of dismounting     
+    iDismountErrData->iError = EHostMsEjectInProgress;
+    iDismountErrData->iE32Error = KErrNone;
+    iDismountErrData->iManufacturerString = aDevice.iManufacturerString;
+    iDismountErrData->iProductString = aDevice.iProductString;
+    iDismountErrData->iDriveName = 0x0;
+   
+    TRAP_IGNORE(iPolicyPlugin->SendErrorNotificationL(*iDismountErrData));
+
+    // Start dismounting
+    iDismountManager->DismountUsbDrives(*iPolicyPlugin, aDevice);
+	OstTraceFunctionExit0( CMSMMSERVER_DISMOUNTUSBDRIVERSL_EXIT );
+    }
+
 
 //  Private functions 
 // CMsmmServer Construction
 CMsmmServer::CMsmmServer(TInt aPriority)
     :CPolicyServer(aPriority, KMsmmServerSecurityPolicy, EUnsharableSessions)
     {
-    LOG_FUNC
-    //
+    OstTraceFunctionEntry0( CMSMMSERVER_CMSMMSERVER_CONS_ENTRY );
     }
 
 void CMsmmServer::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CMSMMSERVER_CONSTRUCTL_ENTRY );
     
     iEngine = CMsmmEngine::NewL();
     iEventQueue = CDeviceEventQueue::NewL(*this);
     iTerminator = CMsmmTerminator::NewL(*iEventQueue);
     iPolicyPlugin = CMsmmPolicyPluginBase::NewL();
+    iDismountErrData = new (ELeave) THostMsErrData;
     if (!iPolicyPlugin)
         {
         // Not any policy plugin implementation available
@@ -225,6 +270,7 @@ void CMsmmServer::ConstructL()
     
     // Start automatic shutdown timer
     iTerminator->Start();
+    OstTraceFunctionExit0( CMSMMSERVER_CONSTRUCTL_EXIT );
     }
 
 // End of file

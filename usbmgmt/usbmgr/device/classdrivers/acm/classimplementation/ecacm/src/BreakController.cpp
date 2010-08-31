@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,11 +21,11 @@
 #include "HostPushedChangeObserver.h"
 #include "AcmPanic.h"
 #include "BreakObserver.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "BreakControllerTraces.h"
 #endif
+
 
 CBreakController::CBreakController(CCdcAcmClass& aParentAcm)
 /**
@@ -37,6 +37,7 @@ CBreakController::CBreakController(CCdcAcmClass& aParentAcm)
 	iBreakState(EInactive),
 	iParentAcm(aParentAcm)
 	{
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_CBREAKCONTROLLER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
 
 	// now populate the state machine that manages the transfers between
@@ -66,6 +67,7 @@ CBreakController::CBreakController(CCdcAcmClass& aParentAcm)
 
 	StateDispatcher[ELocked    ][EInactive ] = &ScInactive;
 	StateDispatcher[ELocked    ][ETiming   ] = &ScSetTimer; 
+	OstTraceFunctionExit0( CBREAKCONTROLLER_CBREAKCONTROLLER_CONS_EXIT );
 	}
 
 CBreakController* CBreakController::NewL(CCdcAcmClass& aParentAcm)
@@ -76,12 +78,12 @@ CBreakController* CBreakController::NewL(CCdcAcmClass& aParentAcm)
  * @return Ownership of a new CBreakController object.
  */ 
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_NEWL_ENTRY );
 	CBreakController* self = new(ELeave) CBreakController(aParentAcm);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CLEANUPSTACK_POP(self);
+	OstTraceFunctionExit0( CBREAKCONTROLLER_NEWL_EXIT );
 	return self;
 	}
 
@@ -90,7 +92,13 @@ void CBreakController::ConstructL()
  * 2nd-phase constructor.
  */
 	{
-	LEAVEIFERRORL(iTimer.CreateLocal());
+	TInt	err;
+	err = iTimer.CreateLocal();
+	if (err < 0)
+		{
+		OstTrace1( TRACE_NORMAL, CBREAKCONTROLLER_CONSTRUCTL, "CBreakController::ConstructL;err=%d", err );
+		User::Leave(err);
+		}
 	}
 
 CBreakController::~CBreakController()
@@ -98,10 +106,10 @@ CBreakController::~CBreakController()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_CBREAKCONTROLLER_DES_ENTRY );
 	Cancel();
 	iTimer.Close();
+	OstTraceFunctionExit0( CBREAKCONTROLLER_CBREAKCONTROLLER_DES_EXIT );
 	}
 
 void CBreakController::RunL()
@@ -109,9 +117,8 @@ void CBreakController::RunL()
  * Called by the active scheduler; handles timer completion.
  */
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_RUNL_ENTRY );
+	
 	// check the status to see if the timer has matured, if so go straight 
 	// to INACTIVE state (and publish new state)
 	if ( iStatus == KErrNone )
@@ -119,9 +126,13 @@ void CBreakController::RunL()
 		// Use iRequester to turn the break off. This should not fail.
 		TInt err = BreakRequest(iRequester, EInactive);
 		static_cast<void>(err);
-		__ASSERT_DEBUG(!err, 
-			_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+		if (err)
+			{		
+			OstTrace1( TRACE_FATAL, CBREAKCONTROLLER_RUNL, "CBreakController::RunL;err=%d", err );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+			}
 		}
+	OstTraceFunctionExit0( CBREAKCONTROLLER_RUNL_EXIT );
 	}
 
 void CBreakController::DoCancel()
@@ -129,9 +140,9 @@ void CBreakController::DoCancel()
  * Called by the framework; handles cancelling the outstanding timer request.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_DOCANCEL_ENTRY );
 	iTimer.Cancel();
+	OstTraceFunctionExit0( CBREAKCONTROLLER_DOCANCEL_EXIT );
 	}
 
 TInt CBreakController::BreakRequest(TRequester aRequester, 
@@ -147,28 +158,30 @@ TInt CBreakController::BreakRequest(TRequester aRequester,
  * @return Error, for instance if a different entity already owns the break.
  */
  	{
-	LOG_FUNC
-	LOGTEXT4(_L8("\taRequester = %d, aState = %d, aDelay = %d"), 
-		aRequester, aState, aDelay.Int());	  
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_BREAKREQUEST_ENTRY );
+	OstTraceExt3( TRACE_NORMAL, CBREAKCONTROLLER_BREAKREQUEST, 
+			"CBreakController::BreakRequest;aRequester=%d;aState=%d;aDelay=%d", (TInt)aRequester, (TInt)aState, aDelay.Int() );
 
 	// Check the validity of the request.
 	if ( aRequester != iRequester && iRequester != ENone )
 		{
-		LOGTEXT3(_L8("\t*** %d is in charge- cannot service request "
-			"from %d- returning KErrInUse"), iRequester, aRequester);
+		OstTraceExt2( TRACE_FLOW, CBREAKCONTROLLER_BREAKREQUEST_DUP1, 
+				"CBreakController::BreakRequest;%d is in charge- cannot service request from %d- returning KErrInUse", 
+				(TInt)iRequester, (TInt)aRequester );
+		
+		OstTraceFunctionExit0( CBREAKCONTROLLER_BREAKREQUEST_EXIT );
 		return KErrInUse;
 		}
 
 	iRequester = aRequester;
-
 	StateMachine(aState, aDelay);
-
 	// Reset the owner member if relevant.
 	if ( aState == EInactive )
 		{
 		iRequester = ENone;
 		}
 
+	OstTraceFunctionExit0( CBREAKCONTROLLER_BREAKREQUEST_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -181,20 +194,23 @@ void CBreakController::StateMachine(TState aBreakState,
  * @param aDelay Only used if going to a breaking state, the delay.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_STATEMACHINE_ENTRY );
 	TBool resultOK = EFalse;
 
 	// Invoke the desired function.
 	PBFNT pfsDispatch = StateDispatcher[iBreakState][aBreakState];
-	__ASSERT_DEBUG(pfsDispatch, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!pfsDispatch)	
+		{
+		OstTraceExt1( TRACE_FATAL, CBREAKCONTROLLER_STATEMACHINE, "CBreakController::StateMachine;pfsDispatch=%p", (TAny*)pfsDispatch );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	resultOK = ( *pfsDispatch )(this, aDelay);
 
 	if ( resultOK )
 		{
-		LOGTEXT(_L8("\tbreak state dispatcher returned *SUCCESS*"));
-
+		OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_STATEMACHINE_DUP1, 
+				"CBreakController::StateMachine;\tbreak state dispatcher returned *SUCCESS*" );
+		
 		// check to see if the state change will need to result
 		// in a modification to the public state of BREAK which is
 		// either NO-BREAK == EBreakInactive
@@ -214,8 +230,10 @@ void CBreakController::StateMachine(TState aBreakState,
 		}
 	else
 		{
-		LOGTEXT(_L8("\tbreak state dispatcher returned *FAILURE*"));
+		OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_STATEMACHINE_DUP2, 
+				"CBreakController::StateMachine;\tbreak state dispatcher returned *FAILURE*" );
 		}
+	OstTraceFunctionExit0( CBREAKCONTROLLER_STATEMACHINE_EXIT );
 	}
 
 void CBreakController::Publish(TState aNewState)
@@ -226,11 +244,13 @@ void CBreakController::Publish(TState aNewState)
  * @param aNewState The next state we're about to go to.
  */
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taNewState = %d"), aNewState);
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_PUBLISH_ENTRY );
 
-	__ASSERT_DEBUG(aNewState != iBreakState, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (aNewState == iBreakState)
+		{
+		OstTrace1( TRACE_FATAL, CBREAKCONTROLLER_PUBLISH, "CBreakController::Publish;aNewState=%d", (TInt)aNewState );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	// send the new BREAK state off to the USB Host
 	// this function is normally used so that ACMCSY can send client 
@@ -247,7 +267,7 @@ void CBreakController::Publish(TState aNewState)
 	// this should cause it to be toggled there.
 	if( iParentAcm.BreakCallback() )
 		{
-		LOGTEXT(_L8("\tabout to call back break state change"));
+		OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_PUBLISH_DUP1, "CBreakController::Publish;\tabout to call back break state change" );
 		iParentAcm.BreakCallback()->BreakStateChange();
 		}
 
@@ -255,13 +275,13 @@ void CBreakController::Publish(TState aNewState)
 	// we tell the MBreakObserver (ACM port) that the break has completed. 
 	if ( aNewState == EInactive )
 		{
-		LOGTEXT(_L8("\tnew state is break-inactive"));
+		OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_PUBLISH_DUP2, "CBreakController::Publish;\tnew state is break-inactive" );
 		if ( iRequester == EDevice )
 			{
-			LOGTEXT(_L8("\tdevice is interested"));
+			OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_PUBLISH_DUP3, "CBreakController::Publish;\tdevice is interested" );
 			if( iParentAcm.BreakCallback() )
 				{
-				LOGTEXT(_L8("\tabout to call back break completion"));
+				OstTrace0( TRACE_NORMAL, CBREAKCONTROLLER_PUBLISH_DUP4, "CBreakController::Publish;\tabout to call back break completion" );
 				iParentAcm.BreakCallback()->BreakRequestCompleted(); 
 				}
 			}
@@ -269,6 +289,7 @@ void CBreakController::Publish(TState aNewState)
 		// We just got to break-inactive state. Blank the requester record.
 		iRequester = ENone;
 		}
+	OstTraceFunctionExit0( CBREAKCONTROLLER_PUBLISH_EXIT );
 	}
 
 /**
@@ -281,18 +302,17 @@ void CBreakController::Publish(TState aNewState)
 TBool CBreakController::ScInvalid(CBreakController *aThis, 
 								  TTimeIntervalMicroSeconds32 aDelay)
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_SCINVALID_ENTRY );
 	static_cast<void>(aThis); // remove warning 
 	static_cast<void>(aDelay); // remove warning
-	
+	OstTraceFunctionExit0( CBREAKCONTROLLER_SCINVALID_EXIT );
 	return( EFalse );
 	}
 
 TBool CBreakController::ScInactive(CBreakController *aThis, 
 								   TTimeIntervalMicroSeconds32 aDelay)
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_SCINACTIVE_ENTRY );
 	
 	static_cast<void>(aDelay); // remove warning
 
@@ -302,17 +322,19 @@ TBool CBreakController::ScInactive(CBreakController *aThis,
 
 	aThis->iParentAcm.SetBreakActive(EFalse);
 
+	OstTraceFunctionExit0( CBREAKCONTROLLER_SCINACTIVE_EXIT );
 	return( ETrue );
 	}
 
 TBool CBreakController::ScSetTimer(CBreakController *aThis, 
 								   TTimeIntervalMicroSeconds32 aDelay)
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_SCSETTIMER_ENTRY );
 
 	// don't try to set any delay if the caller wants something impossible
 	if ( aDelay.Int() <= 0 )
 		{
+		OstTraceFunctionExit0( CBREAKCONTROLLER_SCSETTIMER_EXIT );
 		return( EFalse );
 		}
 
@@ -323,14 +345,14 @@ TBool CBreakController::ScSetTimer(CBreakController *aThis,
 
 	aThis->iParentAcm.SetBreakActive(ETrue);
 
+	OstTraceFunctionExit0( CBREAKCONTROLLER_SCSETTIMER_EXIT_DUP1 );
 	return( ETrue );
 	}
 
 TBool CBreakController::ScLocked(CBreakController *aThis, 
 								 TTimeIntervalMicroSeconds32 aDelay)
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CBREAKCONTROLLER_SCLOCKED_ENTRY );
 	static_cast<void>(aDelay); // remove warning
 
 	// this may have been called while a BREAK is already current, so cancel 
@@ -339,6 +361,7 @@ TBool CBreakController::ScLocked(CBreakController *aThis,
 
 	aThis->iParentAcm.SetBreakActive(ETrue);
 
+	OstTraceFunctionExit0( CBREAKCONTROLLER_SCLOCKED_EXIT );
 	return( ETrue );
 	}
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,21 +21,22 @@
 */
 
 #include <e32base.h>
-#include <usb/usblogger.h>
 #include "usbhoststack.h"
 #include "fdfapi.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "usbhstcli");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "sessionTraces.h"
 #endif
+
+
 
 /**
 Starts the server process.
 */
 static TInt StartServer()
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+    OstTraceFunctionEntry0( _FDF_STARTSERVER_ENTRY );
+    
 	const TUidType serverUid(KNullUid, KNullUid, KUsbFdfUid);
 
 	//
@@ -45,10 +46,12 @@ static TInt StartServer()
 	//
 	RProcess server;
 	TInt err = server.Create(KUsbFdfImg, KNullDesC, serverUid);
-	LOGTEXT2(_L8("\terr = %d"), err);
+	
+	OstTrace1( TRACE_NORMAL, _FDF_STARTSERVER, "\terr = %d", err );
 
 	if ( err != KErrNone )
 		{
+		OstTraceFunctionExit0( _FDF_STARTSERVER_EXIT );
 		return err;
 		}
 
@@ -57,12 +60,14 @@ static TInt StartServer()
 
 	if ( stat != KRequestPending )
 		{
-		LOGTEXT(_L8("\taborting startup"));
+		OstTrace0( TRACE_NORMAL, _FDF_STARTSERVER_DUP1, "\taborting startup" );
+		
 		server.Kill(0); 	// abort startup
 		}
 	else
 		{
-		LOGTEXT(_L8("\tresuming"));
+		OstTrace0( TRACE_NORMAL, _FDF_STARTSERVER_DUP2, "\tresuming" );
+		
 		server.Resume();	// logon OK - start the server
 		}
 
@@ -71,12 +76,15 @@ static TInt StartServer()
 	// we can't use the 'exit reason' if the server panicked as this
 	// is the panic 'reason' and may be '0' which cannot be distinguished
 	// from KErrNone
-	LOGTEXT2(_L8("\tstat.Int = %d"), stat.Int());
+	OstTrace1( TRACE_NORMAL, _FDF_STARTSERVER_DUP3, "\tstat.Int = %d", stat.Int());
+	
 	err = (server.ExitType() == EExitPanic) ? KErrServerTerminated : stat.Int();
 
 	server.Close();
 
-	LOGTEXT2(_L8("\terr = %d"), err);
+	OstTrace1( TRACE_NORMAL, _FDF_STARTSERVER_DUP4, "\terr = %d", err );
+	
+	OstTraceFunctionExit0( _FDF_STARTSERVER_EXIT_DUP1 );
 	return err;
 	}
 
@@ -85,17 +93,16 @@ EXPORT_C RUsbHostStack::RUsbHostStack()
  :	iDeviceEventPckg(TDeviceEventInformation()),
 	iDevmonEventPckg(0)
 	{
-	LOGTEXT(_L8("*** Search on '***USB HOST STACK' to find device events."));
-
-	LOG_LINE
-	LOG_FUNC
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_RUSBHOSTSTACK_ENTRY );
+    
+	OstTrace0( TRACE_NORMAL, RUSBHOSTSTACK_RUSBHOSTSTACK, "*** Search on '***USB HOST STACK' to find device events." );
+	    
 	}
 
 EXPORT_C TVersion RUsbHostStack::Version() const
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_VERSION_ENTRY );
+        
 	return(TVersion(	KUsbFdfSrvMajorVersionNumber,
 						KUsbFdfSrvMinorVersionNumber,
 						KUsbFdfSrvBuildNumber
@@ -105,12 +112,12 @@ EXPORT_C TVersion RUsbHostStack::Version() const
 
 EXPORT_C TInt RUsbHostStack::Connect()
 	{
-	LOG_LINE
-	LOG_FUNC;
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_CONNECT_ENTRY );
+            
 	TInt err = DoConnect();
 
-	LOGTEXT2(_L8("\terr = %d"), err);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_CONNECT, "\terr = %d", err);
+	    
 	return err;
 	}
 
@@ -120,7 +127,8 @@ Connects the session, starting the server if necessary
 */
 TInt RUsbHostStack::DoConnect()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_DOCONNECT_ENTRY);
+    
 
 	TInt retry = 2;
 
@@ -128,26 +136,32 @@ TInt RUsbHostStack::DoConnect()
 		{
 		// Use message slots from the global pool.
 		TInt err = CreateSession(KUsbFdfServerName, Version(), -1);
-		LOGTEXT2(_L8("\terr = %d"), err);
-
+		OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_DOCONNECT, "\terr = %d", err );
+		
 		if ((err != KErrNotFound) && (err != KErrServerTerminated))
 			{
-			LOGTEXT(_L8("\treturning after CreateSession"));
+			OstTrace0( TRACE_NORMAL, RUSBHOSTSTACK_DOCONNECT_DUP1, "\treturning after CreateSession" );
+			
+			OstTraceFunctionExit0( RUSBHOSTSTACK_DOCONNECT_EXIT);
 			return err;
 			}
 
 		if (--retry == 0)
 			{
-			LOGTEXT(_L8("\treturning after running out of retries"));
+			OstTrace0( TRACE_NORMAL, RUSBHOSTSTACK_DOCONNECT_DUP2, "\treturning after running out of retries" );
+			
+			OstTraceFunctionExit0( RUSBHOSTSTACK_DOCONNECT_EXIT_DUP1 );
 			return err;
 			}
 
 		err = StartServer();
-		LOGTEXT2(_L8("\terr = %d"), err);
-
+		OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_DOCONNECT_DUT3, "\terr = %d", err );
+		        
 		if ((err != KErrNone) && (err != KErrAlreadyExists))
 			{
-			LOGTEXT(_L8("\treturning after StartServer"));
+			OstTrace0( TRACE_NORMAL, RUSBHOSTSTACK_DOCONNECT_DUP4, "\treturning after StartServer" );
+			            
+			OstTraceFunctionExit0( RUSBHOSTSTACK_DOCONNECT_EXIT_DUP2 );
 			return err;
 			}
 		}
@@ -155,83 +169,85 @@ TInt RUsbHostStack::DoConnect()
 
 EXPORT_C TInt RUsbHostStack::EnableDriverLoading()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_ENABLEDRIVERLOADING_ENTRY );
+    
 	TInt ret = SendReceive(EUsbFdfSrvEnableDriverLoading);
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_ENABLEDRIVERLOADING, "\tret = %d", ret );
+
+	OstTraceFunctionExit0( RUSBHOSTSTACK_ENABLEDRIVERLOADING_EXIT );
 	return ret;
 	}
 
 EXPORT_C void RUsbHostStack::DisableDriverLoading()
 	{
-	LOG_LINE
-	LOG_FUNC
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_DISABLEDRIVERLOADING_ENTRY );
 
 	TInt ret = SendReceive(EUsbFdfSrvDisableDriverLoading);
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_DISABLEDRIVERLOADING, "\tret = %d", ret );
 	(void)ret;
+	OstTraceFunctionExit0( RUSBHOSTSTACK_DISABLEDRIVERLOADING_EXIT );
 	}
 
 EXPORT_C void RUsbHostStack::NotifyDeviceEvent(TRequestStatus& aStat, TDeviceEventInformation& aDeviceEventInformation)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_NOTIFYDEVICEEVENT_ENTRY );
+    
 	TIpcArgs args;
 	iDeviceEventPckg.Set((TUint8*)&aDeviceEventInformation, sizeof(TDeviceEventInformation), sizeof(TDeviceEventInformation));
 	args.Set(0, &iDeviceEventPckg);
 
 	SendReceive(EUsbFdfSrvNotifyDeviceEvent, args, aStat);
+	OstTraceFunctionExit0( RUSBHOSTSTACK_NOTIFYDEVICEEVENT_EXIT );
 	}
 
 EXPORT_C void RUsbHostStack::NotifyDeviceEventCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSBHOSTSTACK_NOTIFYDEVICEEVENTCANCEL_ENTRY );
+	
 	TInt ret = SendReceive(EUsbFdfSrvNotifyDeviceEventCancel);
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_NOTIFYDEVICEEVENTCANCEL, "\tret = %d", ret);
 	(void)ret;
+	OstTraceFunctionExit0( RUSBHOSTSTACK_NOTIFYDEVICEEVENTCANCEL_EXIT );
 	}
 
 EXPORT_C void RUsbHostStack::NotifyDevmonEvent(TRequestStatus& aStat, TInt& aEvent)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_NOTIFYDEVMONEVENT_ENTRY );
+  
 	TIpcArgs args;
 	iDevmonEventPckg.Set((TUint8*)&aEvent, sizeof(TInt), sizeof(TInt));
 	args.Set(0, &iDevmonEventPckg);
 
 	SendReceive(EUsbFdfSrvNotifyDevmonEvent, args, aStat);
+	OstTraceFunctionExit0( RUSBHOSTSTACK_NOTIFYDEVMONEVENT_EXIT );
 	}
 
 EXPORT_C void RUsbHostStack::NotifyDevmonEventCancel()
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_NOTIFYDEVMONEVENTCANCEL_ENTRY );
+    
 	TInt ret = SendReceive(EUsbFdfSrvNotifyDevmonEventCancel);
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_NOTIFYDEVMONEVENTCANCEL, "\tret = %d", ret);
 	(void)ret;
+	OstTraceFunctionExit0( RUSBHOSTSTACK_NOTIFYDEVMONEVENTCANCEL_EXIT );
 	}
 
 EXPORT_C TInt RUsbHostStack::GetSupportedLanguages(TUint aDeviceId, RArray<TUint>& aLangIds)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_GETSUPPORTEDLANGUAGES_ENTRY );
+    
 	aLangIds.Reset();
 
 	TUint singleLangIdOrNumLangs = 0;
 	TPckg<TUint> singleLangIdOrNumLangsBuf(singleLangIdOrNumLangs);
 	TInt ret = SendReceive(EUsbFdfSrvGetSingleSupportedLanguageOrNumberOfSupportedLanguages, TIpcArgs(aDeviceId, &singleLangIdOrNumLangsBuf));
-	LOGTEXT2(_L8("\tsingleLangIdOrNumLangs = %d"), singleLangIdOrNumLangs);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETSUPPORTEDLANGUAGES, "\tsingleLangIdOrNumLangs = %d", singleLangIdOrNumLangs);
+	    
 	switch ( ret )
 		{
 	case KErrNotFound:
-		LOGTEXT2(_L8("\tThere is no language available or the wrong device id %d was supplied"),aDeviceId);
+		OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETSUPPORTEDLANGUAGES_DUP1, "\tThere is no language available or the wrong device id %d was supplied",aDeviceId);
+		    
 		ret = KErrNotFound;
 		break;
 
@@ -263,18 +279,21 @@ EXPORT_C TInt RUsbHostStack::GetSupportedLanguages(TUint aDeviceId, RArray<TUint
 		break;
 		}
 
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETSUPPORTEDLANGUAGES_DUP2, "\tret = %d", ret);
+	    
+	OstTraceFunctionExit0( RUSBHOSTSTACK_GETSUPPORTEDLANGUAGES_EXIT );
 	return ret;
 	}
 
 TInt RUsbHostStack::CopyLangIdsToArray(RArray<TUint>& aLangIds, const TDesC8& aBuffer)
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_COPYLANGIDSTOARRAY_ENTRY );
+    
 	ASSERT(!(aBuffer.Size() % 4));
 	const TUint numLangs = aBuffer.Size() / 4;
-	LOGTEXT2(_L8("\tnumLangs = %d"), numLangs);
-
+	
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_COPYLANGIDSTOARRAY, "\tnumLangs = %d", numLangs );
+	
 	TInt ret = KErrNone;
 	const TUint* ptr = reinterpret_cast<const TUint*>(aBuffer.Ptr());
 	for ( TUint ii = 0 ; ii < numLangs ; ++ii )
@@ -287,46 +306,51 @@ TInt RUsbHostStack::CopyLangIdsToArray(RArray<TUint>& aLangIds, const TDesC8& aB
 			}
 		}
 
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_COPYLANGIDSTOARRAY_DUP1, "\tret = %d", ret );
+	    
+	OstTraceFunctionExit0( RUSBHOSTSTACK_COPYLANGIDSTOARRAY_EXIT );
 	return ret;
 	}
 
 EXPORT_C TInt RUsbHostStack::GetManufacturerStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( RUSBHOSTSTACK_GETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
+	
 	TInt ret = SendReceive(EUsbFdfSrvGetManufacturerStringDescriptor, TIpcArgs(aDeviceId, aLangId, &aString));
-#ifdef __FLOG_ACTIVE
 	if ( !ret )
 		{
-		LOGTEXT2(_L("\taString = \"%S\""), &aString);
-		}
-#endif
-	LOGTEXT2(_L8("\tret = %d"), ret);
+        OstTraceExt1( TRACE_NORMAL, RUSBHOSTSTACK_GETMANUFACTURERSTRINGDESCRIPTOR, "RUsbHostStack::GetManufacturerStringDescriptor;aString=%S", aString );
+        
+        }
+	
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETMANUFACTURERSTRINGDESCRIPTOR_DUP1, "\tret = %d", ret );
+	        
+	OstTraceFunctionExit0( RUSBHOSTSTACK_GETMANUFACTURERSTRINGDESCRIPTOR_EXIT );
 	return ret;
 	}
 
 EXPORT_C TInt RUsbHostStack::GetProductStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString)
 	{
-	LOG_LINE
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_GETPRODUCTSTRINGDESCRIPTOR_ENTRY );
+    
 	TInt ret = SendReceive(EUsbFdfSrvGetProductStringDescriptor, TIpcArgs(aDeviceId, aLangId, &aString));
-#ifdef __FLOG_ACTIVE
 	if ( !ret )
 		{
-		LOGTEXT2(_L("\taString = \"%S\""), &aString);
+		OstTraceExt1( TRACE_NORMAL, RUSBHOSTSTACK_GETPRODUCTSTRINGDESCRIPTOR, "\taString = \"%S\"", aString );
+	
+		
 		}
-#endif
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETPRODUCTSTRINGDESCRIPTOR_DUP1, "\tret = %d", ret );
+	
+	        
+	OstTraceFunctionExit0( RUSBHOSTSTACK_GETPRODUCTSTRINGDESCRIPTOR_EXIT );
 	return ret;
 	}
 
 EXPORT_C TInt RUsbHostStack::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& aDescriptor)
 	{
-	LOG_LINE
-	LOG_FUNC
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_GETOTGDESCRIPTOR_ENTRY );
+    
 
 	TPckg<TOtgDescriptor> otgDescriptorPckg(aDescriptor);
 	
@@ -335,14 +359,14 @@ EXPORT_C TInt RUsbHostStack::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& a
 	args.Set(1, &otgDescriptorPckg);
 
 	TInt ret = SendReceive(EUsbFdfSrvGetOtgDescriptor, args);
-#ifdef __FLOG_ACTIVE
 	if ( !ret )
 		{
-		LOGTEXT2(_L("\taDescriptor.iDeviceId = %d"), aDescriptor.iDeviceId);
-		LOGTEXT2(_L("\taDescriptor.iAttributes = %d"), aDescriptor.iAttributes);
+        OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETOTGDESCRIPTOR, "\taDescriptor.iDeviceId = %d", aDescriptor.iDeviceId );
+        OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETOTGDESCRIPTOR_DUP1, "\taDescriptor.iAttributes = %d", aDescriptor.iAttributes );
 		}
-#endif
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETOTGDESCRIPTOR_DUP2, "\tret = %d", ret );
+	        
+	OstTraceFunctionExit0( RUSBHOSTSTACK_GETOTGDESCRIPTOR_EXIT );
 	return ret;
 	}
 

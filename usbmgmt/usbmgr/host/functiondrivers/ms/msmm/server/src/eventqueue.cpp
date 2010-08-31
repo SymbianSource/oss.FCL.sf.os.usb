@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -27,47 +27,55 @@
 #include "msmmengine.h"
 #include <usb/hostms/msmmpolicypluginbase.h>
 #include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "UsbHostMsmmServer");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "eventqueueTraces.h"
 #endif
+
 
 // Public member functions
 CDeviceEventQueue::~CDeviceEventQueue( )
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_CDEVICEEVENTQUEUE_DES_ENTRY );
+    
     Cancel();
     delete iHandler;
     iEventArray.Close();
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_CDEVICEEVENTQUEUE_DES_EXIT );
     }
 
 CDeviceEventQueue* CDeviceEventQueue::NewL(MMsmmSrvProxy& aServer)
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_NEWL_ENTRY );
+    
     CDeviceEventQueue* self = CDeviceEventQueue::NewLC(aServer);
     CleanupStack::Pop(self);
     
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_NEWL_EXIT );
     return self;
     }
 CDeviceEventQueue* CDeviceEventQueue::NewLC(MMsmmSrvProxy& aServer)
     {
-    LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_NEWLC_ENTRY );
+    
     CDeviceEventQueue* self = new (ELeave) CDeviceEventQueue(aServer);
     CleanupStack::PushL(self);
     self->ConstructL();
     
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_NEWLC_EXIT );
     return self;
     }
 
 void CDeviceEventQueue::PushL(const TDeviceEvent& aEvent)
     {
-    LOG_FUNC
-    
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_PUSHL_ENTRY );
+
     // Perform optimization for remove device event
     AppendAndOptimizeL(aEvent);
     
     // Start handling first event in queue
     StartL();
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_PUSHL_EXIT );
     }
 
 void CDeviceEventQueue::Finalize()
@@ -95,14 +103,17 @@ void CDeviceEventQueue::Finalize()
 // Protected member functions
 void CDeviceEventQueue::DoCancel()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_DOCANCEL_ENTRY );
+    
     iEventArray.Reset();
     iHandler->Cancel();
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_DOCANCEL_EXIT );
     }
 
 void CDeviceEventQueue::RunL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_RUNL_ENTRY );
+    
     // Check the completion code from CDeviceEventHandler. If there
     // is some error occured. We need issue error notification here.
     TInt err = iStatus.Int();
@@ -116,11 +127,13 @@ void CDeviceEventQueue::RunL()
         {
         SendEventL();
         }
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_RUNL_EXIT );
     }
 
 TInt CDeviceEventQueue::RunError(TInt aError)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_RUNERROR_ENTRY );
+    
     THostMsErrData errData;
     switch (aError)
         {
@@ -144,6 +157,7 @@ TInt CDeviceEventQueue::RunError(TInt aError)
     errData.iDriveName = 0x0;
     TInt err(KErrNone);
     TRAP(err, iServer.PolicyPlugin()->SendErrorNotificationL(errData));
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_RUNERROR_EXIT );
     return KErrNone;
     }
 
@@ -152,19 +166,24 @@ CDeviceEventQueue::CDeviceEventQueue(MMsmmSrvProxy& aServer):
 CActive(EPriorityStandard),
 iServer(aServer)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_CDEVICEEVENTQUEUE_CONS_ENTRY );
+    
     CActiveScheduler::Add(this);
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_CDEVICEEVENTQUEUE_CONS_EXIT );
     }
 
 void CDeviceEventQueue::ConstructL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_CONSTRUCTL_ENTRY );
+    
     iHandler = CDeviceEventHandler::NewL(iServer);
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_CONSTRUCTL_EXIT );
     }
 
 void CDeviceEventQueue::AppendAndOptimizeL(const TDeviceEvent& aEvent)
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_APPENDANDOPTIMIZEL_ENTRY );
+    
     if (EDeviceEventRemoveDevice == aEvent.iEvent)
         {
         // Scan the event queue to discard all pending related adding 
@@ -196,19 +215,23 @@ void CDeviceEventQueue::AppendAndOptimizeL(const TDeviceEvent& aEvent)
             if (aEvent.iDeviceId == iHandler->Event().iDeviceId && IsActive())
                 {
                 // Discard duplicated removing event.
+                OstTraceFunctionExit0( CDEVICEEVENTQUEUE_APPENDANDOPTIMIZEL_EXIT );
                 return;
                 }
             break;
             }
         }
         iEventArray.AppendL(aEvent);
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_APPENDANDOPTIMIZEL_EXIT_DUP1 );
     }
 
 void CDeviceEventQueue::StartL()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_STARTL_ENTRY );
+    
     if (IsActive())
         {
+        OstTraceFunctionExit0( CDEVICEEVENTQUEUE_STARTL_EXIT );
         return;
         }
 
@@ -216,24 +239,29 @@ void CDeviceEventQueue::StartL()
         {
         SendEventL();
         }
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_STARTL_EXIT_DUP1 );
     }
 
 void CDeviceEventQueue::SendEventL()
     {
-    LOG_FUNC     
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_SENDEVENTL_ENTRY );
+         
     // If the handler is available, sending oldest event to it
     iHandler->HandleEventL(iStatus, Pop());
         
     // Activiate the manager again to wait for the handler 
     // finish current event
     SetActive();
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_SENDEVENTL_EXIT );
     }
 
 TDeviceEvent CDeviceEventQueue::Pop()
     {
-    LOG_FUNC
+    OstTraceFunctionEntry0( CDEVICEEVENTQUEUE_POP_ENTRY );
+    
     TDeviceEvent event = iEventArray[0];
     iEventArray.Remove(0);
+    OstTraceFunctionExit0( CDEVICEEVENTQUEUE_POP_EXIT );
     return event;
     }
 

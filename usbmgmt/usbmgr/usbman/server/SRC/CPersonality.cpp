@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2004-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2004-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,11 +22,24 @@
 */
 
 #include "CPersonality.h"
-#include <usb/usblogger.h>
 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBSVR");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CPersonalityTraces.h"
 #endif
+
+// Panic category only used in debug builds
+#ifdef _DEBUG
+_LIT(KUsbPersonalityPanicCategory, "CUsbPersonality");
+#endif
+
+/**
+ * Panic codes for the USB Personality Class
+ */
+enum TUsbPersonalityPanic
+    {
+    EPersonalityConfigsArrayEmpty, 
+    };
 
 /**
  * Factory method. Constructs a CPersonality object. 
@@ -35,30 +48,24 @@ _LIT8(KLogComponent, "USBSVR");
  */
 CPersonality* CPersonality::NewL()
 	{
-	LOG_STATIC_FUNC_ENTRY
+	OstTraceFunctionEntry0( CPERSONALITY_NEWL_ENTRY );
 
 	CPersonality* self = new(ELeave) CPersonality;
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
+	OstTraceFunctionExit0( CPERSONALITY_NEWL_EXIT );
 	return self;
 	}
 
 /**
- * Allocates max amount of memory for each of 3 strings
+ * Allocates max amount of memory for description string
  */	
 void CPersonality::ConstructL()
 	{
-	LOG_FUNC
-
-	iManufacturer 	= HBufC::NewLC(KUsbStringDescStringMaxSize);
-	CleanupStack::Pop();
-	iProduct	 	= HBufC::NewLC(KUsbStringDescStringMaxSize);
-	CleanupStack::Pop();
-	iDescription	= HBufC::NewLC(KUsbStringDescStringMaxSize);
-	CleanupStack::Pop();
-	iDetailedDescription    = HBufC::NewLC(KUsbStringDescStringMaxSize);
-	CleanupStack::Pop();
+	OstTraceFunctionEntry0( CPERSONALITY_CONSTRUCTL_ENTRY );
+	iDescription	= HBufC::NewL(KUsbStringDescStringMaxSize);
+	OstTraceFunctionExit0( CPERSONALITY_CONSTRUCTL_EXIT );
 	}
 	
 /**
@@ -73,62 +80,49 @@ CPersonality::CPersonality()
  */
 CPersonality::~CPersonality()
 	{
-	LOG_FUNC
-
-	iClassUids.Close();
-	delete iManufacturer;
-	delete iProduct;
+	OstTraceFunctionEntry0( CPERSONALITY_CPERSONALITY_DES_ENTRY );
+	
+	iPersonalityConfigs.ResetAndDestroy();
 	delete iDescription;
-	delete iDetailedDescription;
+	OstTraceFunctionExit0( CPERSONALITY_CPERSONALITY_DES_EXIT );
 	}
 
 /**
- * @return the index of the first match or KErrNotFound
+ * @return supported class uids
  */
-TInt CPersonality::ClassSupported(TUid aClassUid) const
-	{
-	TIdentityRelation<TUid> relation(CPersonality::Compare);
-	return iClassUids.Find(aClassUid, relation);
-	}
+const RArray<CPersonalityConfigurations::TUsbClasses>& CPersonality::SupportedClasses() const
+    {
+    //we only support configuration 0 now
+    if(iPersonalityConfigs.Count() == 0)
+        {
+        OstTrace1( TRACE_FATAL, CPERSONALITY_SUPPORTEDCLASSES, "CPersonality::SupportedClasses;Panic error=%d", EPersonalityConfigsArrayEmpty );
+        __ASSERT_DEBUG( EFalse, User::Panic(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+        }
+    return iPersonalityConfigs[0]->Classes();
+    }
 
 /**
- * @return KErrNone or system wide error code
- */	
-TInt CPersonality::AddSupportedClasses(TUid aClassUid)
-	{
-	return iClassUids.Append(aClassUid);
-	}
-
-/**
- * Sets personality id
+ * @return ETrue if this class is supported  
+ * otherwise return EFalse
  */
-void CPersonality::SetId(TInt aId)
+TBool CPersonality::ClassSupported(TUid aClassUid) const
 	{
-	iId = aId;
-	}
-
-/**
- * Sets manufacturer textual description
- */	
-void CPersonality::SetManufacturer(const TDesC* aManufacturer)
-	{
-	iManufacturer->Des().Copy(*aManufacturer);
-	}
-
-/**
- * Sets product textual description
- */	
-void CPersonality::SetProduct(const TDesC* aProduct)
-	{
-	iProduct->Des().Copy(*aProduct);
-	}
-
-/**
- * Sets personality textual description
- */
-void CPersonality::SetDescription(const TDesC* aDescription)
-	{
-	iDescription->Des().Copy((*aDescription).Left(KUsbStringDescStringMaxSize-1));
+    //we only support configuration 0 now
+    if(iPersonalityConfigs.Count() == 0)
+        {
+        OstTrace1( TRACE_FATAL, CPERSONALITY_CLASSSUPPORTED, "CPersonality::ClassSupported;Panic error=%d", EPersonalityConfigsArrayEmpty );
+        __ASSERT_DEBUG( EFalse, User::Panic(KUsbPersonalityPanicCategory, EPersonalityConfigsArrayEmpty) );
+        }
+    const RArray<CPersonalityConfigurations::TUsbClasses> &classes = iPersonalityConfigs[0]->Classes();
+    TInt classesCount = classes.Count();
+    for(TInt classesIndex = 0; classesIndex < classesCount; ++classesIndex)
+        {
+        if(aClassUid == classes[classesIndex].iClassUid)
+            {
+            return ETrue;
+            }
+        }
+    return EFalse;
 	}
 
 /**
@@ -140,14 +134,6 @@ TInt CPersonality::Compare(const TUid&  aFirst, const TUid& aSecond)
 	{
 	return aFirst == aSecond;
 	};
-
-/**
- * Sets detailed personality textual description
- */
-void CPersonality::SetDetailedDescription(const TDesC* aDetailedDescription)
-	{
-	iDetailedDescription->Des().Copy((*aDetailedDescription).Left(KUsbStringDescStringMaxSize-1));
-	}
 
 /**
  * Sets version
@@ -164,3 +150,118 @@ void CPersonality::SetProperty(TUint32 aProperty)
 	{
 	iProperty = aProperty;
 	}
+
+/**
+ * Sets DeviceClass
+ */
+void CPersonality::SetDeviceClass(TUint8 aDeviceClass)
+    {
+    iDeviceClass = aDeviceClass;
+    }
+
+/**
+ * Sets DeviceSubClass
+ */
+void CPersonality::SetDeviceSubClass(TUint8 aDeviceSubClass)
+    {
+    iDeviceSubClass = aDeviceSubClass;
+    }
+
+/**
+ * Sets DeviceProtocol
+ */
+void CPersonality::SetDeviceProtocol(TUint8 aDeviceProtocol)
+    {
+    iDeviceProtocol = aDeviceProtocol;
+    }
+
+/**
+ * Sets NumConfigurations
+ */
+void CPersonality::SetNumConfigurations(TUint8 aNumConfigurations)  
+    {
+    iNumConfigurations = aNumConfigurations;
+    }
+    
+/**
+ * Sets ProductId
+ */
+void CPersonality::SetProductId(TUint16 aProductId)
+    {
+    iProductId = aProductId;
+    }
+    
+/**
+ * Sets FeatureId
+ */
+void CPersonality::SetFeatureId(TInt aFeatureId)
+    {
+    iFeatureId = aFeatureId;
+    }
+  
+/**
+ * Sets BcdDevice
+ */
+void CPersonality::SetBcdDevice(TUint16 aBcdDevice)
+    {
+    iBcdDevice = aBcdDevice;
+    }
+
+/**
+ * Sets personality id
+ */
+void CPersonality::SetPersonalityId(TInt aPersonalityId)
+    {
+    iPersonalityId = aPersonalityId;
+    }
+
+/**
+ * Sets Description
+ */
+void CPersonality::SetDescription(const TDesC* aDescription)
+    {
+    iDescription->Des().Copy((*aDescription).Left(KUsbStringDescStringMaxSize-1));
+    }
+
+/**
+ * Append PersonalityConfig
+ */
+void CPersonality::AppendPersonalityConfigsL(const CPersonalityConfigurations *aPersonalityConfig )
+    {
+    iPersonalityConfigs.AppendL(aPersonalityConfig);
+    }
+
+/**
+ * Sets personality id
+ */
+void CPersonalityConfigurations::SetPersonalityId(TInt aPersonalityId)
+    {
+    iPersonalityId = aPersonalityId;
+    }
+
+/**
+ * Sets Config Id 
+ */
+void CPersonalityConfigurations::SetConfigId(TInt aConfigId)
+    {
+    iConfigId = aConfigId;
+    }
+
+
+/**
+ * Append PersonalityConfig
+ */
+void CPersonalityConfigurations::AppendClassesL(const TUsbClasses &aClasses )
+    {
+    iClasses.AppendL(aClasses);
+    }
+
+/**
+ * De-Constructor
+ */
+CPersonalityConfigurations::~CPersonalityConfigurations()
+    {
+    OstTraceFunctionEntry0( CPERSONALITYCONFIGURATIONS_CPERSONALITYCONFIGURATIONS_DES_ENTRY );
+    iClasses.Close();
+    OstTraceFunctionExit0( CPERSONALITYCONFIGURATIONS_CPERSONALITYCONFIGURATIONS_DES_EXIT );
+    }

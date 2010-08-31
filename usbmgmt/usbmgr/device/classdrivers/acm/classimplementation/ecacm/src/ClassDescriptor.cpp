@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -17,11 +17,11 @@
 
 #include "ClassDescriptor.h"
 #include "AcmPanic.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "ClassDescriptorTraces.h"
 #endif
+
 
 TDes8& TUsbCsClassDescriptor::Des()
 /**
@@ -32,6 +32,8 @@ TDes8& TUsbCsClassDescriptor::Des()
  * this class and has the same lifetime.
  */
 	{
+	OstTraceFunctionEntry0( TUSBCSCLASSDESCRIPTOR_DES_ENTRY );
+	
 	TUint index = 0;
 
 	iBuffer.SetLength(KUsbClassSpecificBufferSize);
@@ -71,9 +73,13 @@ TDes8& TUsbCsClassDescriptor::Des()
 
 #endif
 
-	__ASSERT_DEBUG(index == KUsbClassSpecificBufferSize, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (index != KUsbClassSpecificBufferSize)
+		{
+		OstTrace1( TRACE_FATAL, TUSBCSCLASSDESCRIPTOR_DES, "TUsbCsClassDescriptor::Des;index=%d", (TInt)index );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
+	OstTraceFunctionExit0( TUSBCSCLASSDESCRIPTOR_DES_EXIT );
 	return iBuffer;
 	}
 

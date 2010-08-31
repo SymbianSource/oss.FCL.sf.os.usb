@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,14 +22,17 @@
  @file
 */
 
-#include "usbms_stub.h"
 #include <usb_std.h>
 #include <es_ini.h>
 #include <d32usbc.h>
 
+#include "usbms_stub.h"
 #include "UsbmanInternalConstants.h"
 
-#define _USB_PANIC(CAT, CODE)	User::Panic(CAT, CODE) 
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "usbms_stubTraces.h"
+#endif
 
 // Panic category 
 _LIT( Kstub3CcPanicCategory, "UsbstubCc" );
@@ -80,11 +83,6 @@ CUsbstub3ClassController::~CUsbstub3ClassController()
 	Cancel();
 
 	iTimer.Close();
-
-#ifndef __WINS__	
-//	iLdd.Close();
-#endif
-
 	}
 
 
@@ -193,8 +191,15 @@ void CUsbstub3ClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo
  */
 void CUsbstub3ClassController::RunL()
 	{
-
-	__ASSERT_DEBUG( iStatus == KErrNone, _USB_PANIC(Kstub3CcPanicCategory, EPanicUnexpectedStatus) );
+    if(iStatus != KErrNone)
+    {
+        OstTrace1( TRACE_FATAL, CUSBSTUB3CLASSCONTROLLER_RUNL, 
+                        "CUsbstub3ClassController::RunL panic with error %d", 
+                        EPanicUnexpectedState);
+        
+        __ASSERT_DEBUG(EFalse, User::Panic(Kstub3CcPanicCategory, EPanicUnexpectedStatus));
+    }
+	
 	switch (iState)
 		{
 		case EUsbServiceStarting:
@@ -203,8 +208,10 @@ void CUsbstub3ClassController::RunL()
 		case EUsbServiceStopping:
 			iState = EUsbServiceIdle;
 			break;
-		default:	
-			_USB_PANIC(Kstub3CcPanicCategory, EPanicUnexpectedState);
+		default:
+		    OstTrace1( TRACE_FATAL, CUSBSTUB3CLASSCONTROLLER_RUNL_DUP1, 
+		            "CUsbstub3ClassController::RunL panic with error %d", EPanicUnexpectedState);
+		    User::Panic(Kstub3CcPanicCategory,EPanicUnexpectedState);
 		}
 	*iReportStatus = KErrNone;	
 	User::RequestComplete(iReportStatus, iStatus.Int());	
@@ -229,8 +236,11 @@ void CUsbstub3ClassController::DoCancel()
 		case EUsbServiceStopping:
 			iState = EUsbServiceStarted;
 			break;
-		default:	
-			_USB_PANIC(Kstub3CcPanicCategory, EPanicUnexpectedState);
+		default:
+		    OstTrace1( TRACE_FATAL, CUSBSTUB3CLASSCONTROLLER_DOCANCEL, 
+		                                "CUsbstub3ClassController::DoCancel panic with error %d", 
+		                                EPanicUnexpectedState);
+			User::Panic(Kstub3CcPanicCategory, EPanicUnexpectedState);
 	}
 	*iReportStatus = KErrNone;		
 	User::RequestComplete(iReportStatus, KErrCancel);	
@@ -245,7 +255,10 @@ void CUsbstub3ClassController::DoCancel()
  */
 TInt CUsbstub3ClassController::RunError(TInt /*aError*/)
 	{
-	__ASSERT_DEBUG( EFalse, _USB_PANIC(Kstub3CcPanicCategory, EUnusedFunction) );
+    OstTrace1( TRACE_FATAL, CUSBSTUB3CLASSCONTROLLER_RUNERROR, 
+                            "CUsbstub3ClassController::RunError panic with error %d", 
+                            EUnusedFunction);
+	__ASSERT_DEBUG( EFalse, User::Panic(Kstub3CcPanicCategory, EUnusedFunction));
 	return KErrNone;
 	}
 
@@ -255,7 +268,7 @@ TInt CUsbstub3ClassController::SetUpInterface()
  * endpoint and, if found, configuring the interface.
  */
 	{
-return 0;
+    return 0;
 	}
 
 	

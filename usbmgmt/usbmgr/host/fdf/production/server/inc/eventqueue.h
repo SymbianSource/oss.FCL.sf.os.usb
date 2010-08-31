@@ -65,7 +65,9 @@ private:
 	CEventQueue(CFdf& aFdf);
 
 private:
+#ifdef _DEBUG
 	void Log();
+#endif
 	void PokeSession();
 
 private: // unowned

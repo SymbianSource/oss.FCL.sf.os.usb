@@ -27,6 +27,10 @@
 #include <usb/hostms/msmm_policy_def.h>
 #include <usb/hostms/srverr.h>
 
+#ifdef __OVER_DUMMYCOMPONENT__
+    #include <usb/hostms/dummycomponent/dummynotifier.h>
+#endif
+
 typedef RArray<THostMsErrorDataPckg> THostMsErrDataQueue;
 const TInt KMaxResponseStringLen = 16;
 
@@ -54,7 +58,11 @@ private:
 private:
     THostMsErrDataQueue iErrorQueue;
     TBuf8<16> iResponse;
+#ifdef __OVER_DUMMYCOMPONENT__
+    RDummyNotifier iNotifier;
+#else
     RNotifier iNotifier;
+#endif
     };
 
 #endif /*REFPPNOTIFICATIONMAN_H*/

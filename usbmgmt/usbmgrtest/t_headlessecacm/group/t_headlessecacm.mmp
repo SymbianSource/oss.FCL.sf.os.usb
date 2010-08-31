@@ -80,4 +80,3 @@ DEFFILE			..\..\..\usbmgr\usb\csy\bwins\ecacm.def
 // performance testing at the level of RDevUsbcClient.
 MACRO __HEADLESS_ACM_TEST_CODE__
 
-#include <usb/usblogger.mmh>

@@ -29,4 +29,6 @@ START RESOURCE 10285c46.rss
 	TARGET dummyreferencepolicyplugin.rsc
 END
 
+LIBRARY    dummynotifier.lib
+
 MACRO   __OVER_DUMMYCOMPONENT__

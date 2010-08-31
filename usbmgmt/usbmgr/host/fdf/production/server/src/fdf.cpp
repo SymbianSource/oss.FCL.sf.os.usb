@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -25,15 +25,16 @@
 #include "utils.h"
 #include <usbhost/internal/fdcplugin.hrh>
 #include "eventqueue.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdf      ");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "fdfTraces.h"
 #endif
+
 
 _LIT(KDriverUsbhubLddFileName,"usbhubdriver");
 _LIT(KDriverUsbdiLddFileName,"usbdi");
 
-PANICCATEGORY("fdf");
+_LIT(KPanicCategory, "fdf");
 
 const TUint KVendorSpecificDeviceClassValue = 0xFF;
 const TUint KVendorSpecificInterfaceClassValue = 0xFF;
@@ -42,24 +43,26 @@ const TUint KMaxSearchKeyLength = 64;
 // Factory function for TInterfaceInfo objects.
 CFdf::TInterfaceInfo* CFdf::TInterfaceInfo::NewL(RPointerArray<CFdf::TInterfaceInfo>& aInterfaces)
 	{
-	LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CFDF_TINTERFACEINFO_NEWL_ENTRY );
 
 	TInterfaceInfo* self = new(ELeave) TInterfaceInfo;
 	CleanupStack::PushL(self);
 	aInterfaces.AppendL(self);
 	CLEANUPSTACK_POP1(self);
+	OstTraceFunctionExit0( CFDF_TINTERFACEINFO_NEWL_EXIT );
 	return self;
 	}
 
 
 CFdf* CFdf::NewL()
 	{
-	LOG_STATIC_FUNC_ENTRY
+    OstTraceFunctionEntry0( CFDF_NEWL_ENTRY );
 
 	CFdf* self = new(ELeave) CFdf;
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CLEANUPSTACK_POP1(self);
+	OstTraceFunctionExit0( CFDF_NEWL_EXIT );
 	return self;
 	}
 
@@ -67,26 +70,30 @@ CFdf::CFdf()
 :	iDevices(_FOFF(CDeviceProxy, iLink)),
 	iFunctionDrivers(_FOFF(CFdcProxy, iLink))
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDF_CFDF_CONS_ENTRY );
 	}
 
 void CFdf::ConstructL()
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CFDF_CONSTRUCTL_ENTRY );
+	
 #ifndef __OVER_DUMMYUSBDI__
 	// If we're using the DummyUSBDI we don't need the real USBDI.
 	TInt err = User::LoadLogicalDevice(KDriverUsbhubLddFileName);
 	if ( err != KErrAlreadyExists )
 		{
-		LEAVEIFERRORL(err);
+        LEAVEIFERRORL(err,OstTrace1( TRACE_NORMAL, CFDF_CONSTRUCTL, "Error when loading KDriverUsbhubLddFileName OVER DUMMYUSBDI; err=%d", err ););
 		}
 #endif // __OVER_DUMMYUSBDI__
 
-	LEAVEIFERRORL(iHubDriver.Open());
+	TInt errDr=iHubDriver.Open();
+	LEAVEIFERRORL(errDr,OstTrace1( TRACE_NORMAL, CFDF_CONSTRUCTL_DUP1, "Error when open iHubDriver; errDr=%d", errDr ););
 
 #ifdef __OVER_DUMMYUSBDI__
-	LEAVEIFERRORL(iHubDriver.StartHost());
+	//LEAVEIFERRORL(iHubDriver.StartHost());
+	TInt errHo=iHubDriver.StartHost();
+	LEAVEIFERRORL(errHo,OstTrace1( TRACE_NORMAL, CFDF_CONSTRUCTL_DUP2, "Fail in iHubDriver.StartHost in dummy; errHo=%d", errHo ););
+
 #endif
 
 	iActiveWaitForBusEvent = CActiveWaitForBusEvent::NewL(iHubDriver, iBusEvent, *this);
@@ -98,24 +105,27 @@ void CFdf::ConstructL()
 	iActiveWaitForEComEvent->Wait();
 	
 	iEventQueue = CEventQueue::NewL(*this);
+	OstTraceFunctionExit0( CFDF_CONSTRUCTL_EXIT );
 	}
 
 void CFdf::CreateFunctionDriverProxiesL()
 	{
-
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDF_CREATEFUNCTIONDRIVERPROXIESL_ENTRY );
 	REComSession::ListImplementationsL(TUid::Uid(KFdcEcomInterfaceUid), iImplInfoArray);
 	const TUint count = iImplInfoArray.Count();
-	LOGTEXT2(_L8("\tiImplInfoArray.Count() upon FDF creation  = %d"), count);
-#ifdef __FLOG_ACTIVE
+	OstTrace1( TRACE_NORMAL, CFDF_CREATEFUNCTIONDRIVERPROXIESL, "\tiImplInfoArray.Count() upon FDF creation  = %d", count );
+#ifdef _DEBUG
 	if ( count == 0 )
 		{
-		LOGTEXT(_L8("\tTHERE ARE NO FUNCTION DRIVERS PRESENT IN THE SYSTEM"));
-		}
+        OstTrace0( TRACE_NORMAL, CFDF_CREATEFUNCTIONDRIVERPROXIESL_DUP1, "\tTHERE ARE NO FUNCTION DRIVERS PRESENT IN THE SYSTEM" );
+        }
 	else
 		{
-		for (TInt kk = 0; kk < count; ++kk)
-			LOGTEXT3(_L8("\t\tFDC implementation Index:%d UID: 0x%08x"), kk, iImplInfoArray[kk]->ImplementationUid());				
+		for (TInt32 kk = 0; kk < count; ++kk)
+			OstTraceExt2( TRACE_NORMAL, CFDF_CREATEFUNCTIONDRIVERPROXIESL_DUP2,
+			        "FDC implementation UID: 0x%08x Index:%d ", 
+			        iImplInfoArray[kk]->ImplementationUid().iUid, kk);
+			
 		}
 #endif
 
@@ -131,11 +141,12 @@ void CFdf::CreateFunctionDriverProxiesL()
    		else
    			iFunctionDrivers.AddLast(*proxy);
    		}
+	OstTraceFunctionExit0( CFDF_CREATEFUNCTIONDRIVERPROXIESL_EXIT );
 	}
 
 CFdf::~CFdf()
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDF_CFDF_DES_ENTRY );
 
 	// Mimic the detachment of each attached device.
 	TSglQueIter<CDeviceProxy> deviceIter(iDevices);
@@ -144,7 +155,7 @@ CFdf::~CFdf()
 	while ( ( device = deviceIter++ ) != NULL )
 		{
 		const TUint deviceId = device->DeviceId();
-		LOGTEXT2(_L8("\tmimicking detachment of device with id %d"), device);
+		OstTrace1( TRACE_NORMAL, CFDF_CFDF, "mimicking detachment of device with id %d", device );
 		TellFdcsOfDeviceDetachment(deviceId);
 		iDevices.Remove(*device);
 		delete device;
@@ -174,10 +185,9 @@ CFdf::~CFdf()
 #ifndef __OVER_DUMMYUSBDI__
 	//If we're using the DummyUSBDI the real USBDI isn't loaded.
 	TInt err = User::FreeLogicalDevice(KDriverUsbhubLddFileName);
-	LOGTEXT2(_L8("\tFreeLogicalDevice( usbhubdriver ) returned %d"), err);
-	
+	OstTrace1( TRACE_NORMAL, CFDF_CFDF_DUP1, "FreeLogicalDevice( usbhubdriver ) returned %d", err );
 	err = User::FreeLogicalDevice(KDriverUsbdiLddFileName);
-	LOGTEXT2(_L8("\tFreeLogicalDevice( usbdi ) returned %d"), err);
+	OstTrace1( TRACE_NORMAL, CFDF_CFDF_DUP2, "FreeLogicalDevice( usbdi ) returned %d", err );
 #endif // __OVER_DUMMYUSBDI__
 	
 	delete iEventQueue;
@@ -185,31 +195,33 @@ CFdf::~CFdf()
 	// This is a worthwhile check to do at this point. If we ever don't clean
 	// up iInterfaces at the *right* time, then this will be easier to debug
 	// than a memory leak.
-	ASSERT_DEBUG(iInterfaces.Count() == 0);
+	if(!(iInterfaces.Count() == 0))
+	    {
+        OstTrace1( TRACE_FATAL, CFDF_CFDF_DUP3, "Memory leak from interface;Interface remains %d", iInterfaces.Count() );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 
 	iImplInfoArray.ResetAndDestroy();
 	REComSession::FinalClose();
+	OstTraceFunctionExit0( CFDF_CFDF_DES_EXIT );
 	}
 
 void CFdf::EnableDriverLoading()
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CFDF_ENABLEDRIVERLOADING_ENTRY );
 	iDriverLoadingEnabled = ETrue;
 	}
 
 void CFdf::DisableDriverLoading()
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CFDF_DISABLEDRIVERLOADING_ENTRY );
 	iDriverLoadingEnabled = EFalse;
 	}
 
 void CFdf::SetSession(CFdfSession* aSession)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taSession = 0x%08x"), aSession);
-
+	OstTraceFunctionEntry0( CFDF_SETSESSION_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_SETSESSION, "aSession = 0x%08x", aSession );
 	iSession = aSession;
 	}
 
@@ -220,17 +232,27 @@ CFdfSession* CFdf::Session()
 
 TBool CFdf::GetDeviceEvent(TDeviceEvent& aEvent)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDF_GETDEVICEEVENT_ENTRY );
+	if(!iEventQueue)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_GETDEVICEEVENT, "iEventQueue is empty" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 
-	ASSERT_DEBUG(iEventQueue);
 	return iEventQueue->GetDeviceEvent(aEvent);
 	}
 
 TBool CFdf::GetDevmonEvent(TInt& aEvent)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDF_GETDEVMONEVENT_ENTRY );
+	
+	if(!iEventQueue)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_GETDEVMONEVENT, "iEventQueue is empty" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 
-	ASSERT_DEBUG(iEventQueue);
+	
 	return iEventQueue->GetDevmonEvent(aEvent);
 	}
 	
@@ -246,40 +268,39 @@ void CFdf::EComEventReceived()
 
 void CFdf::HandleEComEventReceivedL()
 	{
-	LOG_FUNC
-	
+	OstTraceFunctionEntry0( CFDF_HANDLEECOMEVENTRECEIVEDL_ENTRY );
+
 	// There is no way to filter ecom notification to only receive ones we are interested in, also there is no way
 	// to query ecom as to what has changed. Hence there is no option but to call ListImplementations().
 	iImplInfoArray.ResetAndDestroy();		
 			
 	REComSession::ListImplementationsL(TUid::Uid(KFdcEcomInterfaceUid), iImplInfoArray);	
 	TUint implementationsCount = iImplInfoArray.Count();
-	LOGTEXT2(_L8("\tiImplInfoArray.Count() after ECom notification= %d"), implementationsCount);
+	OstTrace1( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL, "iImplInfoArray.Count() after ECom notification= %d", implementationsCount );
 	
-#ifdef __FLOG_ACTIVE
 	if ( implementationsCount == 0 )
 		{
-		LOGTEXT(_L8("\tTHERE ARE NO FUNCTION DRIVERS PRESENT IN THE SYSTEM"));
-		}
+        OstTrace0( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP1, "THERE ARE NO FUNCTION DRIVERS PRESENT IN THE SYSTEM" );
+ 		}
 		
 	TSglQueIter<CFdcProxy> proxiesIterDebug(iFunctionDrivers);
 	CFdcProxy* fdcDebug = NULL;		
 	while ( ( fdcDebug = proxiesIterDebug++ ) != NULL )
 		{
 		TUid fdcUid = fdcDebug->ImplUid();
-		LOGTEXT2(_L8("\t\tOld FDC Proxy implementation UID: 0x%08x"), fdcUid.iUid);
+		OstTrace1( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP2, "Old FDC Proxy implementation UID: 0x%08x", fdcUid.iUid );
 		TInt fdcVersion = fdcDebug->Version();
-		LOGTEXT2(_L8("\t\tFDC Proxy version UID: %d"), fdcVersion);
-		}		
-	LOGTEXT(_L8("\t\t------------------------------------------------------------------"));
+		OstTrace1( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP3, "FDC Proxy version UID: %d", fdcVersion );
+		}
+	OstTrace0( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP4, "------------------------------------------------------------------" );
+
 	for (TInt kk = 0; kk < implementationsCount; ++kk)
 		{
 		TUid fdcUid2 = iImplInfoArray[kk]->ImplementationUid();
-		LOGTEXT2(_L8("\t\tNew FDC Proxy implementation UID: 0x%08x"), fdcUid2.iUid);
+		OstTrace1( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP5, "New FDC Proxy implementation UID: 0x%08x", fdcUid2.iUid );
 		TInt fdcVersion2 = iImplInfoArray[kk]->Version();
-		LOGTEXT2(_L8("\t\tFDC Proxy version UID: %d"), fdcVersion2);					
+		OstTrace1( TRACE_NORMAL, CFDF_HANDLEECOMEVENTRECEIVEDL_DUP6, "FDC Proxy version UID: %d", fdcVersion2 );
 		}
-#endif
 
 	// See if any relevant FDCs (or upgrades) have been installed or uninstalled:	
 	
@@ -379,15 +400,16 @@ void CFdf::HandleEComEventReceivedL()
 				iFunctionDrivers.AddLast(*proxy);			
 			}
 		}
+	OstTraceFunctionExit0( CFDF_HANDLEECOMEVENTRECEIVEDL_EXIT );
 	}
 
 // A bus event has occurred.
 void CFdf::MbeoBusEvent()
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\tiBusEvent.iEventType = %d"), iBusEvent.iEventType);
-	LOGTEXT2(_L8("\tiBusEvent.iError = %d"), iBusEvent.iError);
-	LOGTEXT2(_L8("\tiBusEvent.iDeviceHandle = %d"), iBusEvent.iDeviceHandle);
+    OstTraceFunctionEntry0( CFDF_MBEOBUSEVENT_ENTRY );
+    OstTrace1( TRACE_NORMAL, CFDF_MBEOBUSEVENT, "iBusEvent.iEventType = %d", iBusEvent.iEventType );
+    OstTrace1( TRACE_NORMAL, CFDF_MBEOBUSEVENT_DUP1, "iBusEvent.iError = %d", iBusEvent.iError );
+    OstTrace1( TRACE_NORMAL, CFDF_MBEOBUSEVENT_DUP2, "iBusEvent.iDeviceHandle = %d", iBusEvent.iDeviceHandle );
 
 	switch ( iBusEvent.iEventType )
 		{
@@ -400,7 +422,11 @@ void CFdf::MbeoBusEvent()
 			else
 				{
 				// It was an attachment failure. Simply tell the event queue.
-				ASSERT_DEBUG(iEventQueue);
+				if(!iEventQueue)
+				    {
+                    OstTrace0( TRACE_FATAL, CFDF_MBEOBUSEVENT_DUP3, "Empty iEventQueue" );
+                    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+				    }
 				iEventQueue->AttachmentFailure(iBusEvent.iError);
 				}
 			break;
@@ -410,7 +436,12 @@ void CFdf::MbeoBusEvent()
 			// pseudo-detached due to an overcurrent condition (for instance) then
 			// the overcurrent condition is indicated through the devmon API (i.e.
 			// EDevMonEvent) and the detachment is still 'KErrNone'.
-			ASSERT_DEBUG(iBusEvent.iError == KErrNone);
+			if(!(iBusEvent.iError == KErrNone))
+			    {
+                OstTrace0( TRACE_NORMAL, CFDF_MBEOBUSEVENT_DUP4, "iBusEvent error" );
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+			    }
+
 			HandleDeviceDetachment(iBusEvent.iDeviceHandle);
 			break;
 	
@@ -427,6 +458,7 @@ void CFdf::MbeoBusEvent()
 	// TBusEvent from the previous completion. (Otherwise it might get
 	// overwritten.)
 	iActiveWaitForBusEvent->Wait();
+	OstTraceFunctionExit0( CFDF_MBEOBUSEVENT_EXIT );
 	}
 
 // This is the central handler for device attachment.
@@ -435,16 +467,21 @@ void CFdf::MbeoBusEvent()
 // The second phase is driver loading.
 void CFdf::HandleDeviceAttachment(TUint aDeviceId)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry0( CFDF_HANDLEDEVICEATTACHMENT_ENTRY );
 	// This is filled in by HandleDeviceAttachmentL on success.
 	CDeviceProxy* device;
 	TRAPD(err, HandleDeviceAttachmentL(aDeviceId, device));
 	if ( err )
 		{
-		LOGTEXT2(_L8("\terr = %d"), err);
+        OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENT, "err = %d", err );
 		// There was an attachment failure, so we just increment the count of
 		// attachment failures.
-		ASSERT_DEBUG(iEventQueue);
+		if(!iEventQueue)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENT_DUP1, "Empty iEventQueue" );
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
+
 		iEventQueue->AttachmentFailure(err);
 		// If we failed the attachment phase, we can't try to load drivers for
 		// the device.
@@ -456,7 +493,12 @@ void CFdf::HandleDeviceAttachment(TUint aDeviceId)
 		// device proxy created by HandleDeviceAttachmentL to the event queue.
 		// This event object is always populated with the correct status and
 		// error.
-		ASSERT_DEBUG(device);
+		if(!device)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENT_DUP2, "Empty device" );
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
+
 		DoDriverLoading(*device);
 		}
 
@@ -465,62 +507,90 @@ void CFdf::HandleDeviceAttachment(TUint aDeviceId)
 	// HandleDeviceAttachmentL.
 	iCurrentDevice = NULL;
 	iInterfaces.ResetAndDestroy();
+	OstTraceFunctionExit0( CFDF_HANDLEDEVICEATTACHMENT_EXIT );
 	}
 
 // This does the 'device attachment' phase of the new device attachment only.
 void CFdf::HandleDeviceAttachmentL(TUint aDeviceId, CDeviceProxy*& aDevice)
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CFDF_HANDLEDEVICEATTACHMENTL_ENTRY );
 	// Create the device proxy
 	aDevice = CDeviceProxy::NewL(iHubDriver, aDeviceId);
 	CleanupStack::PushL(aDevice);
 	iCurrentDevice = aDevice;
 	// Get necessary descriptors (for this phase)
-	LEAVEIFERRORL(aDevice->GetDeviceDescriptor(iDD));
-	LOGTEXT2(_L8("\tiDD.USBBcd = 0x%04x"), iDD.USBBcd());
-	LOGTEXT2(_L8("\tiDD.DeviceClass = 0x%02x"), iDD.DeviceClass());
-	LOGTEXT2(_L8("\tiDD.DeviceSubClass = 0x%02x"), iDD.DeviceSubClass());
-	LOGTEXT2(_L8("\tiDD.DeviceProtocol = 0x%02x"), iDD.DeviceProtocol());
-	LOGTEXT2(_L8("\tiDD.MaxPacketSize0 = %d"), iDD.MaxPacketSize0());
-	LOGTEXT2(_L8("\tiDD.VendorId = 0x%04x"), iDD.VendorId());
-	LOGTEXT2(_L8("\tiDD.ProductId = 0x%04x"), iDD.ProductId());
-	LOGTEXT2(_L8("\tiDD.DeviceBcd = 0x%04x"), iDD.DeviceBcd());
-	LOGTEXT2(_L8("\tiDD.ManufacturerIndex = %d"), iDD.ManufacturerIndex());
-	LOGTEXT2(_L8("\tiDD.ProductIndex = %d"), iDD.ProductIndex());
-	LOGTEXT2(_L8("\tiDD.SerialNumberIndex = %d"), iDD.SerialNumberIndex());
-	LOGTEXT2(_L8("\tiDD.NumConfigurations = %d"), iDD.NumConfigurations());
-	LEAVEIFERRORL(aDevice->GetConfigurationDescriptor(iCD));
-	LOGTEXT2(_L8("\tiCD.TotalLength = %d"), iCD.TotalLength());
-	LOGTEXT2(_L8("\tiCD.NumInterfaces = %d"), iCD.NumInterfaces());
-	LOGTEXT2(_L8("\tiCD.ConfigurationValue = %d"), iCD.ConfigurationValue());
-	LOGTEXT2(_L8("\tiCD.ConfigurationIndex = %d"), iCD.ConfigurationIndex());
-	LOGTEXT2(_L8("\tiCD.Attributes = %d"), iCD.Attributes());
-	LOGTEXT2(_L8("\tiCD.MaxPower = %d"), iCD.MaxPower());
+	TInt err=aDevice->GetDeviceDescriptor(iDD);
+	if (err<0)
+	    {
+        OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL, "GetDeviceDescriptor error=%d", err );
+        User::Leave(err);
+	    }
 
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP1, "iDD.USBBcd = 0x%04x", iDD.USBBcd() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP2, "iDD.DeviceClass = 0x%02x", iDD.DeviceClass() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP3, "iDD.DeviceSubClass = 0x%02x", iDD.DeviceSubClass() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP4, "iDD.DeviceProtocol = 0x%02x", iDD.DeviceProtocol() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP5, "iDD.MaxPacketSize0 = %d", iDD.MaxPacketSize0() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP6, "iDD.VendorId = 0x%04x", iDD.VendorId() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP7, "iDD.ProductId = 0x%04x", iDD.ProductId() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP8, "iDD.DeviceBcd = 0x%04x", iDD.DeviceBcd() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP9, "iDD.ManufacturerIndex = %d", iDD.ManufacturerIndex() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP10, "iDD.ProductIndex = %d", iDD.ProductIndex() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP11, "iDD.SerialNumberIndex = %d", iDD.SerialNumberIndex() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP12, "iDD.NumConfigurations = %d", iDD.NumConfigurations() );
+	err=aDevice->GetConfigurationDescriptor(iCD);
+	if(err<0)
+	    {
+        OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP13, "GetConfigurationDescriptor error=%d", err);
+	    User::Leave(err);
+	    }
+
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP14, "iCD.TotalLength = %d", iCD.TotalLength() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP15, "iCD.NumInterfaces = %d", iCD.NumInterfaces() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP16, "iCD.ConfigurationValue = %d", iCD.ConfigurationValue() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP17, "iCD.ConfigurationIndex = %d", iCD.ConfigurationIndex() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP18, "iCD.Attributes = %d", iCD.Attributes() );
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP19, "iCD.MaxPower = %d", iCD.MaxPower() );
+	        
 	const TUint8 numberOfInterfaces = iCD.NumInterfaces();
-	LOGTEXT2(_L8("\tnumberOfInterfaces (field in config descriptor) = %d)"), numberOfInterfaces);
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP20, "numberOfInterfaces (field in config descriptor) = %d)", numberOfInterfaces );
 	if ( numberOfInterfaces == 0 )
 		{
-		LEAVEL(KErrUsbConfigurationHasNoInterfaces);
+	    OstTrace0( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP21, "Error: Usb Configuration Has No Interfaces");
+	    User::Leave(KErrUsbConfigurationHasNoInterfaces);
 		}
 
 	// Walk the configuration bundle. Collect information on each interface
 	// (its number, class, subclass and protocol). This populates iInterfaces.
-	ASSERT_DEBUG(iInterfaces.Count() == 0);
-	ASSERT_ALWAYS(iCurrentDevice);
+	if(!(iInterfaces.Count() == 0))
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP22, "Error: Usb Configuration Has No Interfaces");
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
+	if(!iCurrentDevice)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP23, "Empty iCurrentDevice");
+        User::Panic(KPanicCategory,__LINE__);
+	    }
+
 	ParseL(iCD);
 
 	// Log iInterfaces.
 	const TUint interfaceCount = iInterfaces.Count();
-	LOGTEXT2(_L8("\tinterfaceCount (parsed from bundle) = %d"), interfaceCount);
-#ifdef __FLOG_ACTIVE
-	LOGTEXT(_L8("\tLogging iInterfaces:"));
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP24, "interfaceCount (parsed from bundle) = %d", interfaceCount );
+#ifdef _DEBUG
+	OstTrace0( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP25, "Logging iInterfaces:");
 	for ( TUint ii = 0 ; ii < interfaceCount ; ++ii )
 		{
 		const TInterfaceInfo* ifInfo = iInterfaces[ii];
-		ASSERT_DEBUG(ifInfo);
-		LOGTEXT6(_L8("\t\tiInterfaces[%d]: number %d, interface class 0x%02x subclass 0x%02x protocol 0x%02x"),
+		if(!ifInfo)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP26, "Empty ifInfo");
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
+		
+		OstTraceExt5(TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP27, "\t\tiInterfaces[%d]: number %d, interface class 0x%02x subclass 0x%02x protocol 0x%02x",
 			ii,
 			ifInfo->iNumber,
 			ifInfo->iClass,
@@ -529,12 +599,13 @@ void CFdf::HandleDeviceAttachmentL(TUint aDeviceId, CDeviceProxy*& aDevice)
 			);
 		}
 #endif
-
+	
 	// Check that the config's NumInterfaces is the same as the actual number
 	// of interface descriptors we found. We rely on this later on.
 	if ( numberOfInterfaces != interfaceCount )
 		{
-		LEAVEL(KErrUsbInterfaceCountMismatch);
+        OstTrace0( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP28, "KErrUsbInterfaceCountMismatch");
+		User::Leave(KErrUsbInterfaceCountMismatch);
 		}
 
 	// Check that each interface number in iInterfaces is unique.
@@ -543,14 +614,25 @@ void CFdf::HandleDeviceAttachmentL(TUint aDeviceId, CDeviceProxy*& aDevice)
 		for ( TUint ii = 0 ; ii < interfaceCount ; ++ii )
 			{
 			const TInterfaceInfo* lhs = iInterfaces[ii];
-			ASSERT_DEBUG(lhs);
+			if(!lhs)
+			    {
+                OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP29, "Empty lhs");
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+			    }
+
 			for ( TUint jj = ii+1 ; jj < interfaceCount ; ++jj )
 				{
 				const TInterfaceInfo* rhs = iInterfaces[jj];
-				ASSERT_DEBUG(rhs);
+				if(!rhs)
+				    {
+                    OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP30, "Empty rhs");
+                    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+				    }
+
 				if ( lhs->iNumber == rhs->iNumber )
 					{
-					LEAVEL(KErrUsbDuplicateInterfaceNumbers);
+                    OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP31, "KErrUsbDuplicateInterfaceNumbers; iNumber=%d", lhs->iNumber);
+					User::Leave(KErrUsbDuplicateInterfaceNumbers);
 					}
 				}
 			}
@@ -564,7 +646,7 @@ void CFdf::HandleDeviceAttachmentL(TUint aDeviceId, CDeviceProxy*& aDevice)
 		TInt err = User::LoadLogicalDevice(KDriverUsbdiLddFileName);
 		if ( err != KErrAlreadyExists )
 			{
-			LEAVEIFERRORL(err);
+			LEAVEIFERRORL(err,OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP32, "Load Logical Device error; error=%d", err););
 			}
 		}
 #endif // __OVER_DUMMYUSBDI__
@@ -575,19 +657,31 @@ void CFdf::HandleDeviceAttachmentL(TUint aDeviceId, CDeviceProxy*& aDevice)
 	iDevices.AddLast(*aDevice);
 	// Also put an event on the event queue.
 	TDeviceEvent* const attachmentEvent = aDevice->GetAttachmentEventObject();
-	ASSERT_DEBUG(attachmentEvent);
+	
+	if(!attachmentEvent)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP33, "Empty attachmentEvent");
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 	attachmentEvent->iInfo.iVid = iDD.VendorId();
 	attachmentEvent->iInfo.iPid = iDD.ProductId();
 	attachmentEvent->iInfo.iError = KErrNone;
-	ASSERT_DEBUG(iEventQueue);
+	if(!iEventQueue)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEATTACHMENTL_DUP34, "Empty iEventQueue");
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 	iEventQueue->AddDeviceEvent(*attachmentEvent);
-	LOGTEXT2(_L8("***USB HOST STACK: SUCCESSFUL ATTACHMENT OF DEVICE (id %d)"), aDeviceId);
+	OstTrace1( TRACE_DUMP, CFDF_HANDLEDEVICEATTACHMENTL_DUP35, "***USB HOST STACK: SUCCESSFUL ATTACHMENT OF DEVICE (id %d)", aDeviceId );
+	
+	OstTraceFunctionExit0( CFDF_HANDLEDEVICEATTACHMENTL_EXIT );
 	}
 
 void CFdf::DoDriverLoading(CDeviceProxy& aDevice)
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CFDF_DODRIVERLOADING_ENTRY );
 	// Leaving or returning from DoDriverLoadingL is the trigger to put the
 	// 'driver loading' event object on the event queue. It must already have
 	// been populated correctly (the actual error code it left with doesn't
@@ -595,7 +689,12 @@ void CFdf::DoDriverLoading(CDeviceProxy& aDevice)
 	TRAP_IGNORE(DoDriverLoadingL(aDevice));
 	
 	TDeviceEvent* const driverLoadingEvent = aDevice.GetDriverLoadingEventObject();
-	ASSERT_DEBUG(driverLoadingEvent);
+	if(!driverLoadingEvent)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_DODRIVERLOADING, "Empty driverLoadingEvent" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 	// The driver loading event object says whether driver loading succeeded
 	// (all interfaces were claimed without error), partly succeeded (not all
 	// interfaces were claimed without error), or failed (no interfaces were
@@ -608,22 +707,29 @@ void CFdf::DoDriverLoading(CDeviceProxy& aDevice)
 		// power-saving reasons and is not critical.
 		(void)aDevice.Suspend();
 		}
-	ASSERT_DEBUG(iEventQueue);
+	if(!iEventQueue)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_DODRIVERLOADING_DUP1, "Empty iEventQueue" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 	iEventQueue->AddDeviceEvent(*driverLoadingEvent);
+	OstTraceFunctionExit0( CFDF_DODRIVERLOADING_EXIT );
 	}
 
 
 void CFdf::DoDriverLoadingL(CDeviceProxy& aDevice)
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CFDF_DODRIVERLOADINGL_ENTRY );
 	// Check whether driver loading is enabled.
 	if ( !iDriverLoadingEnabled )
 		{
 		// Complete driver load failure scenario.
 		aDevice.SetDriverLoadingEventData(EDriverLoadFailure, KErrUsbDriverLoadingDisabled);
-		LEAVEL(KErrGeneral);
-	}
+		
+		OstTrace1( TRACE_NORMAL, CFDF_DODRIVERLOADINGL, "Leave with error %d", KErrGeneral );
+		User::Leave(KErrGeneral);
+		}
 
 
 	// Set this member up so that when the FDC calls TokenForInterface we call
@@ -649,7 +755,8 @@ void CFdf::DoDriverLoadingL(CDeviceProxy& aDevice)
 	if (aDevice.HasIADFlag() && !functionDriverFound)
 		{
 		aDevice.SetDriverLoadingEventData(EDriverLoadFailure, KErrUsbUnsupportedDevice);
-		LEAVEL(KErrGeneral);		
+		OstTrace0( TRACE_NORMAL, CFDF_DODRIVERLOADINGL_DUP1, "Leave with function Driver not Found" );
+		User::Leave(KErrGeneral);
 		}
 	// If a device FD is found then it is supposed to claim all the interfaces, if it didn't then report
 	// a partial success but don't offer unclaimed interfaces to any other FD.
@@ -667,14 +774,19 @@ void CFdf::DoDriverLoadingL(CDeviceProxy& aDevice)
 	// Whether all interfaces were taken, some, or none, collectedErr may have
 	// an error in it or KErrNone. We use specific error codes in some cases.			
 	TUint unclaimedInterfaces = UnclaimedInterfaceCount();
-	LOGTEXT2(_L8("\tunclaimedInterfaces = %d"), unclaimedInterfaces);
-	LOGTEXT2(_L8("\tanySuccess = %d"), anySuccess);
-	LOGTEXT2(_L8("\tcollectedErr = %d"), collectedErr);
-	ASSERT_DEBUG(unclaimedInterfaces <= interfaceCount);
+	OstTrace1( TRACE_DUMP, CFDF_DODRIVERLOADINGL_DUP2, "unclaimedInterfaces = %d", unclaimedInterfaces );
+	OstTrace1( TRACE_DUMP, CFDF_DODRIVERLOADINGL_DUP3, "anySuccess = %d", anySuccess );
+	OstTrace1( TRACE_DUMP, CFDF_DODRIVERLOADINGL_DUP4, "collectedErr = %d", collectedErr );
+	if(!(unclaimedInterfaces <= interfaceCount))
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_DODRIVERLOADINGL_DUP5, "interface Count error" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
+
 
 	if(iDeviceDetachedTooEarly)
 		{
-		LOGTEXT(_L8("\tDevice has been detached too early!"));
+        OstTrace0( TRACE_NORMAL, CFDF_DODRIVERLOADINGL_DUP6, "Device has been detached too early!" );
 		iDeviceDetachedTooEarly = EFalse;
 		// the choice of having the status to be EDriverLoadPartialSuccess
 		// was not to clash with trying to suspend the device because
@@ -690,6 +802,7 @@ void CFdf::DoDriverLoadingL(CDeviceProxy& aDevice)
 		SetFailureStatus(unclaimedInterfaces, interfaceCount, anySuccess, collectedErr, aDevice);
 		}// iDeviceDetachedTooEarly
 
+	OstTraceFunctionExit0( CFDF_DODRIVERLOADINGL_EXIT );
 	}
 
 // Recursive function, originally called with the configuration descriptor.
@@ -697,26 +810,26 @@ void CFdf::DoDriverLoadingL(CDeviceProxy& aDevice)
 // bundle.
 void CFdf::ParseL(TUsbGenericDescriptor& aDesc)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\t&aDesc = 0x%08x"), &aDesc);
-	LOGTEXT2(_L8("\taDesc.ibDescriptorType = %d"), aDesc.ibDescriptorType);
-	LOGTEXT2(_L8("\taDesc.iFirstChild = 0x%08x"), aDesc.iFirstChild);
-	LOGTEXT2(_L8("\taDesc.iNextPeer = 0x%08x"), aDesc.iNextPeer);
-
-	if ( aDesc.ibDescriptorType == EInterface )
+    OstTraceFunctionEntry0( CFDF_PARSEL_ENTRY );
+    OstTrace1( TRACE_DUMP, CFDF_PARSEL, "&aDesc = 0x%08x", &aDesc );
+    OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP1, "aDesc.ibDescriptorType = %d", aDesc.ibDescriptorType );
+    OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP2, "aDesc.iFirstChild = 0x%08x", aDesc.iFirstChild );
+    OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP3, "aDesc.iNextPeer = 0x%08x", aDesc.iNextPeer );
+    
+    if ( aDesc.ibDescriptorType == EInterface )
 		{
 		// Add interface information to collection, but only if it's alternate
 		// setting 0.
 		const TUsbInterfaceDescriptor& ifDesc = static_cast<TUsbInterfaceDescriptor&>(aDesc);
 		if ( ifDesc.AlternateSetting() == 0 ) // hard-coded '0' means the default (initial configuration) setting
 			{
-			LOGTEXT2(_L8("\tifDesc.InterfaceNumber = %d"), ifDesc.InterfaceNumber());
-			LOGTEXT2(_L8("\tifDesc.NumEndpoints = %d"), ifDesc.NumEndpoints());
-			LOGTEXT2(_L8("\tifDesc.InterfaceClass = 0x%02x"), ifDesc.InterfaceClass());
-			LOGTEXT2(_L8("\tifDesc.InterfaceSubClass = 0x%02x"), ifDesc.InterfaceSubClass());
-			LOGTEXT2(_L8("\tifDesc.InterfaceProtocol = 0x%02x"), ifDesc.InterfaceProtocol());
-			LOGTEXT2(_L8("\tifDesc.Interface = %d"), ifDesc.Interface());
-
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP4, "ifDesc.InterfaceNumber = %d", ifDesc.InterfaceNumber() );
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP5, "ifDesc.NumEndpoints = %d", ifDesc.NumEndpoints() );
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP6, "ifDesc.InterfaceClass = 0x%02x", ifDesc.InterfaceClass() );
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP7, "ifDesc.InterfaceSubClass = 0x%02x", ifDesc.InterfaceSubClass() );
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP8, "ifDesc.InterfaceProtocol = 0x%02x", ifDesc.InterfaceProtocol() );
+            OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP9, "ifDesc.Interface = %d", ifDesc.Interface() );
+            
 			TInterfaceInfo* ifInfo = TInterfaceInfo::NewL(iInterfaces);
 			ifInfo->iNumber = ifDesc.InterfaceNumber();
 			ifInfo->iClass = ifDesc.InterfaceClass();
@@ -735,10 +848,9 @@ void CFdf::ParseL(TUsbGenericDescriptor& aDesc)
 		{
 		// OTG descriptor found
 		const TUsbOTGDescriptor& otgDesc = static_cast<TUsbOTGDescriptor&>(aDesc);
-
-		LOGTEXT2(_L8("\totgDesc.Attributes = %b"), otgDesc.Attributes());
-		LOGTEXT2(_L8("\totgDesc.HNPSupported = %d"), otgDesc.HNPSupported());
-		LOGTEXT2(_L8("\totgDesc.SRPSupported = %d"), otgDesc.SRPSupported());
+		OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP10, "otgDesc.Attributes = %d", otgDesc.Attributes() );
+		OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP11, "otgDesc.HNPSupported = %d", otgDesc.HNPSupported() );
+		OstTrace1( TRACE_DUMP, CFDF_PARSEL_DUP12, "otgDesc.SRPSupported = %d", otgDesc.SRPSupported() );
 		
 		iCurrentDevice->SetOtgDescriptorL(otgDesc);
 		}
@@ -754,6 +866,7 @@ void CFdf::ParseL(TUsbGenericDescriptor& aDesc)
 		{
 		ParseL(*nextPeer);
 		}
+	OstTraceFunctionExit0( CFDF_PARSEL_EXIT );
 	}
 
 // Method that uses only one array to hold the unclaimed interface numbers.
@@ -763,13 +876,17 @@ void CFdf::FindDriversForInterfacesUsingSpecificKeyL(CDeviceProxy& aDevice,
 													RArray<TUint>& aInterfacesNumberArray, 
 													TInterfaceSearchKeys aKey)	
 	{
-	LOG_FUNC
-
+    OstTraceFunctionEntry0( CFDF_FINDDRIVERSFORINTERFACESUSINGSPECIFICKEYL_ENTRY );
+ 
 	const TUint interfaceCount = iInterfaces.Count();
 	for ( TUint ii = 0 ; ii < interfaceCount ; ++ii )
 		{
 		TInterfaceInfo* ifInfo = iInterfaces[ii];		
-		ASSERT_DEBUG(ifInfo);
+		if(!ifInfo)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_FINDDRIVERSFORINTERFACESUSINGSPECIFICKEYL, "Empty ifInfo" );
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
 		
 		if ((ifInfo->iClaimed) ||
 			(aKey == EVendorInterfacesubclassInterfaceprotocol && ifInfo->iClass != KVendorSpecificInterfaceClassValue)||	
@@ -785,8 +902,7 @@ void CFdf::FindDriversForInterfacesUsingSpecificKeyL(CDeviceProxy& aDevice,
 
 		TBuf8<KMaxSearchKeyLength> searchKey;
 		FormatInterfaceSearchKey(searchKey, aKey, *ifInfo);
-
-		LOGTEXT2(_L8("\tsearchKey = \"%S\""), &searchKey);
+		OstTraceExt1( TRACE_NORMAL, CFDF_FINDDRIVERSFORINTERFACESUSINGSPECIFICKEYL_DUP1, "searchKey = \"%S\"", searchKey );
 		// RArray<TUint>* array = &aInterfacesNumberArray;
 
 		FindDriverForInterfaceUsingSpecificKey(aDevice, aCollectedErr, aAnySuccess, aInterfacesNumberArray, searchKey);
@@ -795,6 +911,7 @@ void CFdf::FindDriversForInterfacesUsingSpecificKeyL(CDeviceProxy& aDevice,
 		// the searching have been done.		
 		RebuildUnClaimedInterfacesArrayL(aDevice, aInterfacesNumberArray, ii+1);
 		}
+	OstTraceFunctionExit0( CFDF_FINDDRIVERSFORINTERFACESUSINGSPECIFICKEYL_EXIT );
 	}
 
 
@@ -808,9 +925,8 @@ void CFdf::FindDriverForInterfaceUsingSpecificKey(CDeviceProxy& aDevice,
 								   RArray<TUint>& aInterfacesGivenToFdc,
 								   const TDesC8& aSearchKey)
 	{
-
-	LOG_FUNC
-	LOGTEXT2(_L8("\taSearchKey = \"%S\""), &aSearchKey);
+    OstTraceFunctionEntry0( CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY, "aSearchKey = \"%S\"", aSearchKey );
 
 	// Find an FDC matching this search key.
 	TSglQueIter<CFdcProxy> iter(iFunctionDrivers);
@@ -819,7 +935,8 @@ void CFdf::FindDriverForInterfaceUsingSpecificKey(CDeviceProxy& aDevice,
 
 	while ( ( fdc = iter++ ) != NULL )
 		{
-		LOGTEXT2(_L8("\tFDC's default_data field = \"%S\""), &fdc->DefaultDataField());
+        OstTraceExt1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP1, "FDC's default_data field = \"%S\"", fdc->DefaultDataField() );
+
 #ifdef _DEBUG
 	// having these two together in the debug window is helpful for interactive debugging
 	TBuf8<KMaxSearchKeyLength > fd_key;
@@ -846,27 +963,28 @@ void CFdf::FindDriverForInterfaceUsingSpecificKey(CDeviceProxy& aDevice,
 				{
 				aDevice.SetMultipleDriversFlag();
 				}
-			
-			LOGTEXT2(_L8("\tfound matching FDC (0x%08x)"), fdc);
-#ifdef __FLOG_ACTIVE
+			OstTrace1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP2, "found matching FDC (0x%08x)", fdc );
+
 			const TUint count = aInterfacesGivenToFdc.Count();
-			LOGTEXT2(_L8("\tlogging aInterfacesGivenToFdc (interfaces being offered to the FDC): count = %d"), count);
+			OstTrace1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP3, "logging aInterfacesGivenToFdc (interfaces being offered to the FDC): count = %d", count );
 			for ( TUint ii = 0 ; ii < count ; ++ii )
 				{
-				LOGTEXT3(_L8("\t\tindex %d: interface number %d"), ii, aInterfacesGivenToFdc[ii]);
-				}
-#endif
+                OstTraceExt2( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP4, 
+                        "index %u: interface number %u", 
+                        ii, aInterfacesGivenToFdc[ii] );
+			    }
 			TInt err = fdc->NewFunction(aDevice.DeviceId(), aInterfacesGivenToFdc, iDD, iCD);
-			LOGTEXT2(_L8("\tNewFunction returned %d"), err);
+			OstTrace1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP5, "NewFunction returned %d", err );
+			            
 			// To correctly determine whether the driver load for the whole
 			// configuration was a complete failure, a partial success or a
 			// complete success, we need to collect any non-KErrNone error
 			// from this, and whether any handovers worked at all.
 			if ( err == KErrNone )
 				{
-#ifdef __FLOG_ACTIVE
-				LOGTEXT3(_L8("***USB HOST STACK: THE FOLLOWING INTERFACES OF DEVICE %d WERE SUCCESSFULLY PASSED TO FUNCTION DRIVER WITH IMPL UID 0x%08x"),
-					aDevice.DeviceId(), fdc->ImplUid());
+                OstTraceExt2(TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP6, 
+                        "***USB HOST STACK: THE FOLLOWING INTERFACES OF DEVICE %u WERE SUCCESSFULLY PASSED TO FUNCTION DRIVER WITH IMPL UID 0x%08x",
+					(TInt32) aDevice.DeviceId(), fdc->ImplUid().iUid);
 				// We want to log each interface that's in
 				// aInterfacesGivenToFdc AND is marked claimed in iInterfaces.
 				for ( TUint ii = 0 ; ii < aInterfacesGivenToFdc.Count() ; ++ii )
@@ -875,16 +993,20 @@ void CFdf::FindDriverForInterfaceUsingSpecificKey(CDeviceProxy& aDevice,
 					for ( TUint jj = 0 ; jj < iInterfaces.Count() ; ++jj )
 						{
 						const TInterfaceInfo* ifInfo = iInterfaces[jj];
-						ASSERT_DEBUG(ifInfo);
+						
+						if(!ifInfo)
+						    {
+                            OstTrace0( TRACE_FATAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP7, "Empty ifInfo" );
+                            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+						    }
 						if (	ifNum == ifInfo->iNumber
 							&&	ifInfo->iClaimed
 							)
 							{
-							LOGTEXT2(_L8("***USB HOST STACK: bInterfaceNumber %d"), ifNum);
+                            OstTrace1( TRACE_NORMAL, CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_DUP8, "***USB HOST STACK: bInterfaceNumber %d", ifNum );
 							}
 						}
 					}
-#endif
 				aAnySuccess = ETrue;
 				}
 			else
@@ -895,13 +1017,13 @@ void CFdf::FindDriverForInterfaceUsingSpecificKey(CDeviceProxy& aDevice,
 			break;
 			}
 		}
+	OstTraceFunctionExit0( CFDF_FINDDRIVERFORINTERFACEUSINGSPECIFICKEY_EXIT );
 	}
 
 void CFdf::HandleDeviceDetachment(TUint aDeviceId)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
-
+    OstTraceFunctionEntry0( CFDF_HANDLEDEVICEDETACHMENT_ENTRY );
+    OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEDETACHMENT, "aDeviceId = %d", aDeviceId );
 
 #ifdef _DEBUG
 	TBool found = EFalse;
@@ -919,16 +1041,24 @@ void CFdf::HandleDeviceDetachment(TUint aDeviceId)
 #ifdef _DEBUG
 			found = ETrue;
 #endif
-			LOGTEXT(_L8("\tfound matching device proxy"));
-
+			OstTrace0( TRACE_NORMAL, CFDF_HANDLEDEVICEDETACHMENT_DUP1, "found matching device proxy" );
+			
 			iDevices.Remove(*device);
 			// Before destroying the device proxy, take the detachment event
 			// stored in it for the event queue.
 			TDeviceEvent* const detachmentEvent = device->GetDetachmentEventObject();
-			ASSERT_DEBUG(detachmentEvent);
-			ASSERT_DEBUG(iEventQueue);
+			if(!detachmentEvent)
+			    {
+                OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEDETACHMENT_DUP2, "Empty detachmentEvent" );
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+			    }
+			if(!iEventQueue)
+			    {
+                OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVICEDETACHMENT_DUP3, "Empty iEventQueue" );
+                __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+			    }
 			iEventQueue->AddDeviceEvent(*detachmentEvent);
-			LOGTEXT2(_L8("***USB HOST STACK: DETACHMENT OF DEVICE (id %d)"), aDeviceId);
+			OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEDETACHMENT_DUP4, "***USB HOST STACK: DETACHMENT OF DEVICE (id %d)", aDeviceId );
 			delete device;
 
 			TellFdcsOfDeviceDetachment(aDeviceId);
@@ -939,7 +1069,7 @@ void CFdf::HandleDeviceDetachment(TUint aDeviceId)
 			if (iDevices.IsEmpty())
 				{
 				TInt err = User::FreeLogicalDevice(KDriverUsbdiLddFileName);
-				LOGTEXT2(_L8("\tFreeLogicalDevice( usbdi ) returned %d"), err);
+				OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVICEDETACHMENT_DUP5, "FreeLogicalDevice( usbdi ) returned %d", err );
 				}
 #endif // __OVER_DUMMYUSBDI__
 			
@@ -950,25 +1080,32 @@ void CFdf::HandleDeviceDetachment(TUint aDeviceId)
 #ifdef _DEBUG
 	if ( !found )
 		{
-		LOGTEXT(_L8("\tno matching device proxy found"));
+        OstTrace0( TRACE_NORMAL, CFDF_HANDLEDEVICEDETACHMENT_DUP6, "no matching device proxy found" );
 		}
 #endif
+	
+	OstTraceFunctionExit0( CFDF_HANDLEDEVICEDETACHMENT_EXIT );
 	}
 
 void CFdf::HandleDevmonEvent(TInt aEvent)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taEvent = %d"), aEvent);
+	OstTraceFunctionEntry0( CFDF_HANDLEDEVMONEVENT_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_HANDLEDEVMONEVENT, "aEvent = %d", aEvent );
 
-	ASSERT_DEBUG(iEventQueue);
+	if(!iEventQueue)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_HANDLEDEVMONEVENT_DUP1, "Empty iEventQueue" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 	iEventQueue->AddDevmonEvent(aEvent);
+	OstTraceFunctionExit0( CFDF_HANDLEDEVMONEVENT_EXIT );
 	}
 
 void CFdf::TellFdcsOfDeviceDetachment(TUint aDeviceId)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
-
+	OstTraceFunctionEntry0( CFDF_TELLFDCSOFDEVICEDETACHMENT_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_TELLFDCSOFDEVICEDETACHMENT, "aDeviceId = %d", aDeviceId );
+	
 	TSglQueIter<CFdcProxy> iter(iFunctionDrivers);
 	iter.SetToFirst();
 	CFdcProxy* fdc;
@@ -982,12 +1119,14 @@ void CFdf::TellFdcsOfDeviceDetachment(TUint aDeviceId)
 			}
 		}			
 		
+	OstTraceFunctionExit0( CFDF_TELLFDCSOFDEVICEDETACHMENT_EXIT );
 	}
 
 TUint32 CFdf::TokenForInterface(TUint8 aInterface)
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taInterface = %d"), aInterface);
+	OstTraceFunctionEntry0( CFDF_TOKENFORINTERFACE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_TOKENFORINTERFACE, "aInterface = %d", aInterface );
+	
 	TUint32 token = 0;
 
 	// Check that the interface was in the array given to the FD and mark it
@@ -997,21 +1136,37 @@ TUint32 CFdf::TokenForInterface(TUint8 aInterface)
 	for ( TUint ii = 0 ; ii < interfaceCount ; ++ii )
 		{
 		TInterfaceInfo* ifInfo = iInterfaces[ii];
-		ASSERT_DEBUG(ifInfo);
+		if(!ifInfo)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_TOKENFORINTERFACE_DUP1, "Empty ifInfo" );
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
 		if ( ifInfo->iNumber == aInterface )
 			{
 			found = ETrue;
 			// The FDC tried to claim an interface that was already claimed.
-			ASSERT_ALWAYS(!ifInfo->iClaimed);
+			if(ifInfo->iClaimed)
+			    {
+                OstTrace0( TRACE_FATAL, CFDF_TOKENFORINTERFACE_DUP2, "iClaimed error" );
+                User::Panic(KPanicCategory,__LINE__);
+			    }
 			ifInfo->iClaimed = ETrue;
 			break;
 			}
 		}
 	// Could not find interface in the interface array- the FDC tried to claim
 	// an interface it had not been offered.
-	ASSERT_ALWAYS(found);
+	if(!found)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_TOKENFORINTERFACE_DUP3, "not found" );
+        User::Panic(KPanicCategory,__LINE__);
+	    }
 
-	ASSERT_DEBUG(iCurrentDevice);
+	if(!iCurrentDevice)
+	    {
+        OstTrace0( TRACE_FATAL, CFDF_TOKENFORINTERFACE_DUP4, "Empty iCurrentDevice" );
+        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+	    }
 
 	// GetTokenForInterface will return error in the following cases:
 	// 1/ KErrBadHandle: invalid device handle (the CDeviceProxy asserts that
@@ -1039,21 +1194,23 @@ TUint32 CFdf::TokenForInterface(TUint8 aInterface)
 			break;
 
 		default:
-			LOGTEXT3(_L8("\tUnexpected error %d when requesting token for aInterface %d"),err,aInterface);
-			ASSERT_ALWAYS(0);
+			OstTraceExt2( TRACE_FATAL, CFDF_TOKENFORINTERFACE_DUP5, "Unexpected error %d when requesting token for aInterface %d",err,aInterface);
+			User::Panic(KPanicCategory,__LINE__);
 			break;
 		}
 
-	LOGTEXT3(_L8("\tToken for interface %d is = %d"),aInterface, token);
-
+	OstTraceExt2( TRACE_NORMAL, CFDF_TOKENFORINTERFACE_DUP6, 
+	        "Token for interface %hhu is = %u",aInterface, token);
+	
+	OstTraceFunctionExit0( CFDF_TOKENFORINTERFACE_EXIT );
 	return token;
 	}
 
 CDeviceProxy* CFdf::DeviceProxyL(TUint aDeviceId) const
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
-
+	OstTraceFunctionEntry0( CFDF_DEVICEPROXYL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_DEVICEPROXYL, "aDeviceId = %d", aDeviceId );
+	
 	TSglQueIter<CDeviceProxy> iter(const_cast<CFdf*>(this)->iDevices);
 	iter.SetToFirst();
 	CDeviceProxy* device = NULL;
@@ -1061,66 +1218,74 @@ CDeviceProxy* CFdf::DeviceProxyL(TUint aDeviceId) const
 		{
 		if ( device->DeviceId() == aDeviceId )
 			{
-			LOGTEXT2(_L8("\tdevice = 0x%08x"), device);
+            OstTrace1( TRACE_NORMAL, CFDF_DEVICEPROXYL_DUP1, "device = 0x%08x", device );
+			OstTraceFunctionExit0( CFDF_DEVICEPROXYL_EXIT );
 			return device;
 			}
 		}
-	LEAVEL(KErrNotFound);
+	OstTrace0( TRACE_NORMAL, CFDF_DEVICEPROXYL_DUP2, "KErrNotFound");
+	User::Leave(KErrNotFound);
+	OstTraceFunctionExit0( CFDF_DEVICEPROXYL_EXIT_DUP1 );
 	return NULL; // avoid warning
 	}
 
 const RArray<TUint>& CFdf::GetSupportedLanguagesL(TUint aDeviceId) const
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDeviceId = %d"), aDeviceId);
-
+	OstTraceFunctionEntry0( CFDF_GETSUPPORTEDLANGUAGESL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CFDF_GETSUPPORTEDLANGUAGESL, "aDeviceId = %d", aDeviceId );
+	
 	CDeviceProxy* deviceProxy = DeviceProxyL(aDeviceId);
 	return deviceProxy->GetSupportedLanguages();
 	}
 
 void CFdf::GetManufacturerStringDescriptorL(TUint aDeviceId, TUint32 aLangId, TName& aString) const
 	{
-	LOG_FUNC
-	LOGTEXT3(_L8("\taDeviceId = %d, aLangId = 0x%04x"), aDeviceId, aLangId);
-
+	OstTraceFunctionEntry0( CFDF_GETMANUFACTURERSTRINGDESCRIPTORL_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CFDF_GETMANUFACTURERSTRINGDESCRIPTORL, 
+	        "aDeviceId = %u, aLangId = 0x%08x", (TUint32)aDeviceId, aLangId );
+		
 	CDeviceProxy* deviceProxy = DeviceProxyL(aDeviceId);
 	deviceProxy->GetManufacturerStringDescriptorL(aLangId, aString);
-	LOGTEXT2(_L("\taString = \"%S\""), &aString);
+	OstTraceExt1( TRACE_NORMAL, CFDF_GETMANUFACTURERSTRINGDESCRIPTORL_DUP1, "aString = \"%S\"", aString );
+	OstTraceFunctionExit0( CFDF_GETMANUFACTURERSTRINGDESCRIPTORL_EXIT );
 	}
 
 void CFdf::GetProductStringDescriptorL(TUint aDeviceId, TUint32 aLangId, TName& aString) const
 	{
-	LOG_FUNC
-	LOGTEXT3(_L8("\taDeviceId = %d, aLangId = 0x%04x"), aDeviceId, aLangId);
+	OstTraceFunctionEntry0( CFDF_GETPRODUCTSTRINGDESCRIPTORL_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CFDF_GETPRODUCTSTRINGDESCRIPTORL, 
+	        "aDeviceId = %u, aLangId = 0x%04x", (TUint32)aDeviceId, aLangId );
 
 	CDeviceProxy* deviceProxy = DeviceProxyL(aDeviceId);
 	deviceProxy->GetProductStringDescriptorL(aLangId, aString);
-	LOGTEXT2(_L("\taString = \"%S\""), &aString);
+	OstTraceExt1( TRACE_NORMAL, CFDF_GETPRODUCTSTRINGDESCRIPTORL_DUP1, "aString = \"%S\"", aString );
+	OstTraceFunctionExit0( CFDF_GETPRODUCTSTRINGDESCRIPTORL_EXIT );
 	}
 
 void CFdf::GetOtgDeviceDescriptorL(TInt aDeviceId, TOtgDescriptor& aDescriptor) const
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDF_GETOTGDEVICEDESCRIPTORL_ENTRY );
 	
 	DeviceProxyL(aDeviceId)->GetOtgDescriptorL(aDescriptor);
+	OstTraceFunctionExit0( CFDF_GETOTGDEVICEDESCRIPTORL_EXIT );
 	}
 
 void CFdf::GetSerialNumberStringDescriptorL(TUint aDeviceId, TUint32 aLangId, TName& aString) const
 	{
-	LOG_FUNC
-	LOGTEXT3(_L8("\taDeviceId = %d, aLangId = 0x%04x"), aDeviceId, aLangId);
+	OstTraceFunctionEntry0( CFDF_GETSERIALNUMBERSTRINGDESCRIPTORL_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CFDF_GETSERIALNUMBERSTRINGDESCRIPTORL, 
+	        "aDeviceId = %u, aLangId = 0x%08x", (TUint32)aDeviceId, aLangId );
 
 	CDeviceProxy* deviceProxy = DeviceProxyL(aDeviceId);
 	deviceProxy->GetSerialNumberStringDescriptorL(aLangId, aString);
-	LOGTEXT2(_L("\taString = \"%S\""), &aString);
+	OstTraceExt1( TRACE_NORMAL, CFDF_GETSERIALNUMBERSTRINGDESCRIPTORL_DUP1, "aString = \"%S\"", aString );
+	OstTraceFunctionExit0( CFDF_GETSERIALNUMBERSTRINGDESCRIPTORL_EXIT );
 	}
 
 void CFdf::SearchForInterfaceFunctionDriversL(CDeviceProxy& aDevice, TBool& aAnySuccess, TInt& aCollectedErr)
 	{
 	RArray<TUint> interfacesNumberArray;	
 	CleanupClosePushL(interfacesNumberArray);
-
-
 	
 	for ( TUint ii = 0 ; ii < iInterfaces.Count() ; ++ii )
 		{
@@ -1172,8 +1337,9 @@ void CFdf::AppendInterfaceNumberToArrayL(CDeviceProxy& aDevice, RArray<TUint>& a
 	TInt err = aArray.Append(aInterfaceNo);
 	if ( err )
 		{
-		aDevice.SetDriverLoadingEventData(EDriverLoadFailure, err);
-		LEAVEL(err);
+		aDevice.SetDriverLoadingEventData(EDriverLoadFailure, err);	
+		OstTrace1( TRACE_NORMAL, CFDF_APPENDINTERFACENUMBERTOARRAYL, "Leave with error: %d", err );
+		User::Leave(err);
 		}
 	}
 	
@@ -1215,15 +1381,15 @@ TBool CFdf::SearchForADeviceFunctionDriverL(CDeviceProxy& aDevice, TBool& aAnySu
 			{
 			if (fdc->MarkedForDeletion())
 				continue;
-			LOGTEXT2(_L8("\tFDC's default_data field = \"%S\""), &fdc->DefaultDataField());
-#ifdef _DEBUG
+			OstTraceExt1( TRACE_NORMAL, CFDF_SEARCHFORADEVICEFUNCTIONDRIVERL, "FDC's default_data field = \"%S\"", fdc->DefaultDataField());
+			
 	// having these two together in the debug window is helpful for interactive debugging
 	TBuf8<KMaxSearchKeyLength> fd_key;
 	fd_key.Append(fdc->DefaultDataField().Ptr(), fdc->DefaultDataField().Length() > KMaxSearchKeyLength ? KMaxSearchKeyLength : fdc->DefaultDataField().Length());	
 	TBuf8<KMaxSearchKeyLength> search_key;
 	search_key.Append(searchKeyString.Ptr(), searchKeyString.Length() > KMaxSearchKeyLength ? KMaxSearchKeyLength : searchKeyString.Length());
 	TInt version = fdc->Version();
-#endif
+
 			if (searchKeyString.CompareF(fdc->DefaultDataField()) == 0)
 				{
 				
@@ -1241,9 +1407,9 @@ TBool CFdf::SearchForADeviceFunctionDriverL(CDeviceProxy& aDevice, TBool& aAnySu
 					}
 				
 				foundFdc = ETrue;
-				LOGTEXT2(_L8("\tfound matching FDC (0x%08x)"), fdc);
+				OstTrace1( TRACE_NORMAL, CFDF_SEARCHFORADEVICEFUNCTIONDRIVERL_DUP1, "found matching FDC (0x%08x)", fdc );
 				TInt err = fdc->NewFunction(aDevice.DeviceId(), interfaces, iDD, iCD);
-				LOGTEXT2(_L8("\tNewFunction returned %d"), err);
+				OstTrace1( TRACE_NORMAL, CFDF_SEARCHFORADEVICEFUNCTIONDRIVERL_DUP2, "NewFunction returned %d", err);
 				// To correctly determine whether the driver load for the whole
 				// configuration was a complete failure, a partial success or a
 				// complete success, we need to collect any non-KErrNone error
@@ -1291,7 +1457,8 @@ TBool CFdf::FindMultipleFDs(const TDesC8& aSearchKey,TSglQueIter<CFdcProxy>& aFd
 //
 void CFdf::FormatDeviceSearchKey(TDes8& aSearchKey, TDeviceSearchKeys aDeviceSearchKeys)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDF_FORMATDEVICESEARCHKEY_ENTRY );
+	
 	switch (aDeviceSearchKeys)
 		{
 		case EVendorProductDevice:
@@ -1331,12 +1498,13 @@ void CFdf::FormatDeviceSearchKey(TDes8& aSearchKey, TDeviceSearchKeys aDeviceSea
 			break;
 			}
 		default:
-			{
-			ASSERT_DEBUG(EFalse);
+			{	
+			OstTrace1( TRACE_FATAL, CFDF_FORMATDEVICESEARCHKEY, "Invalid aDeviceSearchKeys=%d", aDeviceSearchKeys );
+			__ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
 			}		
 		}
-		
-	LOGTEXT2(_L8("\taSearchKey = \"%S\""), &aSearchKey);		
+	OstTraceExt1( TRACE_NORMAL, CFDF_FORMATDEVICESEARCHKEY_DUP1, "aSearchKey = \"%s\"", aSearchKey );
+	OstTraceFunctionExit0( CFDF_FORMATDEVICESEARCHKEY_EXIT );
 	}
 	
 	
@@ -1348,7 +1516,8 @@ void CFdf::FormatDeviceSearchKey(TDes8& aSearchKey, TDeviceSearchKeys aDeviceSea
 //	
 void CFdf::FormatInterfaceSearchKey(TDes8& aSearchKey, TInterfaceSearchKeys aSearchKeys, const TInterfaceInfo& aIfInfo)
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CFDF_FORMATINTERFACESEARCHKEY_ENTRY );
+	
 	switch (aSearchKeys)
 		{
 		case EVendorProductDeviceConfigurationvalueInterfacenumber:
@@ -1389,28 +1558,37 @@ void CFdf::FormatInterfaceSearchKey(TDes8& aSearchKey, TInterfaceSearchKeys aSea
 			}
 		default:
 			{
-			ASSERT_DEBUG(EFalse);
+			OstTrace1( TRACE_FATAL, CFDF_FORMATINTERFACESEARCHKEY, "Invalid aSearchKeys=%d", aSearchKeys );
+			__ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
 			}
 		}
-	LOGTEXT2(_L8("\taSearchKey = \"%S\""), &aSearchKey);		
+	OstTraceExt1( TRACE_NORMAL, CFDF_FORMATINTERFACESEARCHKEY_DUP1, "aSearchKey = \"%s\"", aSearchKey );
+	OstTraceFunctionExit0( CFDF_FORMATINTERFACESEARCHKEY_EXIT );
 	}
 
 
 TUint CFdf::UnclaimedInterfaceCount() const
 	{
-	LOG_FUNC	
+	OstTraceFunctionEntry0( CFDF_UNCLAIMEDINTERFACECOUNT_ENTRY );
+		
 	TUint unclaimedInterfaces = 0;
 	for ( TUint ii = 0 ; ii < iInterfaces.Count() ; ++ii )
 		{
 		TInterfaceInfo* ifInfo = iInterfaces[ii];
-		ASSERT_DEBUG(ifInfo);
+		
+		if(!ifInfo)
+		    {
+            OstTrace0( TRACE_FATAL, CFDF_UNCLAIMEDINTERFACECOUNT, "Empty ifInfo" );
+            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
+		    }
 		if ( !ifInfo->iClaimed )
 			{
-			LOGTEXT2(_L8("\tunclaimed interface: ifInfo->iNumber = %d"), ifInfo->iNumber);
+            OstTrace1( TRACE_NORMAL, CFDF_UNCLAIMEDINTERFACECOUNT_DUP1, "unclaimed interface: ifInfo->iNumber = %d", ifInfo->iNumber );
 			++unclaimedInterfaces;
 			}
 		}
-	LOGTEXT2(_L("\tunclaimedInterfaces = \"%d\""), unclaimedInterfaces);			
+	OstTrace1( TRACE_NORMAL, CFDF_UNCLAIMEDINTERFACECOUNT_DUP2, "unclaimedInterfaces = \"%d\"", unclaimedInterfaces );
+	OstTraceFunctionExit0( CFDF_UNCLAIMEDINTERFACECOUNT_EXIT );
 	return unclaimedInterfaces;
 	}
 	

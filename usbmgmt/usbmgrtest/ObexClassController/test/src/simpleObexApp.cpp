@@ -455,33 +455,33 @@ void RunAppL(void)
 	CleanupStack::PushL(myScheduler);
 	CActiveScheduler::Install(myScheduler); 
 
-	CConsoleBase* aConsole = 	
+	CConsoleBase* console = 	
 	Console::NewL(_L("Obex Program"),TSize(KConsFullScreen, KConsFullScreen));
 	
 	// Load Device drivers
 	
 	TInt err;
 	// Start C32 now
-	aConsole->Printf(_L("Loading C32...\n"));
+	console->Printf(_L("Loading C32...\n"));
 	err=StartC32();
 	if (err!=KErrNone && err!=KErrAlreadyExists)
-		aConsole->Printf(_L("	Failed %d\n"), err);
+		console->Printf(_L("	Failed %d\n"), err);
 	else
-		aConsole->Printf(_L("	Sucess\n"));
+		console->Printf(_L("	Sucess\n"));
 	// If running on PC emulator
 	
 	// Load drivers for using Serial communication
 	#ifdef __WINS__
 		TInt load =	User::LoadLogicalDevice(KWinsLddName);
-		aConsole->Printf(_L("Load LDD : %d\n"), load);
+		console->Printf(_L("Load LDD : %d\n"), load);
 		load =	User::LoadPhysicalDevice(KWinsPddName);
-		aConsole->Printf(_L("Load PDD : %d\n"), load);
+		console->Printf(_L("Load PDD : %d\n"), load);
 	#endif //__WINS__
 
 
 
-	CleanupStack::PushL(aConsole);
-	CActiveConsole* my_console = CActiveConsole::NewLC(aConsole);// New active console
+	CleanupStack::PushL(console);
+	CActiveConsole* my_console = CActiveConsole::NewLC(console);// New active console
 	my_console->RequestCharacter();
 	CActiveScheduler::Start();
 	CleanupStack::PopAndDestroy(3); 

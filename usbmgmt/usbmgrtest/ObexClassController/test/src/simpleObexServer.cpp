@@ -63,7 +63,7 @@ void CObexServerHandler::ConstructL(TTransport aTransport)
 		{
 		// Start bluetooth socket and set security
 		RSocketServ socketServ;
-		socketServ.Connect();
+		User::LeaveIfError(socketServ.Connect());
 		RSocket listen;
 		TInt test = listen.Open(socketServ, KRFCOMMDesC);
 
@@ -129,6 +129,7 @@ void CObexServerHandler::ConstructL(TTransport aTransport)
 		// Update attribute
 		iSdpdb.UpdateAttributeL(ftphandle, KProtocolDescriptorListUUID, *iProtDescList); // put into both records
 		delete iProtDescList;
+		iProtDescList = NULL;
 			
 		User::LeaveIfError(listen.Bind(addr)); 
 			

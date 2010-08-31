@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,15 +21,16 @@
 */
 
 #include <usbhost/internal/fdcpluginobserver.h>
-#include <usb/usblogger.h>
 
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "fdcplugin");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "fdcpluginobserverTraces.h"
 #endif
+
 
 EXPORT_C TUint32 MFdcPluginObserver::TokenForInterface(TUint8 aInterface)
 	{
-	LOG_FUNC
+    OstTraceFunctionEntry1( MFDCPLUGINOBSERVER_TOKENFORINTERFACE_ENTRY, this );
 	
 	return MfpoTokenForInterface(aInterface);
 	}

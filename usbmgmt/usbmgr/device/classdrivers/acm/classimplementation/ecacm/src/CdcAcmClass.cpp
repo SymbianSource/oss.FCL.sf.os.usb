@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,10 +22,9 @@
 #include "AcmUtils.h"
 #include "HostPushedChangeObserver.h"
 #include "BreakController.h"
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "CdcAcmClassTraces.h"
 #endif
 
 extern const TInt32 KUsbAcmHostCanHandleZLPs = 0;
@@ -35,7 +34,9 @@ CCdcAcmClass::CCdcAcmClass()
  * Constructor.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_CCDCACMCLASS_CONS_ENTRY );
 	SetDefaultAcm();
+	OstTraceFunctionExit0( CCDCACMCLASS_CCDCACMCLASS_CONS_EXIT );
 	}
 
 CCdcAcmClass* CCdcAcmClass::NewL(const TUint8 aProtocolNum, const TDesC16& aAcmControlIfcName, const TDesC16& aAcmDataIfcName)
@@ -45,12 +46,12 @@ CCdcAcmClass* CCdcAcmClass::NewL(const TUint8 aProtocolNum, const TDesC16& aAcmC
  * @return Ownership of a new CCdcAcmClass object
  */
 	{
-	LOG_STATIC_FUNC_ENTRY
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_NEWL_ENTRY );
 	CCdcAcmClass* self = new(ELeave) CCdcAcmClass;
 	CleanupStack::PushL(self);
 	self->ConstructL(aProtocolNum, aAcmControlIfcName, aAcmDataIfcName);
 	CLEANUPSTACK_POP(self);
+	OstTraceFunctionExit0( CCDCACMCLASS_NEWL_EXIT );
 	return self;
 	}
 
@@ -62,32 +63,41 @@ void CCdcAcmClass::ConstructL(const TUint8 aProtocolNum, const TDesC16& aControl
  * @param aDataIfcName contains the interface name
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_CONSTRUCTL_ENTRY );
+	
 	TUint8 interfaceNumber;
 	TInt res;
 
-	LOGTEXT(_L8("\tabout to create control interface with name"));
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL, "CCdcAcmClass::ConstructL;\tabout to create control interface with name" );
 	iControl = CCdcControlInterface::NewL(*this, aProtocolNum, aControlIfcName);
 
-	LOGTEXT(_L8("\tabout to create data interface with name"));
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL_DUP1, "CCdcAcmClass::ConstructL;\tabout to create data interface with name" );
 	iData = CCdcDataInterface::NewL(aDataIfcName);
 
 	iBreakController = CBreakController::NewL(*this);
 
-	LOGTEXT(_L8("\tabout to call GetInterfaceNumber"));
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL_DUP2, "CCdcAcmClass::ConstructL;\tabout to call GetInterfaceNumber" );
 	res = iData->GetInterfaceNumber(interfaceNumber);
 	if ( res )
 		{
-		LOGTEXT2(_L8("\tGetInterfaceNumber=%d"), res);
-		LEAVEIFERRORL(res);
+		OstTrace1( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL_DUP3, "CCdcAcmClass::ConstructL;\tGetInterfaceNumber=%d", res );
+		if (res < 0)
+			{
+			 User::Leave(res);
+			}
 		}
 
-	LOGTEXT(_L8("\tabout to call SetupClassSpecificDescriptor"));
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL_DUP4, "CCdcAcmClass::ConstructL;\tabout to call SetupClassSpecificDescriptor" );
 	res = iControl->SetupClassSpecificDescriptor(interfaceNumber);
 	if ( res )
 		{
-		LOGTEXT2(_L8("\tSetupClassSpecificDescriptor=%d"), res);
-		LEAVEIFERRORL(res);
+		OstTrace1( TRACE_NORMAL, CCDCACMCLASS_CONSTRUCTL_DUP5, "CCdcAcmClass::ConstructL;\tSetupClassSpecificDescriptor=%d", res );
+		if (res < 0)
+			{
+			User::Leave(res);
+			}
 		}
+	OstTraceFunctionExit0( CCDCACMCLASS_CONSTRUCTL_EXIT );
 	}
 
 CCdcAcmClass::~CCdcAcmClass()
@@ -95,11 +105,11 @@ CCdcAcmClass::~CCdcAcmClass()
  * Destructor.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_CCDCACMCLASS_DES_ENTRY );
 	delete iControl;
 	delete iData;
 	delete iBreakController;
+	OstTraceFunctionExit0( CCDCACMCLASS_CCDCACMCLASS_DES_EXIT );
 	}
 
 void CCdcAcmClass::SetCallback(MHostPushedChangeObserver* aCallback)
@@ -108,8 +118,8 @@ void CCdcAcmClass::SetCallback(MHostPushedChangeObserver* aCallback)
  * because the ACM class and the port have different lifetimes.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::SetCallback aCallback=0x%08x"), aCallback);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_SETCALLBACK_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_SETCALLBACK, "CCdcAcmClass::SetCallback;aCallback=%p", aCallback );
 	iCallback = aCallback;
 
 	// remember that this function can also be called to
@@ -127,7 +137,7 @@ void CCdcAcmClass::SetCallback(MHostPushedChangeObserver* aCallback)
 		iCallback->HostSignalChange(iDtrState,iRtsState);
 		}
 	
-	LOGTEXT(_L8("<<CCdcAcmClass::SetCallback"));
+	OstTraceFunctionExit0( CCDCACMCLASS_SETCALLBACK_EXIT );
 	}
 
 void CCdcAcmClass::SetBreakCallback(MBreakObserver* aBreakCallback)
@@ -136,12 +146,10 @@ void CCdcAcmClass::SetBreakCallback(MBreakObserver* aBreakCallback)
  * because the ACM class and the port have different lifetimes.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::SetBreakCallback aBreakCallback=0x%08x"), 
-		aBreakCallback);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_SETBREAKCALLBACK_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_SETBREAKCALLBACK, "CCdcAcmClass::SetBreakCallback;aBreakCallback=%p", aBreakCallback );
 	iBreakCallback = aBreakCallback;
-
-	LOGTEXT(_L8("<<CCdcAcmClass::SetBreakCallback"));
+	OstTraceFunctionExit0( CCDCACMCLASS_SETBREAKCALLBACK_EXIT );
 	}
 
 void CCdcAcmClass::ReadOneOrMore(MReadOneOrMoreObserver& aObserver, TDes8& aDes)
@@ -152,12 +160,10 @@ void CCdcAcmClass::ReadOneOrMore(MReadOneOrMoreObserver& aObserver, TDes8& aDes)
  * @param aDes Descriptor to read into
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::ReadOneOrMore aObserver=0x%08x"), 
-		&aObserver);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_READONEORMORE_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_READONEORMORE, "CCdcAcmClass::ReadOneOrMore;aObserver=%p", &aObserver );
 	ReadOneOrMore(aObserver, aDes, aDes.Length());
-
-	LOGTEXT(_L8("<<CCdcAcmClass::ReadOneOrMore"));
+	OstTraceFunctionExit0( CCDCACMCLASS_READONEORMORE_EXIT );
 	}
 
 void CCdcAcmClass::ReadOneOrMore(MReadOneOrMoreObserver& aObserver, 
@@ -171,14 +177,18 @@ void CCdcAcmClass::ReadOneOrMore(MReadOneOrMoreObserver& aObserver,
  * @param aLength Amount of data to read
  */
 	{
-	LOGTEXT3(_L8(">>CCdcAcmClass::ReadOneOrMore aObserver=0x%08x, "
-		"aLength=%d"), 
-			&aObserver, aLength);
+	OstTraceFunctionEntry0( CCDCACMCLASS_READONEORMORE_MREADONEORMOREOBSERVERREF_TDES8REF_TINT_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CCDCACMCLASS_READONEORMORE_MREADONEORMOREOBSERVERREF_TDES8REF_TINT, 
+			"CCdcAcmClass::ReadOneOrMore;aObserver=%p;aLength=%d", &aObserver, aLength );
 
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iData)
+		{
+		OstTrace1( TRACE_FATAL, CCDCACMCLASS_READONEORMORE_MREADONEORMOREOBSERVERREF_TDES8REF_TINT_DUP1, "CCdcAcmClass::ReadOneOrMore;iData=%d", (TInt)iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->ReadOneOrMore(aObserver, aDes, aLength);
 
-	LOGTEXT(_L8("<<CCdcAcmClass::ReadOneOrMore"));
+	OstTraceFunctionExit0( CCDCACMCLASS_READONEORMORE_MREADONEORMOREOBSERVERREF_TDES8REF_TINT_EXIT );
 	}
 
 void CCdcAcmClass::Read(MReadObserver& aObserver, TDes8& aDes)
@@ -189,11 +199,10 @@ void CCdcAcmClass::Read(MReadObserver& aObserver, TDes8& aDes)
  * @param aDes Descriptor to read into.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::Read aObserver=0x%08x"), &aObserver);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_READ_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_READ, "CCdcAcmClass::Read;aObserver=%p", &aObserver );
 	Read(aObserver, aDes, aDes.Length());
-
-	LOGTEXT(_L8("<<CCdcAcmClass::Read"));
+	OstTraceFunctionExit0( CCDCACMCLASS_READ_EXIT );
 	}
 
 void CCdcAcmClass::Read(MReadObserver& aObserver, TDes8& aDes, TInt aLength)
@@ -205,13 +214,15 @@ void CCdcAcmClass::Read(MReadObserver& aObserver, TDes8& aDes, TInt aLength)
  * @param aLength Amount of data to read.
  */
 	{
-	LOGTEXT3(_L8(">>CCdcAcmClass::Read aObserver=0x%08x, aLength=%d"), 
-		&aObserver, aLength);
-
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	OstTraceFunctionEntry0( CCDCACMCLASS_READ_ENTRY_DUP1 );
+	OstTraceExt2( TRACE_NORMAL, CCDCACMCLASS_READ_DUP1, "CCdcAcmClass::Read;aObserver=%p;aLength=%d", &aObserver, aLength );
+	if (!iData)
+		{		
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_READ_DUP2, "CCdcAcmClass::Read;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->Read(aObserver, aDes, aLength);
-
-	LOGTEXT(_L8("<<CCdcAcmClass::Read"));
+	OstTraceFunctionExit0( CCDCACMCLASS_READ_ENTRY_DUP1_EXIT );
 	}
 
 void CCdcAcmClass::ReadCancel()
@@ -219,10 +230,15 @@ void CCdcAcmClass::ReadCancel()
  * Cancel a read request.
  */
 	{
-	LOG_FUNC
-
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	OstTraceFunctionEntry0( CCDCACMCLASS_READCANCEL_ENTRY );
+	
+	if (!iData)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_READCANCEL, "CCdcAcmClass::ReadCancel;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->CancelRead();
+	OstTraceFunctionExit0( CCDCACMCLASS_READCANCEL_EXIT );
 	}
 
 void CCdcAcmClass::Write(MWriteObserver& aObserver, const TDesC8& aDes)
@@ -233,12 +249,10 @@ void CCdcAcmClass::Write(MWriteObserver& aObserver, const TDesC8& aDes)
  * @param aDes Descriptor containing the data to be written.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::Write aObserver=0x%08x"), 
-		&aObserver);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_WRITE_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_WRITE, "CCdcAcmClass::Write;aObserver=%p", &aObserver );
 	Write(aObserver, aDes, aDes.Length());
-
-	LOGTEXT(_L8("<<CCdcAcmClass::Write"));
+	OstTraceFunctionExit0( CCDCACMCLASS_WRITE_EXIT );
 	}
 
 void CCdcAcmClass::Write(MWriteObserver& aObserver, 
@@ -252,13 +266,15 @@ void CCdcAcmClass::Write(MWriteObserver& aObserver,
  * @param aLength The amount of data to write.
  */
 	{
-	LOGTEXT3(_L8(">>CCdcAcmClass::Write aObserver=0x%08x, aLength=%d"), 
-		&aObserver, aLength);
-
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	OstTraceFunctionEntry0( CCDCACMCLASS_WRITE_ENTRY_DUP1 );
+	OstTraceExt2( TRACE_NORMAL, CCDCACMCLASS_WRITE_DUP1, "CCdcAcmClass::Write;aObserver=%p;aLength=%d", &aObserver, aLength );
+	if (!iData)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_WRITE_DUP2, "CCdcAcmClass::Write;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->Write(aObserver, aDes, aLength);
-
-	LOGTEXT(_L8("<<CCdcAcmClass::Write"));
+	OstTraceFunctionExit0( CCDCACMCLASS_WRITE_ENTRY_DUP1_EXIT );
 	}
 
 void CCdcAcmClass::WriteCancel()
@@ -266,10 +282,14 @@ void CCdcAcmClass::WriteCancel()
  * Cancel the write request.
  */
 	{
-	LOG_FUNC
-
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	OstTraceFunctionEntry0( CCDCACMCLASS_WRITECANCEL_ENTRY );
+	if (!iData)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_WRITECANCEL, "CCdcAcmClass::WriteCancel;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->CancelWrite();
+	OstTraceFunctionExit0( CCDCACMCLASS_WRITECANCEL_EXIT );
 	}
 
 TInt CCdcAcmClass::HandleGetCommFeature(const TUint16 aSelector, 
@@ -282,9 +302,8 @@ TInt CCdcAcmClass::HandleGetCommFeature(const TUint16 aSelector,
  *					the ACM device or the country code from ISO 3166.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::HandleGetCommFeature aSelector=%d"), 
-		aSelector); 
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLEGETCOMMFEATURE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE, "CCdcAcmClass::HandleGetCommFeature;aSelector=%d", (TInt)aSelector );
 	TInt ret = KErrNone;
 
 	// check the feature selector from the header and reject if invalid,
@@ -301,8 +320,8 @@ TInt CCdcAcmClass::HandleGetCommFeature(const TUint16 aSelector,
 		ppbuffer = &pbuffer;
 		
 		CCdcControlInterface::PutU16(ppbuffer,iAcmState);
-
-		LOGTEXT2(_L8("\tAbstract State [0x%04X]"), iAcmState);
+		OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE_DUP1, 
+				"CCdcAcmClass::HandleGetCommFeature;\tAbstract State [0x%hx]", iAcmState );
 		}
 		break;
 
@@ -311,7 +330,8 @@ TInt CCdcAcmClass::HandleGetCommFeature(const TUint16 aSelector,
 #if defined(DISABLE_ACM_CF_COUNTRY_SETTING)
 
 		aReturnData.SetLength(0);
-		LOGTEXT(_L8("\tCountry Code Not Supported"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE_DUP2, 
+				"CCdcAcmClass::HandleGetCommFeature;\tCountry Code Not Supported" );
 		ret = KErrNotSupported;
 
 #elif defined(ENABLE_ACM_CF_COUNTRY_SETTING)
@@ -324,20 +344,21 @@ TInt CCdcAcmClass::HandleGetCommFeature(const TUint16 aSelector,
 		ppbuffer = &pbuffer;
 		
 		CCdcControlInterface::PutU16(ppbuffer,iCountryCode);
-
-		LOGTEXT2(_L8("\tCountry Code [0x%04X]"), iCountryCode);
-
+		OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE_DUP3, 
+				"CCdcAcmClass::HandleGetCommFeature;\tCountry Code [0x%hx]", iCountryCode );
 #endif
 		}
 		break;
 
 	default:
 		aReturnData.SetLength(0);
-		LOGTEXT(_L8("\tBad Selector"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE_DUP4, "CCdcAcmClass::HandleGetCommFeature;\tBad Selector" );
 		ret = KErrUnknown;
 		}
 
-	LOGTEXT2(_L8("<<CCdcAcmClass::HandleGetCommFeature ret=%d"), ret); 
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETCOMMFEATURE_DUP5, 
+			"CCdcAcmClass::HandleGetCommFeature;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLEGETCOMMFEATURE_EXIT );
 	return ret;
 	}
 
@@ -347,9 +368,8 @@ TInt CCdcAcmClass::HandleClearCommFeature(const TUint16 aSelector)
  * @param aSelector Multiplex control for the feature is held in wValue field
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::HandleClearCommFeature aSelector=%d"), 
-		aSelector);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLECLEARCOMMFEATURE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE, "CCdcAcmClass::HandleClearCommFeature;aSelector=%d", (TInt)aSelector );
 	TInt ret = KErrNone;
 
 	// check the feature selector from the header and reject if invalid,
@@ -360,21 +380,24 @@ TInt CCdcAcmClass::HandleClearCommFeature(const TUint16 aSelector)
 		{
 		// reset to guaranteed-success default, so ignore return value
 		static_cast<void>(HandleNewAbstractState(EUsbAbstractStateDataMultiplex));
-		LOGTEXT2(_L8("\tAbstract State [0x%04X]"), iAcmState);
+		OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE_DUP1, 
+				"CCdcAcmClass::HandleClearCommFeature;\tAbstract State [0x%hx]", iAcmState );
 		}
 		break;
 	
 	case EUsbCommFeatureSelectCountryCode:
 		{
 #if defined(DISABLE_ACM_CF_COUNTRY_SETTING)
-
-		LOGTEXT(_L8("\tCountry Code Not Supported"));
+		
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE_DUP2, 
+				"CCdcAcmClass::HandleClearCommFeature;\tCountry Code Not Supported" );
 		ret = KErrNotSupported;
 
 #elif defined(ENABLE_ACM_CF_COUNTRY_SETTING)
 
 		HandleNewCountryCode(KUsbCommCountryCode0);
-		LOGTEXT2(_L8("\tCountry Code [0x%04X]"), iCountryCode);
+		OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE_DUP3, 
+				"CCdcAcmClass::HandleClearCommFeature;\tCountry Code [0x%hx]", iCountryCode );
 
 #endif
 		}
@@ -382,12 +405,13 @@ TInt CCdcAcmClass::HandleClearCommFeature(const TUint16 aSelector)
 	
 	default:
 		{
-		LOGTEXT(_L8("\tBad Selector"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE_DUP4, "CCdcAcmClass::HandleClearCommFeature;\tBad Selector" );
 		ret = KErrUnknown;
 		}
 		}
 
-	LOGTEXT2(_L8("<<CCdcAcmClass::HandleClearCommFeature ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLECLEARCOMMFEATURE_DUP5, "CCdcAcmClass::HandleClearCommFeature;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLECLEARCOMMFEATURE_EXIT );
 	return ret;
 	}
 
@@ -408,11 +432,13 @@ TInt CCdcAcmClass::HandleSetLineCoding(const TDesC8& aData)
  * data bit settings.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLESETLINECODING_ENTRY );
+	
 
 	if (aData.Length() != 7) // TODO: magic number?
 		{
-		LOGTEXT(_L8("\t***buffer too small"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLESETLINECODING, "CCdcAcmClass::HandleSetLineCoding;\t***buffer too small" );
+		OstTraceFunctionExit0( CCDCACMCLASS_HANDLESETLINECODING_EXIT );
 		return KErrGeneral;
 		}
 
@@ -435,6 +461,7 @@ TInt CCdcAcmClass::HandleSetLineCoding(const TDesC8& aData)
 		iCallback->HostConfigChange(epocConfig);
 		}
 
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLESETLINECODING_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -446,6 +473,8 @@ void CCdcAcmClass::SetDefaultAcm()
  * defaults.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_SETDEFAULTACM_ENTRY );
+	
 	iUsbConfig.iRate	 = 115200;
 	iUsbConfig.iStopBits = EUsbStopBitOne;
 	iUsbConfig.iParity	 = EUsbParityNone;
@@ -467,6 +496,7 @@ void CCdcAcmClass::SetDefaultAcm()
 	iDcdState  = EFalse;
 
 	iBreakActive = EFalse;
+	OstTraceFunctionExit0( CCDCACMCLASS_SETDEFAULTACM_EXIT );
 	}
 
 void CCdcAcmClass::ConvertUsbConfigCodingToEpoc(const TUsbConfig& aUsbConfig, 
@@ -479,6 +509,8 @@ void CCdcAcmClass::ConvertUsbConfigCodingToEpoc(const TUsbConfig& aUsbConfig,
  * @param aEpocConfig	The EPOC configuration to be converted to.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_CONVERTUSBCONFIGCODINGTOEPOC_ENTRY );
+	
 	switch ( aUsbConfig.iDataBits )
 		{
 	case EUsbDataBitsFive:
@@ -585,6 +617,7 @@ void CCdcAcmClass::ConvertUsbConfigCodingToEpoc(const TUsbConfig& aUsbConfig,
 			break;
 			}
 		}
+	OstTraceFunctionExit0( CCDCACMCLASS_CONVERTUSBCONFIGCODINGTOEPOC_EXIT );
 	}
 
 TInt CCdcAcmClass::HandleNewAbstractState(const TUint16 aAbstractState)
@@ -598,14 +631,12 @@ TInt CCdcAcmClass::HandleNewAbstractState(const TUint16 aAbstractState)
  *	D1 controls 'data multiplexed state' -> iAcmDataMultiplex
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::HandleNewAbstractState aAbstractState=%d"), 
-		aAbstractState);
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLENEWABSTRACTSTATE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWABSTRACTSTATE, "CCdcAcmClass::HandleNewAbstractState;aAbstractState=%d", (TInt)aAbstractState );
 
 	TBool	multiplex;
 	TBool	idle;
-
 	TUint16 newstate;
-
 	TInt ret;
 
 	// collect local booleans from incoming combo ready to do local
@@ -656,21 +687,23 @@ TInt CCdcAcmClass::HandleNewAbstractState(const TUint16 aAbstractState)
 	// informed, note that the callback may not have been placed.
 	if( iAcmState != newstate )
 		{
-		LOGTEXT2(_L8("\tNew Combo [0x%04X]"), newstate);
+		OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWABSTRACTSTATE_DUP1, 
+				"CCdcAcmClass::HandleNewAbstractState;\tNew Combo [0x%hx]", newstate );
 
 		if ( iCallback )
 			{
 			// If there was such a function in class 
 			// MHostPushedChangeObserver, notify 
 			// via iCallback->HostAbstractStateChange(newstate);
-			LOGTEXT(_L8("\tHas No Notification Method in class MHostPushedChangeObserver"));
+			OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWABSTRACTSTATE_DUP2, 
+					"CCdcAcmClass::HandleNewAbstractState;\tHas No Notification Method in class MHostPushedChangeObserver" );
 			}
 		}
 
 	// and save the new state ready for next check
 	iAcmState = newstate;
-
-	LOGTEXT2(_L8("<<CCdcAcmClass::HandleNewAbstractState ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWABSTRACTSTATE_DUP3, "CCdcAcmClass::HandleNewAbstractState;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLENEWABSTRACTSTATE_EXIT );
 	return ret;
 	}
 
@@ -682,9 +715,8 @@ TInt CCdcAcmClass::HandleNewCountryCode(const TUint16 aCountryCode)
  * @param aCountryCode	The new Country Code as defined in ISO-3166
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::HandleNewCountryCode aCountryCode=%d"), 
-		aCountryCode);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLENEWCOUNTRYCODE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWCOUNTRYCODE, "CCdcAcmClass::HandleNewCountryCode;aCountryCode=%d", (TInt)aCountryCode );
 	TInt ret;
 
 #if defined(DISABLE_ACM_CF_COUNTRY_SETTING)
@@ -707,7 +739,8 @@ TInt CCdcAcmClass::HandleNewCountryCode(const TUint16 aCountryCode)
 
 #endif
 
-	LOGTEXT2(_L8("<<CCdcAcmClass::HandleNewCountryCode ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLENEWCOUNTRYCODE_DUP1, "CCdcAcmClass::HandleNewCountryCode;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLENEWCOUNTRYCODE_EXIT );
 	return ret;
 	}
 
@@ -718,10 +751,9 @@ TInt CCdcAcmClass::HandleSendEncapCommand(const TDesC8& /*aData*/)
  * @param aData Pointer to the Encapsulated message
  */
 	{
-	LOG_FUNC
-
-	LOGTEXT(_L8("\t***not supported"));
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLESENDENCAPCOMMAND_ENTRY );	
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLESENDENCAPCOMMAND, "CCdcAcmClass::HandleSendEncapCommand;\t***not supported" );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLESENDENCAPCOMMAND_EXIT );
 	return KErrNotSupported;
 	}
 
@@ -732,10 +764,9 @@ TInt CCdcAcmClass::HandleGetEncapResponse(TDes8& /*aReturnData*/)
  * @param aReturnData Pointer to the Response field
  */
 	{
-	LOG_FUNC
-
-	LOGTEXT(_L8("\t***not supported"));
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLEGETENCAPRESPONSE_ENTRY );
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLEGETENCAPRESPONSE, "CCdcAcmClass::HandleGetEncapResponse;\t***not supported" );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLEGETENCAPRESPONSE_EXIT );
 	return KErrNotSupported;
 	}
 
@@ -749,15 +780,17 @@ TInt CCdcAcmClass::HandleSetCommFeature(const TUint16 aSelector,
  *					the ACM device or the country code from ISO 3166.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::HandleSetCommFeature aSelector=%d"), 
-		aSelector);
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLESETCOMMFEATURE_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE, "CCdcAcmClass::HandleSetCommFeature;aSelector=%d", (TInt)aSelector );
 
 	// reject any message that has malformed data
 	if ( aData.Length() != 2 )
 		{
-		LOGTEXT2(_L8("\t***aData.Length (%d) incorrect"), aData.Length());
-		LOGTEXT2(_L8("<<CCdcAcmClass::HandleSetCommFeature ret=%d"), 
-			KErrArgument);
+		OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP1, 
+				"CCdcAcmClass::HandleSetCommFeature;\t***aData.Length (%d) incorrect", aData.Length() );
+		OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP2, 
+				"CCdcAcmClass::HandleSetCommFeature;ret=%d", KErrArgument );
+		OstTraceFunctionExit0( CCDCACMCLASS_HANDLESETCOMMFEATURE_EXIT );
 		return KErrArgument;
 		}
 
@@ -781,9 +814,9 @@ TInt CCdcAcmClass::HandleSetCommFeature(const TUint16 aSelector,
 		if ( newstate != iAcmState )
 			{
 			ret = HandleNewAbstractState(newstate);
-
-			LOGTEXT4(_L8("\tHandleNewAbstractState=%d [0x%04X]->[0x%04X]"),
-					ret, iAcmState, newstate);
+			OstTraceExt3( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP3, 
+					"CCdcAcmClass::HandleSetCommFeature;\tHandleNewAbstractState=%d [%hu]->[%hu]", 
+					ret, iAcmState, newstate );
 			}
 		}
 		break;
@@ -792,7 +825,7 @@ TInt CCdcAcmClass::HandleSetCommFeature(const TUint16 aSelector,
 		{
 #if defined(DISABLE_ACM_CF_COUNTRY_SETTING)
 
-		LOGTEXT(_L8("Country Code Not Supported"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP4, "CCdcAcmClass::HandleSetCommFeature;Country Code Not Supported" );
 		ret = KErrNotSupported;
 
 #elif defined(ENABLE_ACM_CF_COUNTRY_SETTING)
@@ -809,9 +842,8 @@ TInt CCdcAcmClass::HandleSetCommFeature(const TUint16 aSelector,
 		if( newcountry != iCountryCode )
 			{
 			ret = HandleNewCountryCode(newcountry);
-
-			LOGTEXT4(_L8("\tHandleNewCountryCode=%d [0x%04X]->[0x%04X]"),
-					ret, iCountryCode, newcountry);
+			OstTraceExt3( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP5, 
+					"CCdcAcmClass::HandleSetCommFeature;\tHandleNewCountryCode=%d [%u]->[%u]", ret, iCountryCode, newcountry );
 			}
 
 #endif
@@ -820,12 +852,12 @@ TInt CCdcAcmClass::HandleSetCommFeature(const TUint16 aSelector,
 
 	default:
 		{
-		LOGTEXT(_L8("\tBad Selector"));
+		OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP6, "CCdcAcmClass::HandleSetCommFeature;\tBad Selector" );
 		ret = KErrUnknown;
 		}
 		}
-
-	LOGTEXT2(_L8("<<CCdcAcmClass::HandleSetCommFeature ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCOMMFEATURE_DUP7, "CCdcAcmClass::HandleSetCommFeature;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLESETCOMMFEATURE_EXIT_DUP1 );
 	return ret;
 	}
 
@@ -839,8 +871,7 @@ TInt CCdcAcmClass::HandleGetLineCoding(TDes8& aReturnData)
  * bits, parity and data bits.
  */
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLEGETLINECODING_ENTRY );
 	aReturnData.SetLength(7);
 
 	TUint8* pbuffer;
@@ -853,6 +884,7 @@ TInt CCdcAcmClass::HandleGetLineCoding(TDes8& aReturnData)
 	CCdcControlInterface::PutU08(ppbuffer, static_cast<TUint8>(iUsbConfig.iParity  ));
 	CCdcControlInterface::PutU08(ppbuffer, static_cast<TUint8>(iUsbConfig.iDataBits));
 
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLEGETLINECODING_EXIT );
 	return KErrNone;
 	}
 
@@ -864,9 +896,9 @@ TInt CCdcAcmClass::HandleSetControlLineState(TBool aRtsState, TBool aDtrState)
  * @param aDtrState DTR state.
  */
 	{
-	LOGTEXT3(_L8(">>CCdcAcmClass::HandleSetControlLineState aRtsState=%d, "
-		"aDtrState=%d"),
-			aRtsState, aDtrState);
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLESETCONTROLLINESTATE_ENTRY );
+	OstTraceExt2( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCONTROLLINESTATE, 
+			"CCdcAcmClass::HandleSetControlLineState;aRtsState=%d;aDtrState=%d", (TInt)aRtsState, (TInt)aDtrState );
 
 	iRtsState	= aRtsState;
 	iDtrState	= aDtrState;
@@ -875,7 +907,8 @@ TInt CCdcAcmClass::HandleSetControlLineState(TBool aRtsState, TBool aDtrState)
 		iCallback->HostSignalChange(iDtrState,iRtsState);
 		}
 
-	LOGTEXT(_L8("<<CCdcAcmClass::HandleSetControlLineState ret=0"));
+	OstTrace0( TRACE_NORMAL, CCDCACMCLASS_HANDLESETCONTROLLINESTATE_DUP1, "CCdcAcmClass::HandleSetControlLineState;ret=0" );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLESETCONTROLLINESTATE_EXIT );
 	return KErrNone;
 	}
 
@@ -886,9 +919,8 @@ TInt CCdcAcmClass::HandleSendBreak(TUint16 aDuration)
  * @param aDuration Duration of the break in milliseconds.
  */
 	{
-	LOG_FUNC
-	LOGTEXT2(_L8("\taDuration = %d"), aDuration);
-
+	OstTraceFunctionEntry0( CCDCACMCLASS_HANDLESENDBREAK_ENTRY );
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESENDBREAK, "CCdcAcmClass::HandleSendBreak;aDuration=%d", (TInt)aDuration );
 	TInt ret = KErrNone;
 
 	// timing value as given is checked for 'special' values
@@ -911,7 +943,8 @@ TInt CCdcAcmClass::HandleSendBreak(TUint16 aDuration)
 			aDuration*1000);
 		}
 
-	LOGTEXT2(_L8("\tret = %d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_HANDLESENDBREAK_DUP1, "CCdcAcmClass::HandleSendBreak;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_HANDLESENDBREAK_EXIT );
 	return ret;
 	}
 
@@ -926,9 +959,9 @@ TInt CCdcAcmClass::SendSerialState(TBool aRing, TBool aDsr, TBool aDcd)
  * Active Object.
  */
 	{
-	LOGTEXT4(_L8(">>CCdcAcmClass::SendSerialState aRing=%d, "
-		"aDsr=%d, aDcd=%d"), 
-			aRing, aDsr, aDcd);
+	OstTraceFunctionEntry0( CCDCACMCLASS_SENDSERIALSTATE_ENTRY );
+	OstTraceExt3( TRACE_NORMAL, CCDCACMCLASS_SENDSERIALSTATE, 
+			"CCdcAcmClass::SendSerialState;aRing=%d;aDsr=%d;aDcd=%d", (TInt)aRing, (TInt)aDsr, (TInt)aDcd );
 
 	// stub non-supported flags
 	TBool overrun = EFalse;
@@ -952,7 +985,8 @@ TInt CCdcAcmClass::SendSerialState(TBool aRing, TBool aDsr, TBool aDcd)
 		aDsr,
 		aDcd);
 
-	LOGTEXT2(_L8("<<CCdcAcmClass::SendSerialState ret=%d"), ret);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_SENDSERIALSTATE_DUP1, "CCdcAcmClass::SendSerialState;ret=%d", ret );
+	OstTraceFunctionExit0( CCDCACMCLASS_SENDSERIALSTATE_EXIT );
 	return ret;
 	}
 
@@ -963,6 +997,8 @@ TBool CCdcAcmClass::BreakActive() const
  * @return Break flag.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_BREAKACTIVE_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_BREAKACTIVE_EXIT );
 	return iBreakActive;
 	}
 
@@ -973,6 +1009,8 @@ TBool CCdcAcmClass::RingState() const
  * @return Whether RNG is set or not.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_RINGSTATE_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_RINGSTATE_EXIT );
 	return iRingState;
 	}
 
@@ -983,6 +1021,8 @@ TBool CCdcAcmClass::DsrState() const
  * @return Whether DSR is set or not.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_DSRSTATE_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_DSRSTATE_EXIT );
 	return iDsrState;
 	}
 
@@ -993,6 +1033,8 @@ TBool CCdcAcmClass::DcdState() const
  * @return Whether DCD is set or not.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_DCDSTATE_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_DCDSTATE_EXIT );
 	return iDcdState;
 	}
 
@@ -1003,7 +1045,9 @@ void CCdcAcmClass::SetBreakActive(TBool aBreakActive)
  * @param aBreakActive The break flag is set to this value.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_SETBREAKACTIVE_ENTRY );
 	iBreakActive = aBreakActive;
+	OstTraceFunctionExit0( CCDCACMCLASS_SETBREAKACTIVE_EXIT );
 	}
 
 MHostPushedChangeObserver* CCdcAcmClass::Callback()
@@ -1013,6 +1057,8 @@ MHostPushedChangeObserver* CCdcAcmClass::Callback()
  * @return The observer of host-pushed changes.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_CALLBACK_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_CALLBACK_EXIT );
 	return iCallback;
 	}
 
@@ -1023,6 +1069,8 @@ MBreakObserver* CCdcAcmClass::BreakCallback()
  * @return The observer of break changes.
  */
 	{
+	OstTraceFunctionEntry0( CCDCACMCLASS_BREAKCALLBACK_ENTRY );
+	OstTraceFunctionExit0( CCDCACMCLASS_BREAKCALLBACK_EXIT );
 	return iBreakCallback;
 	}
 
@@ -1039,13 +1087,17 @@ TInt CCdcAcmClass::BreakRequest(CBreakController::TRequester aRequester,
  * @return Error, for instance if a different entity already owns the break.
  */
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CCDCACMCLASS_BREAKREQUEST_ENTRY );
 
-	__ASSERT_DEBUG(iBreakController, 
-		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iBreakController)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_BREAKREQUEST, "CCdcAcmClass::BreakRequest;iBreakController=%p", iBreakController );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 
 	TInt err = iBreakController->BreakRequest(aRequester, aState, aDelay);
-	LOGTEXT2(_L8("\tBreakRequest = %d"), err);
+	OstTrace1( TRACE_NORMAL, CCDCACMCLASS_BREAKREQUEST_DUP1, "CCdcAcmClass::BreakRequest;err=%d", err );
+	OstTraceFunctionExit0( CCDCACMCLASS_BREAKREQUEST_EXIT );
 	return err;
 	}
 
@@ -1056,12 +1108,16 @@ void CCdcAcmClass::NotifyDataAvailable(MNotifyDataAvailableObserver& aObserver)
  * @param aObserver The observer to notify completion to.
  */
 	{
-	LOGTEXT2(_L8(">>CCdcAcmClass::NotifyDataAvailable aObserver=0x%08x"), &aObserver);
+	OstTraceFunctionEntry0( CCDCACMCLASS_NOTIFYDATAAVAILABLE_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, CCDCACMCLASS_NOTIFYDATAAVAILABLE, "CCdcAcmClass::NotifyDataAvailable;aObserver=%p", &aObserver );
 
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	if (!iData)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_NOTIFYDATAAVAILABLE_DUP1, "CCdcAcmClass::NotifyDataAvailable;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->NotifyDataAvailable(aObserver);
-
-	LOGTEXT(_L8("<<CCdcAcmClass::NotifyDataAvailable"));
+	OstTraceFunctionExit0( CCDCACMCLASS_NOTIFYDATAAVAILABLE_EXIT );
 	}
 
 void CCdcAcmClass::NotifyDataAvailableCancel()
@@ -1069,10 +1125,14 @@ void CCdcAcmClass::NotifyDataAvailableCancel()
  * Cancel the request to be notified (when data is available to be read from the LDD).
  */
 	{
-	LOG_FUNC
-
-	__ASSERT_DEBUG(iData, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	OstTraceFunctionEntry0( CCDCACMCLASS_NOTIFYDATAAVAILABLECANCEL_ENTRY );
+	if (!iData)
+		{
+		OstTraceExt1( TRACE_FATAL, CCDCACMCLASS_NOTIFYDATAAVAILABLECANCEL, "CCdcAcmClass::NotifyDataAvailableCancel;iData=%p", iData );
+		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		}
 	iData->CancelNotifyDataAvailable();
+	OstTraceFunctionExit0( CCDCACMCLASS_NOTIFYDATAAVAILABLECANCEL_EXIT );
 	}
 
 //

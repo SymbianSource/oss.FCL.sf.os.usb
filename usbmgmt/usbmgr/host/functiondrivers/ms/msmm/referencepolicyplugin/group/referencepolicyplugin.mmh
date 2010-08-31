@@ -24,7 +24,6 @@ TARGETTYPE	  PLUGIN
 UID 0x10009D8d 0x10285c46
 
 #include "../../server/public/hostmscaps.mmh"
-#include <usb/usblogger.mmh>
 
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
@@ -41,6 +40,8 @@ LIBRARY    centralrepository.lib
 
 USERINCLUDE ../inc
 USERINCLUDE ../../inc
+USERINCLUDE ../traces
+
 SOURCEPATH ../data
 
 NOEXPORTLIBRARY

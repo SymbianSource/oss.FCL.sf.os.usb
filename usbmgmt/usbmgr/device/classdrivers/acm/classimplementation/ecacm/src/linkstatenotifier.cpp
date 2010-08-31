@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2006-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2006-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -17,19 +17,19 @@
 
 #include <e32base.h>
 #include <d32usbc.h>
-#include <usb/usblogger.h>
 #include "AcmPanic.h"
 #include "linkstatenotifier.h"
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "ECACM");
+#include "OstTraceDefinitions.h"
+#ifdef OST_TRACE_COMPILER_IN_USE
+#include "linkstatenotifierTraces.h"
 #endif
+
 
 CLinkStateNotifier* CLinkStateNotifier::NewL(MLinkStateObserver& aParent, RDevUsbcClient& aUsb)
 	{
-	LOG_STATIC_FUNC_ENTRY
-	
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_NEWL_ENTRY );
 	CLinkStateNotifier* self = new (ELeave) CLinkStateNotifier(aParent, aUsb);
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_NEWL_EXIT );
 	return self;
 	}
 
@@ -38,9 +38,9 @@ CLinkStateNotifier::CLinkStateNotifier(MLinkStateObserver& aParent, RDevUsbcClie
 	 : CActive(EPriorityStandard),
 	   iParent(aParent), iUsb(aUsb)
 	{
-	LOG_FUNC
-	
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_CLINKSTATENOTIFIER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_CLINKSTATENOTIFIER_CONS_EXIT );
 	}
 
 
@@ -50,8 +50,9 @@ CObexUsbHandler destructor.
 */
 CLinkStateNotifier::~CLinkStateNotifier()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_CLINKSTATENOTIFIER_DES_ENTRY );
 	Cancel();
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_CLINKSTATENOTIFIER_DES_EXIT );
 	}
 
 
@@ -62,6 +63,8 @@ Standard active object error function.
 */
 TInt CLinkStateNotifier::RunError(TInt /*aError*/)
 	{
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_RUNERROR_ENTRY );
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_RUNERROR_EXIT );
 	return KErrNone;
 	}
 
@@ -72,14 +75,16 @@ This function will be called upon a change in the state of the device
 */
 void CLinkStateNotifier::RunL()
 	{
-	LOGTEXT2(_L8("CObexUsbHandler::RunL called state=0x%X"), iUsbState);
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_RUNL_ENTRY );
+	OstTrace1( TRACE_NORMAL, CLINKSTATENOTIFIER_RUNL, "CLinkStateNotifier::RunL;called state=0x%X", iUsbState );
 	
 	if (iStatus != KErrNone)
 		{
-		LOGTEXT2(_L8("CObexUsbHandler::RunL() - Error = %d"),iStatus.Int());
+		OstTrace1( TRACE_NORMAL, CLINKSTATENOTIFIER_RUNL_DUP1, "CLinkStateNotifier::RunL;- Error = %d", iStatus.Int() );
 		LinkDown();
 		iParent.MLSOStateChange(KDefaultMaxPacketTypeBulk);
 
+		OstTraceFunctionExit0( CLINKSTATENOTIFIER_RUNL_EXIT );
 		return;
 		}
 
@@ -105,7 +110,8 @@ void CLinkStateNotifier::RunL()
 			break;
 
 		default:
-			__ASSERT_DEBUG(false, _USB_PANIC(KAcmPanicCat, EPanicUnknownDeviceState));
+			OstTrace0( TRACE_FATAL, CLINKSTATENOTIFIER_RUNL_DUP2, "CLinkStateNotifier::RunL;EPanicUnknownDeviceState" );
+			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicUnknownDeviceState) );
 			break;
 			}
 		}
@@ -115,6 +121,7 @@ void CLinkStateNotifier::RunL()
 	// Await further notification of a state change.
 	iUsb.AlternateDeviceStatusNotify(iStatus, iUsbState);
 	SetActive();
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_RUNL_EXIT_DUP1 );
 	}
 
 
@@ -123,9 +130,9 @@ Standard active object cancellation function.
 */
 void CLinkStateNotifier::DoCancel()
 	{
-	LOG_FUNC
-
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_DOCANCEL_ENTRY );
 	iUsb.AlternateDeviceStatusNotifyCancel();
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_DOCANCEL_EXIT );
 	}
 
 
@@ -135,14 +142,16 @@ Accept an incoming connection.
 */
 void CLinkStateNotifier::Start()
 	{
-	LOG_FUNC
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_START_ENTRY );
 	iUsb.AlternateDeviceStatusNotify(iStatus, iUsbState);
 	SetActive();
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_START_EXIT );
 	}
 
 
 void CLinkStateNotifier::LinkUp()
 	{
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_LINKUP_ENTRY );
 	if (iUsb.CurrentlyUsingHighSpeed())
 		{
 		iPacketSize = KMaxPacketTypeBulkHS;
@@ -151,10 +160,13 @@ void CLinkStateNotifier::LinkUp()
 		{
 		iPacketSize = KMaxPacketTypeBulkFS;
 		}
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_LINKUP_EXIT );
 	}
 
 
 void CLinkStateNotifier::LinkDown()
 	{
+	OstTraceFunctionEntry0( CLINKSTATENOTIFIER_LINKDOWN_ENTRY );
 	iPacketSize = 0;
+	OstTraceFunctionExit0( CLINKSTATENOTIFIER_LINKDOWN_EXIT );
 	}
