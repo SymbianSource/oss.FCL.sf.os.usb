@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,12 +23,10 @@
 #include "msmmnodebase.h"
 
 #include <usb/usblogger.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "msmmnodebaseTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "UsbHostMsmmServer");
 #endif
-
-
 
 TMsmmNodeBase::TMsmmNodeBase(TInt aIdentifier):
 iIdentifier(aIdentifier),
@@ -37,22 +35,19 @@ iFirstChild(NULL),
 iLastChild(NULL),
 iParent(NULL)
     {
-    OstTraceFunctionEntry0( TMSMMNODEBASE_TMSMMNODEBASE_CONS_ENTRY );
+    LOG_FUNC
     }
 
 TMsmmNodeBase::~TMsmmNodeBase()
     {
-    OstTraceFunctionEntry0( TMSMMNODEBASE_TMSMMNODEBASE_DES_ENTRY );
-    
+    LOG_FUNC
     // Remove current node from the parent node and destroy it.
     DestroyNode(); 
-    OstTraceFunctionExit0( TMSMMNODEBASE_TMSMMNODEBASE_DES_EXIT );
     }
 
 void TMsmmNodeBase::DestroyNode()
     {
-    OstTraceFunctionEntry0( TMSMMNODEBASE_DESTROYNODE_ENTRY );
-    
+    LOG_FUNC
     TMsmmNodeBase* parentNode = iParent; 
     TMsmmNodeBase* iterator(this);
     TMsmmNodeBase* iteratorPrev(NULL);
@@ -96,7 +91,6 @@ void TMsmmNodeBase::DestroyNode()
         else
             {
             // No matched node
-            OstTraceFunctionExit0( TMSMMNODEBASE_DESTROYNODE_EXIT );
             return;
             }
         }
@@ -117,13 +111,11 @@ void TMsmmNodeBase::DestroyNode()
                 }
             }
         }
-    OstTraceFunctionExit0( TMSMMNODEBASE_DESTROYNODE_EXIT_DUP1 );
     }
 
 void TMsmmNodeBase::AddChild(TMsmmNodeBase* aChild)
     {
-    OstTraceFunctionEntry0( TMSMMNODEBASE_ADDCHILD_ENTRY );
-    
+    LOG_FUNC
     if (!iFirstChild)
         {
         iFirstChild = aChild;
@@ -134,13 +126,11 @@ void TMsmmNodeBase::AddChild(TMsmmNodeBase* aChild)
         }
     iLastChild = aChild;
     aChild->iParent = this;
-    OstTraceFunctionExit0( TMSMMNODEBASE_ADDCHILD_EXIT );
     }
 
 TMsmmNodeBase* TMsmmNodeBase::SearchInChildren(TInt aIdentifier)
     {
-    OstTraceFunctionEntry0( TMSMMNODEBASE_SEARCHINCHILDREN_ENTRY );
-    
+    LOG_FUNC
     TMsmmNodeBase* iterator(iFirstChild);
     
     while (iterator)
@@ -152,7 +142,6 @@ TMsmmNodeBase* TMsmmNodeBase::SearchInChildren(TInt aIdentifier)
         iterator = iterator->iNextPeer;
         }
     
-    OstTraceFunctionExit0( TMSMMNODEBASE_SEARCHINCHILDREN_EXIT );
     return iterator;
     }
 
@@ -162,7 +151,7 @@ TUsbMsDevice::TUsbMsDevice(const TUSBMSDeviceDescription& aDevice):
 TMsmmNodeBase(aDevice.iDeviceId),
 iDevice(aDevice)
     {
-    OstTraceFunctionEntry0( TUSBMSDEVICE_TUSBMSDEVICE_CONS_ENTRY );
+    LOG_FUNC
     }
 
 // TUsbMsInterface
@@ -173,15 +162,13 @@ TMsmmNodeBase(aInterfaceNumber),
 iInterfaceNumber(aInterfaceNumber),
 iInterfaceToken(aInterfaceToken)
     {
-    OstTraceFunctionEntry0( TUSBMSINTERFACE_TUSBMSINTERFACE_CONS_ENTRY );
+    LOG_FUNC
     }
 
 TUsbMsInterface::~TUsbMsInterface()
     {
-    OstTraceFunctionEntry0( TUSBMSINTERFACE_TUSBMSINTERFACE_DES_ENTRY );
-    
+    LOG_FUNC
     iUsbMsDevice.Close();
-    OstTraceFunctionExit0( TUSBMSINTERFACE_TUSBMSINTERFACE_DES_EXIT );
     }
 
 // TUsbMsLogicalUnit
@@ -191,7 +178,7 @@ TMsmmNodeBase(aLogicalUnitNumber),
 iLogicalUnitNumber(aLogicalUnitNumber),
 iDrive(aDrive)
     {
-    OstTraceFunctionEntry0( TUSBMSLOGICALUNIT_TUSBMSLOGICALUNIT_CONS_ENTRY );
+    LOG_FUNC
     }
 
 // End of file

@@ -1,0 +1,33 @@
+/*
+* Copyright (c) 2004-2009 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+* @file
+* This file serves a template for the purpose of localization. The
+* content of this file shall be properly filled with unicode pertaining
+* to the configured language.
+* localized strings, US english
+*
+*/
+
+// personality one
+rls_string per_manufacturer1	"localized manufacturer"
+rls_string per_product1		"localized product description"
+rls_string per_description1	"localized personality description"
+rls_string per_detailedDescription1	"localized personality detailed description"
+
+// personality two
+rls_string per_manufacturer2	"localized manufacturer"
+rls_string per_product2		"localized product description"
+rls_string per_description2	"localized personality description"
+rls_string per_detailedDescription2	"localized personality detailed description"

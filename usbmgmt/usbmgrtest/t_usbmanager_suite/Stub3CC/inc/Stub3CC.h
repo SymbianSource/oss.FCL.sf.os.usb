@@ -40,7 +40,12 @@ const TInt Kstub3CCDefaultDelay = 500; //0.5 sec default delay for start and sto
 
 const TInt Kstub3NumberOfInterfacesPerstub3Function = 2; // data and control interfaces
 
-
+// The name of the ini file specifying the number of functions required different from default
+/*
+_LIT(Kstub3FunctionsIniFileName, "NumberOfstub3Functions.ini");
+_LIT(Kstub3ConfigSection,"stub3_CONF");
+_LIT(KNumberOfstub3FunctionsKeyWord,"NumberOfstub3Functions");
+*/
 // Lengths of the various bits of the  descriptor. Taken from the USB
 // WMCDC specification, v1.0.
 const TInt Kstub3InterfaceDescriptorLength = 3;

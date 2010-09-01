@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -24,11 +24,11 @@
 
 #include <cusbclasscontrollerplugin.h>
 #include <ecom/ecom.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbClassControllerPlugInTraces.h"
-#endif
+#include <usb/usblogger.h>
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
+#endif
 	
 /**
  * Constructor.
@@ -50,7 +50,7 @@ EXPORT_C CUsbClassControllerPlugIn::CUsbClassControllerPlugIn(
 EXPORT_C CUsbClassControllerPlugIn* CUsbClassControllerPlugIn::NewL(TUid aImplementationId, 
 	MUsbClassControllerNotify& aOwner) 
 	{
-	OstTraceFunctionEntry0( CUSBCLASSCONTROLLERPLUGIN_NEWL_ENTRY ); 
+	LOG_STATIC_FUNC_ENTRY
 
 	return (reinterpret_cast<CUsbClassControllerPlugIn*>(REComSession::CreateImplementationL
 		(aImplementationId, _FOFF(CUsbClassControllerPlugIn, iPrivateEComUID),

@@ -31,9 +31,6 @@ enum THostMsErrCode
     // adding device
     EHostMsErrInvalidParameter = 0x4, // Invalid request parameter
     EHostMsErrOutOfMemory = 0x5, // Out of memory
-    EHostMsEjectInProgress = 0x6, // eject request commenced
-    EHostMsErrNone = 0x7, // no error == success condition
-    EHostMsErrInUse = 0x8, // Drives in use
     EHostMsErrorEndMarker
     };
     

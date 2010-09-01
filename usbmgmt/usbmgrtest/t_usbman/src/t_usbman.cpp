@@ -41,6 +41,8 @@ RUsb TheUsb;
 RUsb TheSecondUsbSession;
 TBool ThePrimaryClient;
 
+//_LIT(KUsbCsyName, "ECACM");
+//_LIT(KUsbPortName, "ACM::0");
 _LIT(KUsbLddName, "EUSBC");
 
 // These are used in the startup stress test.
@@ -654,7 +656,19 @@ void StopBWhileAStoppingL()
 
 	TheSecondUsbSession.Close();
 	}
+/*
+void RegisterAsPrimaryClientL()
+	{
+	LEAVEIFERROR(TheUsb.RegisterAsPrimarySession());
+	ThePrimaryClient = ETrue;
+	}
 
+void DeregisterAsPrimaryClientL()
+	{
+	LEAVEIFERROR(TheUsb.DeregisterAsPrimarySession());
+	ThePrimaryClient = EFalse;
+	}
+*/
 void DbgCheckHeapL()
 	{
 	_printf(_L("Expected number of allocated heap cells: "));
@@ -1036,7 +1050,9 @@ TBool SelectTestL(TChar aChar)
 	case '5': SetUsbSerialNumberL(); break;
 	case 's': case 'S': SanityTestL(); break;
 #ifndef HURRICANE
-	case 'm': MemoryTestsL(); break;
+/*	case 'r': RegisterAsPrimaryClientL(); break;
+	case 'd': DeregisterAsPrimaryClientL(); break;
+*/	case 'm': MemoryTestsL(); break;
 #endif // HURRICANE
 	case 'c': case 'C': CloseUsbL(); break;
 	case 'o': case 'O': OpenUsbL(); break;
@@ -1089,7 +1105,9 @@ void mainL()
 		_printf(_L("5. Publish Serial Number\n"));
 		_printf(_L("S. Sanity test- quickly calls all APIs to make sure they don't panic\n"));
 #ifndef HURRICANE
-		_printf(_L("M. Memory tests\n"));
+/*		_printf(_L("R. Register as primary client\n"));
+		_printf(_L("D. Deregister as primary client\n"));
+*/		_printf(_L("M. Memory tests\n"));
 #endif // HURRICANE
 		_printf(_L("C. Close connection to USB Manager\n"));
 		_printf(_L("O. Connect to USB Manager\n"));

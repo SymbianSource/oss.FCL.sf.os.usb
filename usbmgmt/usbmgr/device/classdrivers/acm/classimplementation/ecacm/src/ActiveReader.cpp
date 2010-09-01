@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,9 +22,10 @@
 #include "AcmPanic.h"
 #include "ReadObserver.h"
 #include "AcmUtils.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "ActiveReaderTraces.h"
+#include <usb/usblogger.h>
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
 #endif
 
 CActiveReader::CActiveReader(MReadObserver& aParent, RDevUsbcClient& aLdd, TEndpointNumber aEndpoint)
@@ -41,9 +42,7 @@ CActiveReader::CActiveReader(MReadObserver& aParent, RDevUsbcClient& aLdd, TEndp
  * @param aEndpoint The endpoint to read from.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_CACTIVEREADER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CACTIVEREADER_CACTIVEREADER_CONS_EXIT );
 	}
 
 CActiveReader::~CActiveReader()
@@ -51,9 +50,9 @@ CActiveReader::~CActiveReader()
  * Destructor.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_CACTIVEREADER_DES_ENTRY );
+	LOG_FUNC
+
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEREADER_CACTIVEREADER_DES_EXIT );
 	}
 
 CActiveReader* CActiveReader::NewL(MReadObserver& aParent, 
@@ -69,9 +68,9 @@ CActiveReader* CActiveReader::NewL(MReadObserver& aParent,
  * @return Ownership of a new CActiveReader object.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
+
 	CActiveReader* self = new(ELeave) CActiveReader(aParent, aLdd, aEndpoint);
-	OstTraceFunctionExit0( CACTIVEREADER_NEWL_EXIT );
 	return self;
 	}
 
@@ -83,10 +82,10 @@ void CActiveReader::Read(TDes8& aDes, TInt aLen)
  * @param aLen The length to read.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_READ_ENTRY );
+	LOG_FUNC
+
 	iLdd.Read(iStatus, iEndpoint, aDes, aLen); 
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEREADER_READ_EXIT );
 	}
 
 void CActiveReader::DoCancel()
@@ -94,9 +93,9 @@ void CActiveReader::DoCancel()
  * Cancel an outstanding read.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_DOCANCEL_ENTRY );
+	LOG_FUNC
+
 	iLdd.ReadCancel(iEndpoint);
-	OstTraceFunctionExit0( CACTIVEREADER_DOCANCEL_EXIT );
 	}
 
 void CActiveReader::RunL()
@@ -105,10 +104,12 @@ void CActiveReader::RunL()
  * parent class of the completion.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CACTIVEREADER_RUNL, "CActiveReader::RunL;RunL iStatus=%d", iStatus.Int() );
+	LOG_LINE
+	LOGTEXT2(_L8(">>CActiveReader::RunL iStatus=%d"), iStatus.Int());
+
 	iParent.ReadCompleted(iStatus.Int());
-	OstTraceFunctionExit0( CACTIVEREADER_RUNL_EXIT );
+
+	LOGTEXT(_L8("<<CActiveReader::RunL"));
 	}
 
 //

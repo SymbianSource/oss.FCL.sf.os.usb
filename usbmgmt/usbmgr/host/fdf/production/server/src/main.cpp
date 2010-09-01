@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,18 +23,16 @@
 #include <e32base.h>
 #include "fdfserver.h"
 #include <usb/usblogger.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "mainTraces.h"
-#endif
-
 
 static void RunFdfL();
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdf      ");
+#endif
 
 GLDEF_C TInt E32Main()
 	{
-    OstTrace0( TRACE_NORMAL, FDF_SERVER_SRC_E32MAIN, ">>E32Main" );
+	LOGTEXT(_L8(">>E32Main"));
 
 	TInt ret = KErrNoMemory;
 
@@ -45,17 +43,22 @@ GLDEF_C TInt E32Main()
 	if ( cleanup )
 		{
 		// Create the logger object
+#ifdef __FLOG_ACTIVE
+		(void)CUsbLog::Connect();
+#endif
 
 		TRAP(ret, RunFdfL());
 
+#ifdef __FLOG_ACTIVE
+		CUsbLog::Close();
+#endif
 
 		delete cleanup;
 		}
 
 	__UHEAP_MARKEND;
 
-	OstTrace1( TRACE_NORMAL, FDF_SERVER_SRC_E32MAIN_DUP1, 
-	        "<<E32Main ret = %d", ret );
+	LOGTEXT2(_L8("<<E32Main ret = %d"), ret);
 	return ret;
 	}
 

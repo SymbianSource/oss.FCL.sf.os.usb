@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,9 +22,10 @@
 #include "AcmPanic.h"
 #include "AcmUtils.h"
 #include "ReadOneOrMoreObserver.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "ActiveReadOneOrMoreReaderTraces.h"
+#include <usb/usblogger.h>
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
 #endif
 
 CActiveReadOneOrMoreReader::CActiveReadOneOrMoreReader(
@@ -44,9 +45,7 @@ CActiveReadOneOrMoreReader::CActiveReadOneOrMoreReader(
  * @param aEndpoint The endpoint to read from.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_CACTIVEREADONEORMOREREADER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_CACTIVEREADONEORMOREREADER_CONS_EXIT );
 	}
 
 CActiveReadOneOrMoreReader::~CActiveReadOneOrMoreReader()
@@ -54,9 +53,9 @@ CActiveReadOneOrMoreReader::~CActiveReadOneOrMoreReader()
  * Destructor.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_CACTIVEREADONEORMOREREADER_DES_ENTRY );
+	LOG_FUNC
+
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_CACTIVEREADONEORMOREREADER_DES_EXIT );
 	}
 
 CActiveReadOneOrMoreReader* CActiveReadOneOrMoreReader::NewL(
@@ -73,10 +72,10 @@ CActiveReadOneOrMoreReader* CActiveReadOneOrMoreReader::NewL(
  * @return Ownership of a new CActiveReadOneOrMoreReader object.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
+
 	CActiveReadOneOrMoreReader* self = 
 		new(ELeave) CActiveReadOneOrMoreReader(aParent, aLdd, aEndpoint);
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_NEWL_EXIT );
 	return self;
 	}
 
@@ -88,12 +87,13 @@ void CActiveReadOneOrMoreReader::ReadOneOrMore(TDes8& aDes, TInt aLength)
  * @param aLength The length to read.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_READONEORMORE_ENTRY );
-	OstTrace1( TRACE_NORMAL, CACTIVEREADONEORMOREREADER_READONEORMORE, 
-			"CActiveReadOneOrMoreReader::ReadOneOrMore;aLength=%d", aLength );
+	LOGTEXT2(_L8(">>CActiveReadOneOrMoreReader::ReadOneOrMore "
+		"aLength=%d"), aLength);
+
 	iLdd.ReadOneOrMore(iStatus, iEndpoint, aDes, aLength);
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_READONEORMORE_EXIT );
+
+	LOGTEXT(_L8("<<CActiveReadOneOrMoreReader::ReadOneOrMore"));
 	}
 
 void CActiveReadOneOrMoreReader::DoCancel()
@@ -101,9 +101,9 @@ void CActiveReadOneOrMoreReader::DoCancel()
  * Cancel an outstanding request.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_DOCANCEL_ENTRY );
+	LOG_FUNC
+
 	iLdd.ReadCancel(iEndpoint);
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_DOCANCEL_EXIT );
 	}
 
 void CActiveReadOneOrMoreReader::RunL()
@@ -112,11 +112,13 @@ void CActiveReadOneOrMoreReader::RunL()
  * parent class of the completion.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEREADONEORMOREREADER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CACTIVEREADONEORMOREREADER_RUNL, 
-			"CActiveReadOneOrMoreReader::RunL;iStatus=%d", iStatus.Int() );
+	LOG_LINE
+	LOGTEXT2(_L8(">>CActiveReadOneOrMoreReader::RunL iStatus=%d"), 
+		iStatus.Int());
+
 	iParent.ReadOneOrMoreCompleted(iStatus.Int());
-	OstTraceFunctionExit0( CACTIVEREADONEORMOREREADER_RUNL_EXIT );
+
+	LOGTEXT(_L8("<<CActiveReadOneOrMoreReader::RunL"));
 	}
 
 //

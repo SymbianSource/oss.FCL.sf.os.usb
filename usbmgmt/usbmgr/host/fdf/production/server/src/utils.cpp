@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,13 +22,16 @@
 
 #include "utils.h"
 #include <usb/usblogger.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "utilsTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdf      ");
 #endif
 
-
+#ifdef __FLOG_ACTIVE
 #define LOG Log()
+#else
+#define LOG
+#endif
 
 //*****************************************************************************
 // Code relating to the cleanup stack item which 'Remove's a given TUint from 
@@ -46,8 +49,8 @@ TArrayRemove::~TArrayRemove()
 
 void Remove(TAny* aArrayRemove)
 	{
-	OstTraceFunctionEntry0( FDF_UTILS_REMOVE_ENTRY );
-	
+	LOG_STATIC_FUNC_ENTRY
+
 	TArrayRemove* arrayRemove = reinterpret_cast<TArrayRemove*>(aArrayRemove);
 
 	const TUint count = arrayRemove->iDeviceIds.Count();
@@ -55,12 +58,11 @@ void Remove(TAny* aArrayRemove)
 		{
 		if ( arrayRemove->iDeviceIds[ii] == arrayRemove->iDeviceId )
 			{
-            OstTrace0( TRACE_NORMAL, FDF_UTILS_REMOVE, "::matching device id" );
+			LOGTEXT(_L8("\tmatching device id"));
 			arrayRemove->iDeviceIds.Remove(ii);
 			break;
 			}
 		}
-	OstTraceFunctionExit0( FDF_UTILS_REMOVE_EXIT );
 	}
 
 void CleanupRemovePushL(TArrayRemove& aArrayRemove)

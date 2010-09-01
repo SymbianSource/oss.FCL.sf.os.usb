@@ -29,7 +29,7 @@ RESOURCE REGISTRY_INFO theInfo
 		{
 		INTERFACE_INFO
 			{
-			interface_uid = 0xE0208DD6;
+			interface_uid = 0x10208DD6;
 			implementations =
 				{
 				IMPLEMENTATION_INFO

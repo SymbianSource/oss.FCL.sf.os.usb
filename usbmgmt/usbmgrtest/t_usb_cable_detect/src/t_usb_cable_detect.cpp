@@ -136,7 +136,7 @@ void CUsbCableDetector::CheckAndMonitorCableL()
 	TUsbServiceState serviceState;
 	User::LeaveIfError(iUsbMan.GetServiceState(serviceState));
 
-
+//	RDebug::Print(_L("Service state: %d. Device state: %d"), serviceState, iDeviceState);
 
 	if ((serviceState != EUsbServiceIdle) &&
 		(iDeviceState == EUsbDeviceStateUndefined))

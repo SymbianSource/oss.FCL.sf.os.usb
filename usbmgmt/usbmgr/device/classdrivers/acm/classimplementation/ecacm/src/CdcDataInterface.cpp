@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,11 +23,11 @@
 #include "AcmUtils.h"
 #include "ActiveReadOneOrMoreReader.h"
 #include "ActiveDataAvailableNotifier.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CdcDataInterfaceTraces.h"
-#endif
+#include <usb/usblogger.h>
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
+#endif
 
 #ifdef __HEADLESS_ACM_TEST_CODE__
 #pragma message ("Building headless ACM (performance test code for RDevUsbcClient)")
@@ -41,8 +41,6 @@ CCdcDataInterface::CCdcDataInterface(const TDesC16& aIfcName)
  :	CCdcInterfaceBase(aIfcName),
  	iPacketSize(KDefaultMaxPacketTypeBulk)
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CCDCDATAINTERFACE_CONS_ENTRY );
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CCDCDATAINTERFACE_CONS_EXIT );
 	}
 
 CCdcDataInterface* CCdcDataInterface::NewL(const TDesC16& aIfcName)
@@ -55,13 +53,14 @@ CCdcDataInterface* CCdcDataInterface::NewL(const TDesC16& aIfcName)
  * @return A pointer to the new object
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_NEWL_ENTRY );
-	OstTraceExt1( TRACE_NORMAL, CCDCDATAINTERFACE_NEWL, "CCdcDataInterface::NewL;\tData Ifc Name = %S", aIfcName );
+	LOG_STATIC_FUNC_ENTRY
+
+	LOGTEXT2(_L("\tData Ifc Name = %S"), &aIfcName);
+
 	CCdcDataInterface* self = new (ELeave) CCdcDataInterface(aIfcName);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CLEANUPSTACK_POP(self);
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_NEWL_EXIT );
 	return self;
 	}
 
@@ -73,9 +72,8 @@ void CCdcDataInterface::ConstructL()
  * @param aParent Observer.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CONSTRUCTL_ENTRY );
-	
 	BaseConstructL();
+
 	iReadOneOrMoreReader  = CActiveReadOneOrMoreReader::NewL(*this, iLdd, EEndpoint2);
 	iReader = CActiveReader::NewL(*this, iLdd, EEndpoint2);
 	iDataAvailableNotifier = CActiveDataAvailableNotifier::NewL(*this, iLdd, EEndpoint2);
@@ -86,7 +84,6 @@ void CCdcDataInterface::ConstructL()
 
 	iHostCanHandleZLPs = (KUsbAcmHostCanHandleZLPs != 0);
 	
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CONSTRUCTL_EXIT );
 	}
 
 TInt CCdcDataInterface::SetUpInterface()
@@ -96,15 +93,14 @@ TInt CCdcDataInterface::SetUpInterface()
  * descriptor for the endpoints is registered with the LDD.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_SETUPINTERFACE_ENTRY );
+	LOGTEXT(_L8(">>CCdcDataInterface::SetUpInterface"));
 
 	TUsbDeviceCaps dCaps;
 	TInt ret = iLdd.DeviceCaps(dCaps);
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE, "CCdcDataInterface::SetUpInterface;\tchecking result of DeviceCaps" );
+	LOGTEXT(_L8("\tchecking result of DeviceCaps"));
 	if ( ret )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP1, "CCdcDataInterface::SetUpInterface;ret=%d", ret );
-		OstTraceFunctionExit0( CCDCDATAINTERFACE_SETUPINTERFACE_EXIT );
+		LOGTEXT2(_L8("<<CCdcDataInterface::SetUpInterface ret=%d"), ret);
 		return ret;
 		}
 
@@ -112,13 +108,11 @@ TInt CCdcDataInterface::SetUpInterface()
 	const TUint KRequiredNumberOfEndpoints = 2;
 
 	const TUint totalEndpoints = static_cast<TUint>(dCaps().iTotalEndpoints);
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP2, 
-			"CCdcDataInterface::SetUpInterface;totalEndpoints=%d", (TInt)totalEndpoints );
-	
+	LOGTEXT2(_L8("\tiTotalEndpoints = %d"), totalEndpoints);
 	if ( totalEndpoints < KRequiredNumberOfEndpoints )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP3, "CCdcDataInterface::SetUpInterface;ret=%d", KErrGeneral );
-		OstTraceFunctionExit0( CCDCDATAINTERFACE_SETUPINTERFACE_EXIT_DUP1 );
+		LOGTEXT2(_L8("<<CCdcDataInterface::SetUpInterface ret=%d"), 
+			KErrGeneral);
 		return KErrGeneral;
 		}
 	
@@ -126,11 +120,10 @@ TInt CCdcDataInterface::SetUpInterface()
 	TUsbcEndpointData data[KUsbcMaxEndpoints];
 	TPtr8 dataptr(reinterpret_cast<TUint8*>(data), sizeof(data), sizeof(data));
 	ret = iLdd.EndpointCaps(dataptr);
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP9, "CCdcDataInterface::SetUpInterface;\tchecking result of EndpointCaps" );
+	LOGTEXT(_L8("\tchecking result of EndpointCaps"));
 	if ( ret )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP4, "CCdcDataInterface::SetUpInterface;ret=%d", ret );
-		OstTraceFunctionExit0( CCDCDATAINTERFACE_SETUPINTERFACE_EXIT_DUP2 );
+		LOGTEXT2(_L8("<<CCdcDataInterface::SetUpInterface ret=%d"), ret);
 		return ret;
 		}
 
@@ -138,15 +131,12 @@ TInt CCdcDataInterface::SetUpInterface()
 	TUsbcInterfaceInfoBuf ifc;
 	TBool foundIn = EFalse;
 	TBool foundOut = EFalse;
-	
+
 	for ( TUint i = 0; !(foundIn && foundOut) && i < totalEndpoints; i++ )
 		{
 		const TUsbcEndpointCaps* caps = &data[i].iCaps;
-		if (!caps)
-			{
-			OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP5, "CCdcDataInterface::SetUpInterface;caps=%p", caps );
-			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-			}
+		__ASSERT_DEBUG(caps, 
+			_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 		if (data[i].iInUse)
 			continue;
 
@@ -191,8 +181,8 @@ TInt CCdcDataInterface::SetUpInterface()
 
 	if (! (foundIn && foundOut))
 		{
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP6, "CCdcDataInterface::SetUpInterface;ret=%d", KErrGeneral );
-		OstTraceFunctionExit0( CCDCDATAINTERFACE_SETUPINTERFACE_EXIT_DUP3 );
+		LOGTEXT2(_L8("<<CCdcDataInterface::SetUpInterface ret=%d"), 
+			KErrGeneral);
 		return KErrGeneral;
 		}
 
@@ -215,21 +205,18 @@ TInt CCdcDataInterface::SetUpInterface()
 	// from EP0.
 	ifc().iFeatureWord |= KUsbcInterfaceInfo_NoEp0RequestsPlease;
 
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP7, "CCdcDataInterface::SetUpInterface;\tcalling SetInterface" );
+	LOGTEXT(_L8("\tcalling SetInterface"));
 	// Zero effectively indicates that alternate interfaces are not used.
 	ret = iLdd.SetInterface(0, ifc, bandwidthPriority);
 
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_SETUPINTERFACE_DUP8, "CCdcDataInterface::SetUpInterface;ret=%d", ret );
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_SETUPINTERFACE_EXIT_DUP4 );
+	LOGTEXT2(_L8("<<CCdcDataInterface::SetUpInterface ret=%d"), ret);
 	return ret;
 	}
 
 
 void CCdcDataInterface::MLSOStateChange(TInt aPacketSize)
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_MLSOSTATECHANGE_ENTRY );	
 	iPacketSize = aPacketSize;
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_MLSOSTATECHANGE_EXIT );
 	}
 
 
@@ -238,13 +225,13 @@ CCdcDataInterface::~CCdcDataInterface()
  * Destructor. Cancel and destroy the child classes.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CCDCDATAINTERFACE_DES_ENTRY );
+	LOG_FUNC
+
 	delete iLinkState;
 	delete iReadOneOrMoreReader;
 	delete iReader;
 	delete iWriter;
 	delete iDataAvailableNotifier;
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CCDCDATAINTERFACE_DES_EXIT );
 	}
 
 void CCdcDataInterface::Write(MWriteObserver& aObserver, 
@@ -258,18 +245,14 @@ void CCdcDataInterface::Write(MWriteObserver& aObserver,
  * @param aLen Length of the data to be sent
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_WRITE_ENTRY );
-	if (iWriteObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_WRITE, "CCdcDataInterface::Write;iWriteObserver=%p", iWriteObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	LOG_FUNC
+
+	__ASSERT_DEBUG(!iWriteObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+
 	iWriteObserver = &aObserver;
-	if (!iWriter)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_WRITE_DUP1, "CCdcDataInterface::Write;iWriter=%p", iWriter );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+
+	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	
 	if ( iHostCanHandleZLPs )
 		{
@@ -284,7 +267,7 @@ void CCdcDataInterface::Write(MWriteObserver& aObserver,
 		iWriter->Write(aDes, aLen, EFalse); 
 		}
 		
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_WRITE_EXIT );
+	LOGTEXT(_L8("<<CCdcDataInterface::Write"));
 	}
 
 void CCdcDataInterface::WriteCompleted(TInt aError)
@@ -294,67 +277,46 @@ void CCdcDataInterface::WriteCompleted(TInt aError)
  * @param aError Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_WRITECOMPLETED_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_WRITECOMPLETED, "CCdcDataInterface::WriteCompleted;aError=%d", aError );
+	LOGTEXT2(_L8(">>CCdcDataInterface::WriteCompleted aError=%d"), aError);
 
 #ifdef __HEADLESS_ACM_TEST_CODE__
 	// Issue another Read or ReadOneOrMore as appropriate.
 	// If the Write completed with an error, we panic, as it's invalidating 
 	// the test.
-	if (aError != KErrNone)
-		{
-		OstTrace1( TRACE_FATAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP1, "CCdcDataInterface::WriteCompleted;aError=%d", aError );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(aError == KErrNone, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	switch ( iHeadlessReadType )
 		{
 	case ERead:
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP2, 
-				"CCdcDataInterface::WriteCompleted;__HEADLESS_ACM_TEST_CODE__- issuing Read for %d bytes", iHeadlessReadLength );
-
-		if (!iReader)
-			{
-			OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP3, "CCdcDataInterface::WriteCompleted;iReader=%p", iReader );
-			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-			}
+		LOGTEXT2(_L8("__HEADLESS_ACM_TEST_CODE__- issuing Read for %d bytes"), 
+			iHeadlessReadLength);
+		__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 		iReader->Read(iHeadlessAcmBuffer, iHeadlessReadLength);
 		break;
 	case EReadOneOrMore:
-		OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP4, 
-				"CCdcDataInterface::WriteCompleted;__HEADLESS_ACM_TEST_CODE__- issuing ReadOneOrMore for %d bytes", iHeadlessReadLength );
-	
-		if (!iReadOneOrMoreReader)
-			{
-			OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP5, 
-							"CCdcDataInterface::WriteCompleted;iReadOneOrMoreReader=%p", iReadOneOrMoreReader );
-			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-			}
+		LOGTEXT2(_L8("__HEADLESS_ACM_TEST_CODE__- issuing ReadOneOrMore for %d bytes"), 
+			iHeadlessReadLength);
+		__ASSERT_DEBUG(iReadOneOrMoreReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 		iReadOneOrMoreReader->ReadOneOrMore(iHeadlessAcmBuffer, iHeadlessReadLength);
 		break;
 	case EUnknown:
 	default:
-		OstTrace0( TRACE_FATAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP6, "CCdcDataInterface::WriteCompleted;EPanicInternalError" );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError);
 		break;
 		}
 #else
 	// In case the write observer wants to post another write synchronously on 
 	// being informed that this write has completed, use this little 'temp' 
 	// fiddle.
-	if (!iWriteObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP7, 
-						"CCdcDataInterface::WriteCompleted;iWriteObserver=%p", iWriteObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(iWriteObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	MWriteObserver* temp = iWriteObserver;
 	iWriteObserver = NULL;
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_WRITECOMPLETED_DUP8, 
-				"CCdcDataInterface::WriteCompleted;\tcalling WriteCompleted on observer" );
+	LOGTEXT(_L8("\tcalling WriteCompleted on observer"));
 	temp->WriteCompleted(aError);
 #endif // __HEADLESS_ACM_TEST_CODE__
 
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_WRITECOMPLETED_EXIT );
+	LOGTEXT(_L8("<<CCdcDataInterface::WriteCompleted"));
 	}
 
 void CCdcDataInterface::CancelWrite()
@@ -362,15 +324,13 @@ void CCdcDataInterface::CancelWrite()
  * Cancel an outstanding write request
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CANCELWRITE_ENTRY );
-	if (!iWriter)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_CANCELWRITE, "CCdcDataInterface::CancelWrite;iWriter=%p", iWriter );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	LOG_FUNC
+	
+	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+
 	iWriter->Cancel();
+
 	iWriteObserver = NULL;
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CANCELWRITE_EXIT );
 	}
 
 void CCdcDataInterface::Read(MReadObserver& aObserver, 
@@ -385,42 +345,27 @@ void CCdcDataInterface::Read(MReadObserver& aObserver,
  * @param aMaxLen Number of bytes to read
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_READ_ENTRY );
-	
+	LOG_FUNC
+
 #ifdef __HEADLESS_ACM_TEST_CODE__
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_READ, "CCdcDataInterface::Read;__HEADLESS_ACM_TEST_CODE__" );
+	LOGTEXT(_L8("__HEADLESS_ACM_TEST_CODE__"));
 	// Issue a Read using our special internal buffer.
 	iHeadlessReadType = ERead;
 	iHeadlessReadLength = aMaxLen;
 	static_cast<void>(&aObserver);
 	static_cast<void>(&aDes);
-	if (aMaxLen > iHeadlessAcmBuffer.MaxLength())
-		{
-		OstTrace1( TRACE_FATAL, CCDCDATAINTERFACE_READ_DUP1, "CCdcDataInterface::Read;aMaxLen=%d", aMaxLen );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-	if (!iReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READ_DUP2, "CCdcDataInterface::Read;iReader=%p", iReader );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(aMaxLen <= iHeadlessAcmBuffer.MaxLength(), 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReader->Read(iHeadlessAcmBuffer, aMaxLen);
 #else
-	if (iReadObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READ_DUP3, "CCdcDataInterface::Read;iReadObserver=%p", iReadObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(!iReadObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReadObserver = &aObserver;
-	if (!iReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READ_DUP4, "CCdcDataInterface::Read;iReader=%p", iReader );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-	
+
+	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReader->Read(aDes, aMaxLen);
 #endif // __HEADLESS_ACM_TEST_CODE__
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_READ_EXIT );
 	}
 
 void CCdcDataInterface::ReadOneOrMore(MReadOneOrMoreObserver& aObserver, 
@@ -435,45 +380,29 @@ void CCdcDataInterface::ReadOneOrMore(MReadOneOrMoreObserver& aObserver,
  * @param aMaxLen Number of bytes to read
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_READONEORMORE_ENTRY );
-	
+	LOG_FUNC
 
 #ifdef __HEADLESS_ACM_TEST_CODE__
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_READONEORMORE, "CCdcDataInterface::ReadOneOrMore;__HEADLESS_ACM_TEST_CODE__" );
+	LOGTEXT(_L8("__HEADLESS_ACM_TEST_CODE__"));
 	// Issue a ReadOneOrMore using our special internal buffer.
 	iHeadlessReadType = EReadOneOrMore;
 	iHeadlessReadLength = aMaxLen;
 	static_cast<void>(&aObserver);
 	static_cast<void>(&aDes);
-	if (aMaxLen > iHeadlessAcmBuffer.MaxLength())
-		{
-		OstTrace1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORE_DUP1, "CCdcDataInterface::ReadOneOrMore;aMaxLen=%d", aMaxLen );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-	if (!iReadOneOrMoreReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORE_DUP2, 
-									"CCdcDataInterface::ReadOneOrMore;iReadOneOrMoreReader=%p", iReadOneOrMoreReader );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(aMaxLen <= iHeadlessAcmBuffer.MaxLength(), 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	__ASSERT_DEBUG(iReadOneOrMoreReader, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReadOneOrMoreReader->ReadOneOrMore(iHeadlessAcmBuffer, aMaxLen);
 #else
-	if (iReadOneOrMoreObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORE_DUP3, 
-						"CCdcDataInterface::ReadOneOrMore;iReadOneOrMoreObserver=%p", iReadOneOrMoreObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(!iReadOneOrMoreObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReadOneOrMoreObserver = &aObserver;
-	if (!iReadOneOrMoreReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORE_DUP4, 
-						"CCdcDataInterface::ReadOneOrMore;iReadOneOrMoreObserver=%p", iReadOneOrMoreObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+
+	__ASSERT_DEBUG(iReadOneOrMoreReader, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iReadOneOrMoreReader->ReadOneOrMore(aDes, aMaxLen);
 #endif // __HEADLESS_ACM_TEST_CODE__
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_READONEORMORE_EXIT );
 	}
 
 void CCdcDataInterface::ReadOneOrMoreCompleted(TInt aError)
@@ -484,47 +413,31 @@ void CCdcDataInterface::ReadOneOrMoreCompleted(TInt aError)
  * @param aError The result of the read request.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_READONEORMORECOMPLETED_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED, "CCdcDataInterface::ReadOneOrMoreCompleted;aError=%d", aError );
+	LOGTEXT2(_L8(">>CCdcDataInterface::ReadOneOrMoreCompleted aError=%d"), 
+		aError);
 
 #ifdef __HEADLESS_ACM_TEST_CODE__
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED_DUP1, 
-			"CCdcDataInterface::ReadOneOrMoreCompleted;__HEADLESS_ACM_TEST_CODE__- issuing Write for %d bytes", iHeadlessAcmBuffer.Length() );
-
+	LOGTEXT2(_L8("__HEADLESS_ACM_TEST_CODE__- issuing Write for %d bytes"),
+		iHeadlessAcmBuffer.Length());
 	// Write back the data just read.
 	// If the ReadOneOrMore completed with an error, we panic, as it's 
 	// invalidating the test.
-	if (aError != KErrNone)
-		{
-		OstTrace1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED_DUP2, 
-								"CCdcDataInterface::ReadOneOrMoreCompleted;aError=%d", aError );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-
-	if (!iWriter)
-		{	
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED_DUP3, 
-							"CCdcDataInterface::ReadOneOrMoreCompleted;iWriter=%p", iWriter );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(aError == KErrNone, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iWriter->Write(iHeadlessAcmBuffer, iHeadlessAcmBuffer.Length(), EFalse); 
 #else
-	if (!iReadOneOrMoreObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED_DUP4, 
-							"CCdcDataInterface::ReadOneOrMoreCompleted;iReadOneOrMoreObserver=%p", iReadOneOrMoreObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(iReadOneOrMoreObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 
 	// See comment in WriteCompleted.
 	MReadOneOrMoreObserver* temp = iReadOneOrMoreObserver;
 	iReadOneOrMoreObserver = NULL;
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_READONEORMORECOMPLETED_DUP5, 
-			"CCdcDataInterface::ReadOneOrMoreCompleted;\tcalling ReadOneOrMoreCompleted on observer" );
+	LOGTEXT(_L8("\tcalling ReadOneOrMoreCompleted on observer"));
 	temp->ReadOneOrMoreCompleted(aError);
 #endif // __HEADLESS_ACM_TEST_CODE__
 
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_READONEORMORECOMPLETED_EXIT );
+	LOGTEXT(_L8("<<CCdcDataInterface::ReadOneOrMoreCompleted"));
 	}
 
 void CCdcDataInterface::ReadCompleted(TInt aError)
@@ -534,44 +447,30 @@ void CCdcDataInterface::ReadCompleted(TInt aError)
  * @param aError Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_READCOMPLETED_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_READCOMPLETED, "CCdcDataInterface::ReadCompleted;aError=%d", aError );
+	LOGTEXT2(_L8(">>CCdcDataInterface::ReadCompleted aError=%d"), aError);
 
 #ifdef __HEADLESS_ACM_TEST_CODE__
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_READCOMPLETED_DUP1, 
-			"CCdcDataInterface::ReadCompleted;__HEADLESS_ACM_TEST_CODE__- issuing Write for %d bytes", iHeadlessAcmBuffer.Length() );
-	
+	LOGTEXT2(_L8("__HEADLESS_ACM_TEST_CODE__- issuing Write for %d bytes"),
+		iHeadlessAcmBuffer.Length());
 	// Write back the data just read.
 	// If the Read completed with an error, we panic, as it's invalidating the 
 	// test.				 
-	if (aError != KErrNone)
-		{
-		OstTrace1( TRACE_FATAL, CCDCDATAINTERFACE_READCOMPLETED_DUP2, "CCdcDataInterface::ReadCompleted;aError=%d", aError );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-
-	if (!iWriter)
-		{
-		OstTraceExt1( TRACE_NORMAL, CCDCDATAINTERFACE_READCOMPLETED_DUP3, "CCdcDataInterface::ReadCompleted;iWriter=%p", iWriter );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(aError == KErrNone,
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	__ASSERT_DEBUG(iWriter, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iWriter->Write(iHeadlessAcmBuffer, iHeadlessAcmBuffer.Length(), EFalse); 
 #else
-	if (!iReadObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_READCOMPLETED_DUP4, 
-							"CCdcDataInterface::ReadCompleted;iReadObserver=%p", iReadObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	__ASSERT_DEBUG(iReadObserver, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 
 	// See comment in WriteCompleted.
 	MReadObserver* temp = iReadObserver;
 	iReadObserver = NULL;
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_READCOMPLETED_DUP5, "CCdcDataInterface::ReadCompleted;\tcalled ReadCompleted on observer" );
+	LOGTEXT(_L8("\tcalled ReadCompleted on observer"));
 	temp->ReadCompleted(aError);
 #endif // __HEADLESS_ACM_TEST_CODE__
 
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_READCOMPLETED_EXIT );
+	LOGTEXT(_L8("<<CCdcDataInterface::ReadCompleted"));
 	}
 
 void CCdcDataInterface::CancelRead()
@@ -579,24 +478,16 @@ void CCdcDataInterface::CancelRead()
  * Cancel an outstanding read request
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CANCELREAD_ENTRY );
-	if (!iReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_CANCELREAD, "CCdcDataInterface::CancelRead;iReader=%p", iReader );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
-	if (!iReadOneOrMoreReader)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_CANCELREAD_DUP1, 
-							"CCdcDataInterface::CancelRead;iReadOneOrMoreReader=%p", iReadOneOrMoreReader );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	LOG_FUNC
+
+	__ASSERT_DEBUG(iReader, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+	__ASSERT_DEBUG(iReadOneOrMoreReader, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 
 	iReader->Cancel();
 	iReadOneOrMoreReader->Cancel();
 	iReadObserver = NULL;
 	iReadOneOrMoreObserver = NULL;
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CANCELREAD_EXIT );
 	}
 
 	
@@ -607,17 +498,15 @@ void CCdcDataInterface::NotifyDataAvailableCompleted(TInt aError)
  * @param aError Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_NOTIFYDATAAVAILABLECOMPLETED_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCDATAINTERFACE_NOTIFYDATAAVAILABLECOMPLETED, 
-			"CCdcDataInterface::NotifyDataAvailableCompleted;aError=%d", aError );	
+	LOGTEXT2(_L8(">>CCdcDataInterface::NotifyDataAvailableCompleted aError=%d"), aError);	
 	
 	// See comment in WriteCompleted.
 	MNotifyDataAvailableObserver* temp = iNotifyDataAvailableObserver;
 	iNotifyDataAvailableObserver = NULL;
-	OstTrace0( TRACE_NORMAL, CCDCDATAINTERFACE_NOTIFYDATAAVAILABLECOMPLETED_DUP1, 
-			"CCdcDataInterface::NotifyDataAvailableCompleted;\tcalled NotifyDataAvailableCompleted on observer" );
+	LOGTEXT(_L8("\tcalled NotifyDataAvailableCompleted on observer"));
 	temp->NotifyDataAvailableCompleted(aError);
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_NOTIFYDATAAVAILABLECOMPLETED_EXIT );
+	
+	LOGTEXT(_L8("<<CCdcDataInterface::NotifyDataAvailableCompleted"));
 	}
 	
 void CCdcDataInterface::NotifyDataAvailable(MNotifyDataAvailableObserver& aObserver)
@@ -627,23 +516,14 @@ void CCdcDataInterface::NotifyDataAvailable(MNotifyDataAvailableObserver& aObser
  * @param aObserver The observer to notify of completion.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_NOTIFYDATAAVAILABLE_ENTRY );
-	
-	if (iNotifyDataAvailableObserver)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_NOTIFYDATAAVAILABLE, 
-							"CCdcDataInterface::NotifyDataAvailable;iNotifyDataAvailableObserver=%p", iNotifyDataAvailableObserver );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	LOG_FUNC
+		
+	__ASSERT_DEBUG(!iNotifyDataAvailableObserver, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iNotifyDataAvailableObserver = &aObserver;
-	if (!iDataAvailableNotifier)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_NOTIFYDATAAVAILABLE_DUP1, 
-						"CCdcDataInterface::NotifyDataAvailable;iDataAvailableNotifier=%p", iDataAvailableNotifier );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+
+	__ASSERT_DEBUG(iDataAvailableNotifier, 
+		_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 	iDataAvailableNotifier->NotifyDataAvailable();
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_NOTIFYDATAAVAILABLE_EXIT );
 	}
 
 void CCdcDataInterface::CancelNotifyDataAvailable()
@@ -651,16 +531,12 @@ void CCdcDataInterface::CancelNotifyDataAvailable()
  * Cancel notification of arrival of data.
  */
 	{
-	OstTraceFunctionEntry0( CCDCDATAINTERFACE_CANCELNOTIFYDATAAVAILABLE_ENTRY );
-	if (!iDataAvailableNotifier)
-		{
-		OstTraceExt1( TRACE_FATAL, CCDCDATAINTERFACE_CANCELNOTIFYDATAAVAILABLE, 
-						"CCdcDataInterface::CancelNotifyDataAvailable;iDataAvailableNotifier=%p", iDataAvailableNotifier );
-		__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-		}
+	LOG_FUNC
+
+	__ASSERT_DEBUG(iDataAvailableNotifier, _USB_PANIC(KAcmPanicCat, EPanicInternalError));
+
 	iDataAvailableNotifier->Cancel();
 	iNotifyDataAvailableObserver = NULL;	
-	OstTraceFunctionExit0( CCDCDATAINTERFACE_CANCELNOTIFYDATAAVAILABLE_EXIT );
 	}
 
 //

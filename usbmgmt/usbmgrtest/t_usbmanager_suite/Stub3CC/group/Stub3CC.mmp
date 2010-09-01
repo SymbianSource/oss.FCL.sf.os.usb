@@ -34,11 +34,9 @@ SOURCE			Stub3CCImpCollection.cpp
 SOURCE			Stub3CC.cpp
 
 USERINCLUDE		../inc
-USERINCLUDE		../../../../usbmgr/usbman/server/public 
-USERINCLUDE     ../traces
+USERINCLUDE		../../../../usbmgr/usbman/server/public
+
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
-SYSTEMINCLUDE	/epoc32/include
-SYSTEMINCLUDE	/epoc32/include/ecom
 
 
 start resource 10203288.rss
@@ -49,3 +47,4 @@ LIBRARY			euser.lib
 LIBRARY			usbclasscontroller.lib
 LIBRARY 		esock.lib
 
+#include <usb/usblogger.mmh>

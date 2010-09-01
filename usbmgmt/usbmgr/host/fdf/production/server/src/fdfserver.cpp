@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -26,36 +26,32 @@
 #include "utils.h"
 #include "fdfapi.h"
 #include "fdf.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "fdfserverTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdf      ");
 #endif
 
 #ifdef _DEBUG
-_LIT(KPanicCategory, "fdfsrv");
+PANICCATEGORY("fdfsrv");
 #endif
-
 
 void CFdfServer::NewLC()
 	{
-	OstTraceFunctionEntry0( CFDFSERVER_NEWLC_ENTRY );
-	
+	LOG_STATIC_FUNC_ENTRY
+
 	CFdfServer* self = new(ELeave) CFdfServer;
 	CleanupStack::PushL(self);
 	// StartL is where the kernel checks that there isn't already an instance
 	// of the same server running, so do it before ConstructL.
 	self->StartL(KUsbFdfServerName);
 	self->ConstructL();
-	OstTraceFunctionExit0( CFDFSERVER_NEWLC_EXIT );
 	}
 
 CFdfServer::~CFdfServer()
 	{
-	OstTraceFunctionEntry0( CFDFSERVER_CFDFSERVER_DES_ENTRY );
-	
+	LOG_FUNC
 
 	delete iFdf;
-	OstTraceFunctionExit0( CFDFSERVER_CFDFSERVER_DES_EXIT );
 	}
 
 CFdfServer::CFdfServer()
@@ -65,25 +61,23 @@ CFdfServer::CFdfServer()
 
 void CFdfServer::ConstructL()
 	{
-	OstTraceFunctionEntry0( CFDFSERVER_CONSTRUCTL_ENTRY );
-	
+	LOG_FUNC
+
 	iFdf = CFdf::NewL();
-	OstTraceFunctionExit0( CFDFSERVER_CONSTRUCTL_EXIT );
 	}
 
 CSession2* CFdfServer::NewSessionL(const TVersion& aVersion,
 	const RMessage2& aMessage) const
 	{
-	OstTraceFunctionEntry0( CFDFSERVER_NEWSESSIONL_ENTRY );
-	OstTraceExt3( TRACE_NORMAL, CFDFSERVER_NEWSESSIONL, "aVersion = (%d,%d,%d)", aVersion.iMajor, aVersion.iMinor, aVersion.iBuild );
+	LOG_LINE
+	LOG_FUNC;
+	LOGTEXT4(_L8("\taVersion = (%d,%d,%d)"), aVersion.iMajor, aVersion.iMinor, aVersion.iBuild);
 	(void)aMessage;
 
 	// Check if we already have a session open.
 	if ( iSession )
 		{
-		OstTrace0( TRACE_NORMAL, CFDFSERVER_NEWSESSIONL_DUP1, 
-		        "Session in use");
-		User::Leave(KErrInUse);
+		LEAVEL(KErrInUse);
 		}
 
 	// In the production system, check the secure ID of the prospective
@@ -102,8 +96,7 @@ CSession2* CFdfServer::NewSessionL(const TVersion& aVersion,
 	// check OFF to allow any client to pass and thereby break our
 	// architecture.
 	TInt error = ( aMessage.SecureId() == KUsbsvrSecureId ) ? KErrNone : KErrPermissionDenied;
-	LEAVEIFERRORL(error,OstTrace0( TRACE_NORMAL, CFDFSERVER_NEWSESSIONL_DUP2, 
-            "SecureId error"););
+	LEAVEIFERRORL(error);
 #endif // __TEST_FDF__
 
 #endif // __OVER_DUMMYUSBDI__
@@ -115,41 +108,27 @@ CSession2* CFdfServer::NewSessionL(const TVersion& aVersion,
 
 	if ( !User::QueryVersionSupported(v, aVersion) )
 		{
-		OstTrace0( TRACE_NORMAL, CFDFSERVER_NEWSESSIONL_DUP3, 
-                "Version not supported");
-		User::Leave(KErrNotSupported);
+		LEAVEL(KErrNotSupported);
 		}
 
 	CFdfServer* ncThis = const_cast<CFdfServer*>(this);
 	ncThis->iSession = new(ELeave) CFdfSession(*iFdf, *ncThis);
-	if(!ncThis->iFdf)
-	    {
-        OstTrace0( TRACE_FATAL, CFDFSERVER_NEWSESSIONL_DUP4,"ncThis->iFdf is empty"); 
-        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
-            
+	ASSERT_DEBUG(ncThis->iFdf);
 	ncThis->iFdf->SetSession(iSession);
 
-	OstTrace1( TRACE_NORMAL, CFDFSERVER_NEWSESSIONL_DUP5, "iSession = 0x%08x", iSession );
-	OstTraceFunctionExit0( CFDFSERVER_NEWSESSIONL_EXIT );
+	LOGTEXT2(_L8("\tiSession = 0x%08x"), iSession);
 	return iSession;
 	}
 
 void CFdfServer::SessionClosed()
 	{
-    OstTraceFunctionEntry0( CFDFSERVER_SESSIONCLOSED_ENTRY );
+	LOG_FUNC
 
-	if(!iSession)
-	    {
-        OstTrace0( TRACE_FATAL, CFDFSERVER_SESSIONCLOSED,"Empty iSession" ); 
-        __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
-	        
+	ASSERT_DEBUG(iSession);
 	iSession = NULL;
 	iFdf->SetSession(NULL);
 
-	OstTrace0( TRACE_NORMAL, CFDFSERVER_SESSIONCLOSED_DUP1, "no remaining sessions- shutting down" );
-	
+	LOGTEXT(_L8("\tno remaining sessions- shutting down"));
 	// This returns control to the server boilerplate in main.cpp. This
 	// destroys all the objects, which includes signalling device detachment
 	// to any extant FDCs.
@@ -158,5 +137,4 @@ void CFdfServer::SessionClosed()
 	// that's created immediately before calling CActiveScheduler::Start in
 	// main.cpp.
 	CActiveScheduler::Stop();
-	OstTraceFunctionExit0( CFDFSERVER_SESSIONCLOSED_EXIT );
 	}

@@ -30,7 +30,6 @@ ECOM_PLUGIN(referencepolicyplugin.dll, 10285c46.rsc)
 
 file=ABI_DIR\USB_DIR\msmmsession.dll	        Sys\bin\msmmsession.dll
 file=ABI_DIR\USB_DIR\msmmserver.exe	         	Sys\bin\msmmserver.exe
-file=ABI_DIR\USB_DIR\msmmindicatorsession.dll	        Sys\bin\msmmindicatorsession.dll
 
 #endif
 

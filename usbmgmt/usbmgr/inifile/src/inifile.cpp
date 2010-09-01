@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2002-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2002-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,11 +21,11 @@
 */
 
 #include <f32file.h>
-#include <usb/usblogger.h>
 #include "inifile.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "inifileTraces.h"
+#include <usb/usblogger.h>
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "IniFile");
 #endif
 
 
@@ -34,15 +34,14 @@ _LIT(KDefaultIniFileDir,"\\");
 
 void CIniFile::Panic(TIniPanic aPanic)
 	{
-	_LIT(KIniData,"CIniFile");	
-	OstTrace1( TRACE_NORMAL, CINIFILE_PANIC, "CIniFile::Panic;aPanic=%d", aPanic );
-	User::Panic(KIniData,aPanic );
+	_LIT(KIniData,"CIniFile");
+	_USB_PANIC(KIniData,aPanic);
 	}
 
 CIniFile::CIniFile() 
  :	iPtr(NULL,0)
 	{
-    OstTraceFunctionEntry1( CINIFILE_CINIFILE_CONS_ENTRY, this );
+	LOG_FUNC
 	}
 
 CIniFile::~CIniFile()
@@ -59,13 +58,12 @@ CIniFile* CIniFile::NewL(const TDesC& aName)
  * @param aName The name of the ini file to be used, e.g. "GPRSBTT.INI".
  */
 	{
-    OstTraceFunctionEntry0( CINIFILE_NEWL_TDESC_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CIniFile* self = new(ELeave) CIniFile;
 	CleanupStack::PushL(self);
 	self->ConstructL(aName, KDefaultIniFileDir);
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CINIFILE_NEWL_TDESC_EXIT );
 	return self;
 	}
 
@@ -78,13 +76,12 @@ CIniFile* CIniFile::NewL(const TDesC& aName, const TDesC& aPath)
  * @param aPath The location of the file e.g. "\\system\\data\\".
  */
  {
-    OstTraceFunctionEntry0( CINIFILE_NEWL_TDESC_TDESC_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
  	CIniFile* self = new(ELeave) CIniFile;
 	CleanupStack::PushL(self);
 	self->ConstructL(aName, aPath);
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CINIFILE_NEWL_TDESC_TDESC_EXIT );
 	return self;	 	
  }
  
@@ -98,53 +95,27 @@ void CIniFile::ConstructL(const TDesC& aName, const TDesC& aPath)
     iToken = HBufC::NewL(KTokenSize+2);	// 2 extra chars for []
 
 	RFs fs;
-	TInt err;
-	err = fs.Connect();	
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CINIFILE_CONSTRUCTL, "CIniFile::ConstructL;fs.Connect() with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(fs.Connect());
 	CleanupClosePushL(fs);
 
 	TFindFile ff(fs);
 
-	err = ff.FindByDir(aName, aPath);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CINIFILE_CONSTRUCTL_DUP1, "CIniFile::ConstructL;ff.FindByDir(aName, aPath) with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(ff.FindByDir(aName, aPath));
 
 	iName = ff.File().AllocL();
 	
 	RFile file;
 	TInt size;
-	err = file.Open(fs,*iName,EFileStreamText|EFileRead|EFileShareReadersOnly);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CINIFILE_CONSTRUCTL_DUP2, "CIniFile::ConstructL;file.Open(fs,*iName,EFileStreamText|EFileRead|EFileShareReadersOnly) with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(file.Open(fs,*iName,EFileStreamText|EFileRead|EFileShareReadersOnly));
 	CleanupClosePushL(file);
 	
-	err = file.Size(size);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CINIFILE_CONSTRUCTL_DUP3, "CIniFile::ConstructL;file.Size(size) with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(file.Size(size));
 
 
 	TText* data = REINTERPRET_CAST(TText*, User::AllocL(size));
 	iPtr.Set(data, size/sizeof(TText), size/sizeof(TText));
 	TPtr8 dest(REINTERPRET_CAST(TUint8*,data), 0, size);
-	err = file.Read(dest);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CINIFILE_CONSTRUCTL_DUP4, "CIniFile::ConstructL;file.Read(dest) with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(file.Read(dest)); 
 
 	TUint8* ptr = REINTERPRET_CAST(TUint8*,data);
 

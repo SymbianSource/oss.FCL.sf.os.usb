@@ -27,11 +27,9 @@ PRJ_MMPFILES
 
 #if defined(SYMBIAN_ENABLE_USB_OTG_HOST) && !defined(WINS) && !defined(X86GCC)
 msmmclient.mmp
-msmmindicatorclient.mmp
 #endif
+
 
 PRJ_TESTEXPORTS
 ../public/msmmclient.h SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/hostms/msmmclient.h)
-PRJ_EXPORTS
-../public/msmmindicatorclient.h SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/hostms/msmmindicatorclient.h)
 

@@ -27,7 +27,6 @@ TARGETTYPE	  exe
 UID			 0 0x1028653F
 
 LIBRARY		 dummymsc.lib
-LIBRARY		 dummyfilesysclient.lib
 #include "msmmserver_base.mmp"
 
 

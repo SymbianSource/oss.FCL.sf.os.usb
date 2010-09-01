@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -19,14 +19,13 @@
  @file
 */
 
+#include <usb/usblogger.h>
 #include "CUsbScheduler.h"
 #include "CUsbServer.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbSchedulerTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
 #endif
-
-
 
 /**
  * The CUsbScheduler::NewL method
@@ -37,10 +36,9 @@
  */
 CUsbScheduler* CUsbScheduler::NewL()
 	{
-	OstTraceFunctionEntry0( CUSBSCHEDULER_NEWL_ENTRY );
-	
+	LOG_STATIC_FUNC_ENTRY
+
 	CUsbScheduler* self = new(ELeave) CUsbScheduler;
-	OstTraceFunctionExit0( CUSBSCHEDULER_NEWL_EXIT );
 	return self;
 	}
 
@@ -82,8 +80,7 @@ void CUsbScheduler::SetServer(CUsbServer& aServer)
  */
 void CUsbScheduler::Error(TInt aError) const
 	{
-	OstTrace1( TRACE_NORMAL, CUSBSCHEDULER_ERROR, "CUsbScheduler::Error;aError=%d", aError );
-	
+	LOGTEXT2(_L8("CUsbScheduler::Error aError=%d"), aError);
 
 	if (iServer)
 		{

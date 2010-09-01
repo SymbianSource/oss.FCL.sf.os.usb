@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -27,12 +27,10 @@
 
 #include "referencepolicyplugin.h"
 #include "referenceplugin.hrh"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "proxyTraces.h"
-#endif
-
  
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "UsbHostMsmmRefPP");
+#endif
 
 // Provides a key value pair table, this is used to identify
 // the correct construction function for the requested interface.
@@ -46,11 +44,9 @@ const TImplementationProxy ImplementationTable[] =
 EXPORT_C const TImplementationProxy* ImplementationGroupProxy(
         TInt& aTableCount)
     {
-    OstTrace0( TRACE_NORMAL, REF_REFERENCEPOLICYPLUGIN_SRC_IMPLEMENTATIONGROUPPROXY, 
-            ">>ImplementationGroupProxy()" );
+    LOGTEXT(_L(">>ImplementationGroupProxy()"));
     aTableCount = sizeof(ImplementationTable) / sizeof(TImplementationProxy);
-    OstTrace0( TRACE_NORMAL, REF_REFERENCEPOLICYPLUGIN_SRC_IMPLEMENTATIONGROUPPROXY_DUP1, 
-                "<<ImplementationGroupProxy()" );
+    LOGTEXT(_L("<<ImplementationGroupProxy()"));
     return ImplementationTable;
     }
 

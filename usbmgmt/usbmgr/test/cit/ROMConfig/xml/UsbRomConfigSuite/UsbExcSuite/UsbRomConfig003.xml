@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!DOCTYPE testExecuteTest SYSTEM "c:\program files\common files\symbian\testExecuteTest.dtd" [ ]>
+
+<testExecuteTest>
+
+	<name>UsbRomConfig003</name>
+
+	<timeout>30</timeout>
+
+	<testScripts>
+		<script>
+			<hostPath>scripts\USB_ROMCONFIG_003.script</hostPath>
+			<devicePath>c:\scripts\usbromconfig\USB_ROMCONFIG_003.script</devicePath>
+		</script>
+	</testScripts>
+
+	<testServers>
+		<server>TestServerSymbianExcludeUsb</server>
+	</testServers>
+
+	<dependencies>
+		<data>
+			<hostPath>testdata\UsbRomConfig.ini</hostPath>
+			<devicePath>c:\testdata\usbromconfig\UsbRomConfig.ini</devicePath>
+		</data>
+	</dependencies>
+
+</testExecuteTest>

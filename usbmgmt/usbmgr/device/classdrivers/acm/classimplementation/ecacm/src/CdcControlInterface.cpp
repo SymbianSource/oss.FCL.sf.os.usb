@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -25,11 +25,11 @@
 #include "CdcAcmClass.h"
 #include "AcmPanic.h"
 #include "AcmUtils.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CdcControlInterfaceTraces.h"
-#endif
+#include <usb/usblogger.h>
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
+#endif
 
 CCdcControlInterface::CCdcControlInterface(const TUint8 aProtocolNum, const TDesC16& aIfcName)
 /**
@@ -41,8 +41,6 @@ CCdcControlInterface::CCdcControlInterface(const TUint8 aProtocolNum, const TDes
 	iSerialState(0xFFFF),
 	iProtocolNum(aProtocolNum)
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_CCDCCONTROLINTERFACE_CONS_ENTRY );
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_CCDCCONTROLINTERFACE_CONS_EXIT );
 	}
 
 CCdcControlInterface* CCdcControlInterface::NewL(CCdcAcmClass& aParent, const TUint8 aProtocolNum, const TDesC16& aIfcName)
@@ -56,14 +54,14 @@ CCdcControlInterface* CCdcControlInterface::NewL(CCdcAcmClass& aParent, const TU
  * @return A pointer to the new object
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_NEWL_ENTRY );
-	OstTraceExt1( TRACE_NORMAL, CCDCCONTROLINTERFACE_NEWL, "CCdcControlInterface::NewL;\tControl Ifc Name = %S", aIfcName );
+	LOG_STATIC_FUNC_ENTRY
+
+	LOGTEXT2(_L("\tControl Ifc Name = %S"), &aIfcName);
 
 	CCdcControlInterface* self = new(ELeave) CCdcControlInterface(aProtocolNum, aIfcName);
 	CleanupStack::PushL(self);
 	self->ConstructL(aParent);
 	CLEANUPSTACK_POP(self);
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_NEWL_EXIT );
 	return self;
 	}
 
@@ -75,13 +73,11 @@ void CCdcControlInterface::ConstructL(CCdcAcmClass& aParent)
  * @param aParent The ACM class.
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_CONSTRUCTL_ENTRY );
-	
 	BaseConstructL();
 
 	iReader  = CCdcControlInterfaceReader::NewL(aParent, iLdd);
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_CONSTRUCTL, "CCdcControlInterface::ConstructL;iProtocolNum=%d", (TInt)iProtocolNum );
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_CONSTRUCTL_EXIT );
+
+	LOGTEXT2(_L8("\tcreated CdcControlInterface iProtocolNum = %d"), iProtocolNum);
 	}
 
 TInt CCdcControlInterface::SetUpInterface()
@@ -90,29 +86,25 @@ TInt CCdcControlInterface::SetUpInterface()
  * endpoint and, if found, configuring the interface.
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_SETUPINTERFACE_ENTRY );
+	LOGTEXT(_L8(">>CCdcControlInterface::SetUpInterface"));
 
 	TUsbDeviceCaps dCaps;
 	TInt ret = iLdd.DeviceCaps(dCaps);
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE, "CCdcControlInterface::SetUpInterface;\tchecking result of DeviceCaps" );
+	LOGTEXT(_L8("\tchecking result of DeviceCaps"));
 	if ( ret )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP1, "CCdcControlInterface::SetUpInterface;ret=%d", ret );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPINTERFACE_EXIT );
+		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
 		return ret;
 		}
 
 	const TUint KRequiredNumberOfEndpoints = 1; // in addition to endpoint 0.
 
 	const TUint totalEndpoints = static_cast<TUint>(dCaps().iTotalEndpoints);
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP2, 
-			"CCdcControlInterface::SetUpInterface;totalEndpoints=%d", (TInt)totalEndpoints );
-
+	LOGTEXT2(_L8("\tiTotalEndpoints = %d"), totalEndpoints);
 	if ( totalEndpoints < KRequiredNumberOfEndpoints )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP3, 
-				"CCdcControlInterface::SetUpInterface;ret=%d", KErrGeneral );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPINTERFACE_EXIT_DUP1 );
+		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), 
+			KErrGeneral);
 		return KErrGeneral;
 		}
 	
@@ -120,13 +112,10 @@ TInt CCdcControlInterface::SetUpInterface()
 	TUsbcEndpointData data[KUsbcMaxEndpoints];
 	TPtr8 dataptr(reinterpret_cast<TUint8*>(data), sizeof(data), sizeof(data));
 	ret = iLdd.EndpointCaps(dataptr);
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP4, 
-			"CCdcControlInterface::SetUpInterface;\tchecking result of EndpointCaps" );
-
+	LOGTEXT(_L8("\tchecking result of EndpointCaps"));
 	if ( ret )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP5, "CCdcControlInterface::SetUpInterface;ret=%d", ret );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPINTERFACE_EXIT_DUP2 );
+		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
 		return ret;
 		}
 
@@ -136,11 +125,8 @@ TInt CCdcControlInterface::SetUpInterface()
 	for ( TUint i = 0 ; i < totalEndpoints ; i++ )
 		{
 		const TUsbcEndpointCaps* caps = &data[i].iCaps;
-		if (!caps)
-			{
-			OstTraceExt1( TRACE_FATAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP6, "CCdcControlInterface::SetUpInterface;caps=%p", caps );
-			__ASSERT_DEBUG( EFalse, User::Panic(KAcmPanicCat, EPanicInternalError) );
-			}
+		__ASSERT_DEBUG(caps, 
+			_USB_PANIC(KAcmPanicCat, EPanicInternalError));
 
 		if (data[i].iInUse)
 			{
@@ -166,13 +152,11 @@ TInt CCdcControlInterface::SetUpInterface()
 			break;
 			}
 		}
-	
-	
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP8, "CCdcControlInterface::SetUpInterface;\tchecking epFound" );
+	LOGTEXT(_L8("\tchecking epFound"));
 	if ( !epFound )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP9, "CCdcControlInterface::SetUpInterface;ret=%d", KErrGeneral );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPINTERFACE_EXIT_DUP3 );
+		LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), 
+			KErrGeneral);
 		return KErrGeneral;
 		}
 
@@ -183,12 +167,11 @@ TInt CCdcControlInterface::SetUpInterface()
 	ifc().iClass.iSubClassNum = 0x02; // Table 16- Abstract Control Model
 	ifc().iClass.iProtocolNum = iProtocolNum; // Table 17
 
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP10, 
-			"CCdcControlInterface::SetUpInterface;\tabout to call SetInterface" );
+	LOGTEXT(_L8("\tabout to call SetInterface"));
 	// Zero effectively indicates that alternate interfaces are not used.
 	ret = iLdd.SetInterface(0, ifc);
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPINTERFACE_DUP11, "CCdcControlInterface::SetUpInterface;ret=%d", ret );
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPINTERFACE_EXIT_DUP4 );
+
+	LOGTEXT2(_L8("<<CCdcControlInterface::SetUpInterface ret=%d"), ret);
 	return ret;
 	}
 
@@ -201,9 +184,8 @@ TInt CCdcControlInterface::SetupClassSpecificDescriptor(
  * @return Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR, 
-			"CCdcControlInterface::SetupClassSpecificDescriptor;aDataInterfaceNumber=%d", (TInt)aDataInterfaceNumber );
+	LOG_FUNC
+	LOGTEXT2(_L8("\taDataInterfaceNumber = %d"), aDataInterfaceNumber);
 
 	TInt res;
 
@@ -247,26 +229,18 @@ TInt CCdcControlInterface::SetupClassSpecificDescriptor(
 
 	if ( res )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_DUP1, 
-				"CCdcControlInterface::SetupClassSpecificDescriptor;\t***GetInterfaceNumber=%d", res );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_EXIT );
+		LOGTEXT2(_L8("\t***GetInterfaceNumber=%d"), res);
 		return res;
 		}
 
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_DUP2, 
-			"CCdcControlInterface::SetupClassSpecificDescriptor;\tabout to call SetCSInterfaceDescriptorBlock" );
-	
+	LOGTEXT(_L8("\tabout to call SetCSInterfaceDescriptorBlock"));
 	res = iLdd.SetCSInterfaceDescriptorBlock(0, descriptor.Des());
 	if ( res )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_DUP3, 
-				"CCdcControlInterface::SetupClassSpecificDescriptor;\t***SetCSInterfaceDescriptorBlock=%d", res );
-		
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_EXIT_DUP1 );
+		LOGTEXT2(_L8("\t***SetCSInterfaceDescriptorBlock=%d"), res);
 		return res;
 		}
 
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SETUPCLASSSPECIFICDESCRIPTOR_EXIT_DUP2 );
 	return KErrNone;
 	}
 
@@ -275,9 +249,9 @@ CCdcControlInterface::~CCdcControlInterface()
  * Destructor
  */
 	{
-	OstTraceFunctionEntry0( DUP1_CCDCCONTROLINTERFACE_CCDCCONTROLINTERFACE_ENTRY );
+	LOG_FUNC
+
 	delete iReader;
-	OstTraceFunctionExit0( DUP1_CCDCCONTROLINTERFACE_CCDCCONTROLINTERFACE_EXIT );
 	}
 
 /**
@@ -309,8 +283,6 @@ TDes8& TUSBNotificationNetworkConnection::PackBuffer()
  * the little-endian USB bus.
  */
 	{
-	OstTraceFunctionEntry0( TUSBNOTIFICATIONNETWORKCONNECTION_PACKBUFFER_ENTRY );
-	
 	iBuffer.SetLength(KUSBNotificationNetworkConnectionSize);
 
 	iBuffer[0] = bmRequestType;
@@ -322,7 +294,6 @@ TDes8& TUSBNotificationNetworkConnection::PackBuffer()
 	iBuffer[6] = static_cast<TUint8>( wLength & 0x00ff);
 	iBuffer[7] = static_cast<TUint8>((wLength & 0xff00) >> 8);
 
-	OstTraceFunctionExit0( TUSBNOTIFICATIONNETWORKCONNECTION_PACKBUFFER_EXIT );
 	return iBuffer;
 	}
 
@@ -338,9 +309,8 @@ TInt CCdcControlInterface::SendNetworkConnection(TBool aValue)
  * @return Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_SENDNETWORKCONNECTION_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SENDNETWORKCONNECTION, 
-			"CCdcControlInterface::SendNetworkConnection;aValue=%d", (TInt)aValue );
+	LOGTEXT2(_L8(">>CCdcControlInterface::SendNetworkConnection aValue=%d"), 
+		aValue);
 
 	// form the message and prime it down to the interrupt handler
 	// (that is 'interrupt' in the USB sense)
@@ -359,9 +329,7 @@ TInt CCdcControlInterface::SendNetworkConnection(TBool aValue)
 		notification.PackBuffer(), 
 		notification.PackBuffer().Length());
 
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SENDNETWORKCONNECTION_DUP1, 
-			"CCdcControlInterface::SendNetworkConnection;ret=%d", ret );
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SENDNETWORKCONNECTION_EXIT );
+	LOGTEXT2(_L8("<<CCdcControlInterface::SendNetworkConnection ret=%d"), ret);
 	return ret;
 	}
 
@@ -395,8 +363,6 @@ TDes8& TUSBNotificationSerialState::PackBuffer()
  * the little-endian USB bus.
  */
 	{
-	OstTraceFunctionEntry0( TUSBNOTIFICATIONSERIALSTATE_PACKBUFFER_ENTRY );
-	
 	iBuffer.SetLength(KUSBNotificationSerialStateSize);
 
 	iBuffer[0] = bmRequestType;
@@ -410,7 +376,6 @@ TDes8& TUSBNotificationSerialState::PackBuffer()
 	iBuffer[8] = static_cast<TUint8>( wData & 0x00ff);
 	iBuffer[9] = static_cast<TUint8>((wData & 0xff00) >> 8);
 
-	OstTraceFunctionExit0( TUSBNOTIFICATIONSERIALSTATE_PACKBUFFER_EXIT );
 	return iBuffer;
 	}
 
@@ -434,22 +399,14 @@ TInt CCdcControlInterface::SendSerialState(TBool aOverRun,
  * @return Error.
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_SENDSERIALSTATE_ENTRY );
-	
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE, 
-			"CCdcControlInterface::SendSerialState;aOverRun=%d", (TInt)aOverRun );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP1, 
-			"CCdcControlInterface::SendSerialState;aParity=%d", (TInt)aParity );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP2, 
-			"CCdcControlInterface::SendSerialState;aFraming=%d", (TInt)aFraming );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP3, 
-			"CCdcControlInterface::SendSerialState;aRing=%d", (TInt)aRing );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP4, 
-			"CCdcControlInterface::SendSerialState;aBreak=%d", (TInt)aBreak );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP5, 
-			"CCdcControlInterface::SendSerialState;aTxCarrier=%d", (TInt)aTxCarrier );
-	OstTrace1( TRACE_DUMP, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP6, 
-			"CCdcControlInterface::SendSerialState;aRxCarrier=%d", (TInt)aRxCarrier );
+	LOG_FUNC
+	LOGTEXT2(_L8("\taOverRun=%d"), aOverRun);
+	LOGTEXT2(_L8("\taParity=%d"), aParity);
+	LOGTEXT2(_L8("\taFraming=%d"), aFraming);
+	LOGTEXT2(_L8("\taRing=%d"), aRing);
+	LOGTEXT2(_L8("\taBreak=%d"), aBreak);
+	LOGTEXT2(_L8("\taTxCarrier=%d"), aTxCarrier);
+	LOGTEXT2(_L8("\taRxCarrier=%d"), aRxCarrier);
 
 	// First work out what might need to be sent by assembling the bits into 
 	// the correct places. See CDC spec table 69 (UART state bitmap values).
@@ -469,9 +426,7 @@ TInt CCdcControlInterface::SendSerialState(TBool aOverRun,
 	// send it off.
 	if ( data == iSerialState )
 		{
-		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP7, 
-				"CCdcControlInterface::SendSerialState;\tdata == iSerialState" );
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_SENDSERIALSTATE_EXIT );
+		LOGTEXT(_L8("\tdata == iSerialState"));
 		return KErrNone;
 		}
 
@@ -496,8 +451,8 @@ TInt CCdcControlInterface::SendSerialState(TBool aOverRun,
 	TInt ret = WriteData(	EEndpoint1, 
 							notification.PackBuffer(), 
 							notification.PackBuffer().Length());
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_SENDSERIALSTATE_DUP8, "CCdcControlInterface::SendSerialState;ret=%d", ret );
-	OstTraceFunctionExit0( DUP1_CCDCCONTROLINTERFACE_SENDSERIALSTATE_EXIT );
+	LOGTEXT2(_L8("\tWriteData = %d"), ret);
+
 	return ret;
 	}
 
@@ -512,25 +467,20 @@ TInt CCdcControlInterface::WriteData(TEndpointNumber aEndPoint,
  * @param aLength
  */
 	{
-	OstTraceFunctionEntry0( CCDCCONTROLINTERFACE_WRITEDATA_ENTRY );
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA, "CCdcControlInterface::WriteData;aEndPoint=%d", (TInt)aEndPoint );
+	LOG_FUNC
+	LOGTEXT2(_L8("\taEndpoint=%d"), aEndPoint);
 
 	TInt ret;
 	RTimer timer;
 	ret = timer.CreateLocal();
 	if ( ret )
 		{
-		OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA_DUP1, 
-				"CCdcControlInterface::WriteData;\ttimer.CreateLocal = %d- returning", ret );
-		
-		OstTraceFunctionExit0( CCDCCONTROLINTERFACE_WRITEDATA_EXIT );
+		LOGTEXT2(_L8("\ttimer.CreateLocal = %d- returning"), ret);
 		return ret;
 		}
 	TRequestStatus status;
 	TRequestStatus timerStatus;
-	OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA_DUP2, 
-			"CCdcControlInterface::WriteData;\tAttempting to write data to control interface" );
-
+	LOGTEXT(_L8("\tAttempting to write data to control interface"));
 	iLdd.Write(status, aEndPoint, aDes, aLength);
 	timer.After(timerStatus, KWriteDataTimeout);
 	User::WaitForRequest(status, timerStatus);
@@ -538,25 +488,20 @@ TInt CCdcControlInterface::WriteData(TEndpointNumber aEndPoint,
 		{
 		// Timeout occurred, silently ignore error condition.
 		// Assuming that the line has been disconnected
-		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA_DUP3, 
-				"CCdcControlInterface::WriteData;CCdcControlInterface::WriteData() - Timeout occurred" );
-		
+		LOGTEXT(_L8("CCdcControlInterface::WriteData() - Timeout occurred"));
 		iLdd.WriteCancel(aEndPoint);
 		User::WaitForRequest(status);
 		ret = timerStatus.Int();
 		}
 	else
 		{
-		OstTrace0( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA_DUP4, 
-				"CCdcControlInterface::WriteData;CCdcControlInterface::WriteData() - Write completed" );
-		
+		LOGTEXT(_L8("CCdcControlInterface::WriteData() - Write completed"));
 		timer.Cancel();
 		User::WaitForRequest(timerStatus);
 		ret = status.Int();
 		}
 
-	OstTrace1( TRACE_NORMAL, CCDCCONTROLINTERFACE_WRITEDATA_DUP5, "CCdcControlInterface::WriteData;ret=%d", ret );
-	OstTraceFunctionExit0( CCDCCONTROLINTERFACE_WRITEDATA_EXIT_DUP1 );
+	LOGTEXT2(_L8("\treturning %d"), ret);
 	return ret;
 	}
 

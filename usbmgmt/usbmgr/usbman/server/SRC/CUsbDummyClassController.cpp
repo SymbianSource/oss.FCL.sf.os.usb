@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -20,16 +20,14 @@
  @file
 */
 
-#include <usb_std.h>
-#include <usb/usblogger.h>
 #include "CUsbDummyClassController.h"
+#include <usb_std.h>
 #include "inifile.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbDummyClassControllerTraces.h"
+#include <usb/usblogger.h>
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
 #endif
-
-
 
 _LIT(KDummyControllerPanic, "UsbDummyCC"); // must be <=16 chars
 // Panic codes
@@ -83,13 +81,12 @@ CUsbDummyClassController* CUsbDummyClassController::NewL(
  * @return Ownership of a new CUsbDummyClassController object
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_NEWL_MUSBCLASSCONTROLLERNOTIFY_TUINT_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbDummyClassController* self = new(ELeave) CUsbDummyClassController(aOwner, aIndex);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_NEWL_MUSBCLASSCONTROLLERNOTIFY_TUINT_EXIT );
 	return self;
 	}
 
@@ -106,13 +103,12 @@ CUsbDummyClassController* CUsbDummyClassController::NewL(
  * @return Ownership of a new CUsbDummyClassController object
  */
  	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_NEWL_MUSBCLASSCONTROLLERNOTIFY_TUINT_TINT_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
  	CUsbDummyClassController* self = new(ELeave) CUsbDummyClassController(aOwner, aIndex, aPriority);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_NEWL_MUSBCLASSCONTROLLERNOTIFY_TUINT_TINT_EXIT );
 	return self;
  	}
  
@@ -153,12 +149,7 @@ void CUsbDummyClassController::ConstructL()
  * Method to perform second phase construction.
  */
 	{
-    TInt err = iTimer.CreateLocal();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_CONSTRUCTL, "CUsbDummyClassController::ConstructL; iTimer.CreateLocal() error, Leave error=%d", err );
-        User::Leave(err);
-        }
+	LEAVEIFERRORL(iTimer.CreateLocal());
 	}
 
 CUsbDummyClassController::~CUsbDummyClassController()
@@ -183,19 +174,18 @@ void CUsbDummyClassController::GetBehaviour(CIniFile& aIniFile,
  * @param aBehaviour The behaviour struct to read to.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_ENTRY );
-#ifdef _DEBUG
-	OstTraceExt1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR,
-	        "CUsbDummyClassController::GetBehaviour;aSection=%S", aSection );
-#endif//_DEBUG
+	LOG_FUNC
+#ifdef __FLOG_ACTIVE
+	TBuf8<KMaxName> buf;
+	buf.Copy(aSection);
+	LOGTEXT2(_L8("\taSection = %S"), &buf);
+#endif // __FLOG_ACTIVE
 
 	TPtrC temp;
 	if ( !aIniFile.FindVar(aSection, KType(), temp) )
 		{
-		OstTraceExt1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP1, 
-		        "CUsbDummyClassController::GetBehaviour;PANICKING: can't find Type item in section %S", aSection );
-		OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP2, "CUsbDummyClassController::GetBehaviour; panic code=%d", EDummyPanicBadIniFile );
-		User::Panic(KDummyControllerPanic, EDummyPanicBadIniFile );
+		LOGTEXT2(_L8("\tPANICKING: can't find Type item in section %S"), &aSection);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadIniFile);
 		}
 	if ( temp == KSync )
 		{
@@ -211,28 +201,21 @@ void CUsbDummyClassController::GetBehaviour(CIniFile& aIniFile,
 		}
 	else
 		{
-		OstTraceExt2( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP3, 
-		        "CUsbDummyClassController::GetBehaviour;PANICKING: bad Type value (%S) in section %S", temp, aSection );
-		OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP4, "CUsbDummyClassController::GetBehaviour; panic code=%d", EDummyPanicBadIniFile );
-		User::Panic(KDummyControllerPanic, EDummyPanicBadIniFile);
+		LOGTEXT3(_L8("\tPANICKING: bad Type value (%S) in section %S"), &temp, &aSection);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadIniFile);
 		}
 	TInt delay;
 	if ( !aIniFile.FindVar(aSection, KTime(), delay) )
 		{
-		OstTraceExt1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP5, 
-		        "CUsbDummyClassController::GetBehaviour;PANICKING: can't find Time item in section %S", aSection );
-		OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP6, "CUsbDummyClassController::GetBehaviour;panic code=%d", EDummyPanicBadIniFile );
-		User::Panic(KDummyControllerPanic, EDummyPanicBadIniFile);
+		LOGTEXT2(_L8("\tPANICKING: can't find Time item in section %S"), &aSection);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadIniFile);
 		}
 	aBehaviour.iDelay = delay;
 	if ( !aIniFile.FindVar(aSection, KError(), aBehaviour.iErrorCode) )
 		{
-		OstTraceExt1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP7, 
-		        "CUsbDummyClassController::GetBehaviour;aSection=%S", aSection );
-		OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_DUP8, "CUsbDummyClassController::GetBehaviour;panic code=%d", EDummyPanicBadIniFile );
-		User::Panic(KDummyControllerPanic, EDummyPanicBadIniFile );
+		LOGTEXT2(_L8("\tPANICKING: can't find Error item in section %S"), &aSection);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadIniFile);
 		}
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_GETBEHAVIOUR_EXIT );
 	}
 
 void CUsbDummyClassController::DoGetConfigL()
@@ -240,7 +223,7 @@ void CUsbDummyClassController::DoGetConfigL()
  * Reads the config from the ini file.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_DOGETCONFIGL_ENTRY );
+	LOG_FUNC
 
 	CIniFile* iniFile = CIniFile::NewL(_L("dummy.ini"));
 	CleanupStack::PushL(iniFile);
@@ -254,7 +237,6 @@ void CUsbDummyClassController::DoGetConfigL()
 	GetBehaviour(*iniFile, section, iShutdownBehaviour);
 
 	CleanupStack::PopAndDestroy(iniFile);
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_DOGETCONFIGL_EXIT );
 	}
 
 void CUsbDummyClassController::GetConfig()
@@ -265,7 +247,7 @@ void CUsbDummyClassController::GetConfig()
  * the user to figure out what's gone wrong.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_GETCONFIG_ENTRY );
+	LOG_FUNC
 
 	// Always use dummy.ini. The entity setting up the test is responsible for 
 	// copying the correct file to c:\\dummy.ini. The first found 
@@ -273,25 +255,16 @@ void CUsbDummyClassController::GetConfig()
 	TRAPD(err, DoGetConfigL());
 	if ( err != KErrNone )
 		{
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP7, "CUsbDummyClassController::GetConfig;panic code=%d", EDummyPanicUnhandledError );
-		User::Panic(KDummyControllerPanic, EDummyPanicUnhandledError);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicUnhandledError);
 		}
 	
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG, 
-	        "CUsbDummyClassController::GetConfig; Logging dummy class controller behaviour for instance %d", iIndex );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP1, 
-	        "CUsbDummyClassController::GetConfig;iStartupBehaviour.iSynchronicity=%d", iStartupBehaviour.iSynchronicity );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP2, 
-	        "CUsbDummyClassController::GetConfig;iStartupBehaviour.iDelay.Int()=%d", iStartupBehaviour.iDelay.Int() );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP3, 
-	        "CUsbDummyClassController::GetConfig;iStartupBehaviour.iErrorCode=%d", iStartupBehaviour.iErrorCode );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP4, 
-	        "CUsbDummyClassController::GetConfig;iShutdownBehaviour.iSynchronicity=%d", iShutdownBehaviour.iSynchronicity );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP5, 
-	        "CUsbDummyClassController::GetConfig;iShutdownBehaviour.iDelay.Int()=%d", iShutdownBehaviour.iDelay.Int() );
-	OstTrace1( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_GETCONFIG_DUP6, 
-	        "CUsbDummyClassController::GetConfig;iShutdownBehaviour.iErrorCode=%d", iShutdownBehaviour.iErrorCode );
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_GETCONFIG_EXIT );
+	LOGTEXT2(_L8("\tLogging dummy class controller behaviour for instance %d"), iIndex);
+	LOGTEXT2(_L8("\tiStartupBehaviour.iSynchronicity = %d"), iStartupBehaviour.iSynchronicity);
+	LOGTEXT2(_L8("\tiStartupBehaviour.iDelay = %d"), iStartupBehaviour.iDelay.Int());
+	LOGTEXT2(_L8("\tiStartupBehaviour.iErrorCode = %d"), iStartupBehaviour.iErrorCode);
+	LOGTEXT2(_L8("\tiShutdownBehaviour.iSynchronicity = %d"), iShutdownBehaviour.iSynchronicity);
+	LOGTEXT2(_L8("\tiShutdownBehaviour.iDelay = %d"), iShutdownBehaviour.iDelay.Int());
+	LOGTEXT2(_L8("\tiShutdownBehaviour.iErrorCode = %d"), iShutdownBehaviour.iErrorCode);
 	}
 
 void CUsbDummyClassController::Start(TRequestStatus& aStatus)
@@ -301,16 +274,11 @@ void CUsbDummyClassController::Start(TRequestStatus& aStatus)
  * @param aStatus Will be completed with success or failure.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_START_ENTRY );
+	LOG_FUNC
 	
-	//Start() should only be called if the CC is idle or started	
-	
-	if(!(iState == EUsbServiceIdle || iState == EUsbServiceStarted))
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_START, "CUsbDummyClassController::Start;panic code=%d", EDummyPanicBadApiCallStart );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicBadApiCallStart) );
-	    }
+	//Start() should only be called if the CC is idle or started		
+	__ASSERT_DEBUG((iState == EUsbServiceIdle || iState == EUsbServiceStarted), 
+							_USB_PANIC(KDummyControllerPanic, EDummyPanicBadApiCallStart) );
 
 	// Get config from ini file. Note that can't be done once in ConstructL 
 	// because then, in the case of a CC which doesn't Stop, we'd never be 
@@ -318,12 +286,8 @@ void CUsbDummyClassController::Start(TRequestStatus& aStatus)
 	GetConfig();
 
 	// NB We enforce that the device doesn't re-post requests on us.
-	if(iReportStatus)
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_START_DUP1, "CUsbDummyClassController::Start;panic code=%d", EDummyPanicOutstandingRequestFromDevice );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicOutstandingRequestFromDevice));
-	    }
+	__ASSERT_DEBUG(!iReportStatus, 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicOutstandingRequestFromDevice));
 	aStatus = KRequestPending;
 	iReportStatus = &aStatus;
 	
@@ -340,13 +304,7 @@ void CUsbDummyClassController::Start(TRequestStatus& aStatus)
 
 	case EAsynchronous:
 		iTimer.After(iStatus, iStartupBehaviour.iDelay);
-#ifdef _DEBUG
-		if(IsActive())
-		    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_START_DUP2, "CUsbDummyClassController::Start;panic code=%d", EDummyPanicAlreadyActive );
-            User::Panic(KDummyControllerPanic, EDummyPanicAlreadyActive);
-		    }
-#endif
+		__ASSERT_DEBUG(!IsActive(), _USB_PANIC(KDummyControllerPanic, EDummyPanicAlreadyActive));		
 		SetActive();
 		break;
 
@@ -355,11 +313,9 @@ void CUsbDummyClassController::Start(TRequestStatus& aStatus)
 		break;
 
 	default:
-	    OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_START_DUP3, "CUsbDummyClassController::Start;panic code=%d", EDummyPanicBadSynchronicity );
-	    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity);
 		break;
 		}
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_START_EXIT );
 	}
 
 void CUsbDummyClassController::Stop(TRequestStatus& aStatus)
@@ -369,15 +325,11 @@ void CUsbDummyClassController::Stop(TRequestStatus& aStatus)
  * @param aStatus Will be completed with success or failure.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_STOP_ENTRY );
+	LOG_FUNC
 		
 	//Stop() should only be called if the CC is Started or Idle
-	if(!(iState == EUsbServiceStarted || iState == EUsbServiceIdle))
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_STOP, "CUsbDummyClassController::Stop;panic code=%d", EDummyPanicBadApiCallStop );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicBadApiCallStop));
-	    }
+	__ASSERT_DEBUG((iState == EUsbServiceStarted || iState == EUsbServiceIdle), 
+				_USB_PANIC(KDummyControllerPanic, EDummyPanicBadApiCallStop));
 	
 	// Get config from ini file. Note that can't be done once in ConstructL 
 	// because then, in the case of a CC which doesn't Stop, we'd never be 
@@ -385,12 +337,8 @@ void CUsbDummyClassController::Stop(TRequestStatus& aStatus)
 	GetConfig();
 
 	// NB We enforce that the device doesn't re-post requests on us.
-	if(iReportStatus)
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_STOP_DUP1, "CUsbDummyClassController::Stop;panic code=%d", EDummyPanicOutstandingRequestFromDevice );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicOutstandingRequestFromDevice));
-	    }
+	__ASSERT_DEBUG(!iReportStatus, 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicOutstandingRequestFromDevice));
 	aStatus = KRequestPending;
 	iReportStatus = &aStatus;
 
@@ -407,13 +355,7 @@ void CUsbDummyClassController::Stop(TRequestStatus& aStatus)
 
 	case EAsynchronous:
 		iTimer.After(iStatus, iShutdownBehaviour.iDelay);
-#ifdef _DEBUG
-    	if(IsActive())
-    	    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_STOP_DUP2, "CUsbDummyClassController::Stop;panic code=%d", EDummyPanicAlreadyActive );
-            User::Panic(KDummyControllerPanic, EDummyPanicAlreadyActive);
-    	    }
-#endif
+    	__ASSERT_DEBUG(!IsActive(), _USB_PANIC(KDummyControllerPanic, EDummyPanicAlreadyActive));		
 		SetActive();
 		break;
 
@@ -422,11 +364,9 @@ void CUsbDummyClassController::Stop(TRequestStatus& aStatus)
 		break;
 
 	default:
-	    OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_STOP_DUP3, "CUsbDummyClassController::Stop;panic code=%d", EDummyPanicBadSynchronicity );
-	    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity);
 		break;
 		}
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_STOP_EXIT );
 	}
 
 void CUsbDummyClassController::GetDescriptorInfo(TUsbDescriptor& aDescriptorInfo) const
@@ -445,9 +385,8 @@ void CUsbDummyClassController::RunL()
  * Standard active object RunL. 
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_RUNL_ENTRY );
-	OstTraceExt2( TRACE_NORMAL, CUSBDUMMYCLASSCONTROLLER_RUNL, "CUsbDummyClassController::RunL;iStatus.Int()=%d;iState=%d", iStatus.Int(), iState );
-
+	LOGTEXT3(_L8(">>CUsbDummyClassController::RunL [iStatus=%d,iState=%d]"),
+			iStatus.Int(), iState);
 
 	if ( iStatus != KErrNone )
 		{
@@ -455,27 +394,18 @@ void CUsbDummyClassController::RunL()
 		// there's no point trying to code round them. This is part of the 
 		// test framework and if it's failing we want to alert the user 
 		// without faffing around. (It invalidates the test.)
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNL_DUP1, "CUsbDummyClassController::RunL;panic code=%d", EDummyPanicUnhandledError );
-        User::Panic(KDummyControllerPanic, EDummyPanicUnhandledError);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicUnhandledError);
 		}								  
 
-	if(!iReportStatus)
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNL_DUP2, "CUsbDummyClassController::RunL;panic code=%d", EDummyPanicBadState );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicBadState));
-	    }
+	__ASSERT_DEBUG(iReportStatus, 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState));
 
 	switch ( iState )
 		{
 	case EUsbServiceStarting:
 		// Completion of asynchronous startup...
-		if(iStartupBehaviour.iSynchronicity != EAsynchronous)
-		    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNL_DUP3, "CUsbDummyClassController::RunL;panic code=%d", EDummyPanicBadSynchronicity );
-            __ASSERT_DEBUG(EFalse, 
-                    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity));
-		    }
+		__ASSERT_DEBUG(iStartupBehaviour.iSynchronicity == EAsynchronous, 
+			_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity));
 		iState = EUsbServiceStarted;
 		User::RequestComplete(iReportStatus, iStartupBehaviour.iErrorCode);
 		iReportStatus = NULL;
@@ -483,12 +413,8 @@ void CUsbDummyClassController::RunL()
 
 	case EUsbServiceStopping:
 		// Completion of asynchronous shutdown...
-		if(iShutdownBehaviour.iSynchronicity != EAsynchronous)
-		    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNL_DUP4, "CUsbDummyClassController::RunL;panic code=%d", EDummyPanicBadSynchronicity );
-            __ASSERT_DEBUG(EFalse, 
-                    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity));
-		    }
+		__ASSERT_DEBUG(iShutdownBehaviour.iSynchronicity == EAsynchronous, 
+			_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity));
 		iState = EUsbServiceIdle;
 		User::RequestComplete(iReportStatus, iShutdownBehaviour.iErrorCode);
 		iReportStatus = NULL;
@@ -497,12 +423,11 @@ void CUsbDummyClassController::RunL()
 	case EUsbServiceIdle:
 	case EUsbServiceStarted:
 	default:
-	    OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNL_DUP5, "CUsbDummyClassController::RunL;panic code=%d", EDummyPanicBadState );
-	    User::Panic(KDummyControllerPanic, EDummyPanicBadState);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState);
 		break;
 		}
 
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbDummyClassController::RunL"));
 	}
 
 void CUsbDummyClassController::DoCancel()
@@ -510,7 +435,7 @@ void CUsbDummyClassController::DoCancel()
  * Standard active object cancellation function. 
  */
 	{
-	OstTraceFunctionEntry0( CUSBDUMMYCLASSCONTROLLER_DOCANCEL_ENTRY );
+	LOG_FUNC
 
 	// Note that CActive::Cancel does not call DoCancel unless we are active. 
 	// Therefore we are at this point active. Therefore, we should have 
@@ -526,13 +451,8 @@ void CUsbDummyClassController::DoCancel()
 	// the middle of a Start, then immediately issue another Start.
 	
 	// Cancel our own asynchronous operation.
-#ifdef _DEBUG
-	if(!iTimer.Handle())
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_DOCANCEL, "CUsbDummyClassController::DoCancel;panic code=%d", EDummyPanicBadState ); 
-                User::Panic(KDummyControllerPanic, EDummyPanicBadState);
-	    }
-#endif
+	__ASSERT_DEBUG(iTimer.Handle(), 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState));
 	iTimer.Cancel();
 
 	// Update our iState. If we're starting, then roll back to idle. If we're 
@@ -540,43 +460,29 @@ void CUsbDummyClassController::DoCancel()
 	switch ( iState )
 		{
 	case EUsbServiceStarting:
-		if(iStartupBehaviour.iSynchronicity != EAsynchronous)
-		    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_DOCANCEL_DUP1, "CUsbDummyClassController::DoCancel;panic code=%d", EDummyPanicBadSynchronicity );
-            __ASSERT_DEBUG(EFalse, 
-                    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity));
-		    }
+		__ASSERT_DEBUG(iStartupBehaviour.iSynchronicity == EAsynchronous, 
+			_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity));
 		iState = EUsbServiceIdle;
 		break;
 
 	case EUsbServiceStopping:
-		if(iShutdownBehaviour.iSynchronicity != EAsynchronous)
-		    {
-            OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_DOCANCEL_DUP2, "CUsbDummyClassController::DoCancel;panic code=%d", EDummyPanicBadSynchronicity );
-            __ASSERT_DEBUG(EFalse, 
-                    User::Panic(KDummyControllerPanic, EDummyPanicBadSynchronicity));
-		    }
+		__ASSERT_DEBUG(iShutdownBehaviour.iSynchronicity == EAsynchronous, 
+			_USB_PANIC(KDummyControllerPanic, EDummyPanicBadSynchronicity));
 		iState = EUsbServiceStarted;
 		break;
 
 	case EUsbServiceIdle:
 	case EUsbServiceStarted:
 	default:
-	    OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_DOCANCEL_DUP3, "CUsbDummyClassController::DoCancel;panic code=%d", EDummyPanicBadState );
-	    User::Panic(KDummyControllerPanic, EDummyPanicBadState);
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState);
 		break;
 		}
 
-	// Complete the client's request.
-	if(!iReportStatus)
-	    {
-        OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_DOCANCEL_DUP4, "CUsbDummyClassController::DoCancel;panic code=%d", EDummyPanicBadState );
-        __ASSERT_DEBUG(EFalse, 
-                User::Panic(KDummyControllerPanic, EDummyPanicBadState));
-	    }
+	// Complete the client's request.	
+	__ASSERT_DEBUG(iReportStatus, 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState));
 	User::RequestComplete(iReportStatus, KErrCancel); 
 	iReportStatus = NULL;
-	OstTraceFunctionExit0( CUSBDUMMYCLASSCONTROLLER_DOCANCEL_EXIT );
 	}
 
 TInt CUsbDummyClassController::RunError(TInt /*aError*/)
@@ -587,9 +493,8 @@ TInt CUsbDummyClassController::RunError(TInt /*aError*/)
  * should never be called as there is another mechanism for catching errors.
  */
 	{
-    OstTrace1( TRACE_FATAL, CUSBDUMMYCLASSCONTROLLER_RUNERROR, "CUsbDummyClassController::RunError;panic code=%d", EDummyPanicBadState );
-    __ASSERT_DEBUG(EFalse,
-            User::Panic(KDummyControllerPanic, EDummyPanicBadState));
+	__ASSERT_DEBUG(EFalse, 
+		_USB_PANIC(KDummyControllerPanic, EDummyPanicBadState));
 	return KErrNone;
 	}
 

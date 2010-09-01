@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,15 +21,14 @@
  @file
 */
 
+#include <usb/usblogger.h>
 #include "CUsbScheduler.h"
 #include "CUsbDeviceStateWatcher.h"
 #include "CUsbDevice.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbDeviceStateWatcherTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
 #endif
-
-
 
 /**
  * The CUsbDeviceStateWatcher::NewL method
@@ -44,10 +43,9 @@
  */
 CUsbDeviceStateWatcher* CUsbDeviceStateWatcher::NewL(CUsbDevice& aOwner, RDevUsbcClient& aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBDEVICESTATEWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbDeviceStateWatcher* r = new (ELeave) CUsbDeviceStateWatcher(aOwner, aLdd);
-	OstTraceFunctionExit0( CUSBDEVICESTATEWATCHER_NEWL_EXIT );
 	return r;
 	}
 
@@ -61,8 +59,7 @@ CUsbDeviceStateWatcher* CUsbDeviceStateWatcher::NewL(CUsbDevice& aOwner, RDevUsb
  */
 CUsbDeviceStateWatcher::~CUsbDeviceStateWatcher()
 	{
-	OstTrace1( TRACE_NORMAL, CUSBDEVICESTATEWATCHER_CUSBDEVICESTATEWATCHER, 
-	        "CUsbDeviceStateWatcher::~CUsbDeviceStateWatcher;  this=(0x%08x)", (TUint32)this );
+	LOGTEXT2(_L8(">CUsbDeviceStateWatcher::~CUsbDeviceStateWatcher (0x%08x)"), (TUint32) this);
 	Cancel();
 	}
 
@@ -88,21 +85,19 @@ void CUsbDeviceStateWatcher::RunL()
 	{
 	if (iStatus.Int() != KErrNone)
 		{
-		OstTrace1( TRACE_NORMAL, CUSBDEVICESTATEWATCHER_RUNL, 
-		        "CUsbDeviceStateWatcher::RunL;Error=%d", iStatus.Int() );
+		LOGTEXT2(_L8("CUsbDeviceStateWatcher::RunL() - Error = %d"), iStatus.Int());
 		return;
 		}
 
-	OstTrace1( TRACE_NORMAL, CUSBDEVICESTATEWATCHER_RUNL_DUP1, "CUsbDeviceStateWatcher::RunL; - State Changed to %u", iState );
-	
+	LOGTEXT2(_L8("CUsbDeviceStateWatcher::RunL() - State Changed to %d"), iState);
+
 	if (!(iState & KUsbAlternateSetting))
 		iOwner.SetDeviceState((TUsbcDeviceState) iState);
 
-	OstTrace0( TRACE_NORMAL, CUSBDEVICESTATEWATCHER_RUNL_DUP2, 
-	        "CUsbDeviceStateWatcher::RunL - About to call DeviceStatusNotify" );
+	LOGTEXT(_L8("CUsbDeviceStateWatcher::RunL() - About to call DeviceStatusNotify"));
 	iLdd.AlternateDeviceStatusNotify(iStatus, iState);
 	SetActive();
-	OstTrace0( TRACE_NORMAL, CUSBDEVICESTATEWATCHER_RUNL_DUP3, "CUsbDeviceStateWatcher::RunL - Called DeviceStatusNotify" );
+	LOGTEXT(_L8("CUsbDeviceStateWatcher::RunL() - Called DeviceStatusNotify"));
 	}
 
 
@@ -111,9 +106,8 @@ void CUsbDeviceStateWatcher::RunL()
  */
 void CUsbDeviceStateWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBDEVICESTATEWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.AlternateDeviceStatusNotifyCancel();
-	OstTraceFunctionExit0( CUSBDEVICESTATEWATCHER_DOCANCEL_EXIT );
 	}
 
 
@@ -122,8 +116,7 @@ void CUsbDeviceStateWatcher::DoCancel()
  */
 void CUsbDeviceStateWatcher::Start()
 	{
-	OstTraceFunctionEntry0( CUSBDEVICESTATEWATCHER_START_ENTRY );
+	LOG_FUNC
 	iLdd.AlternateDeviceStatusNotify(iStatus, iState);
 	SetActive();
-	OstTraceFunctionExit0( CUSBDEVICESTATEWATCHER_START_EXIT );
 	}

@@ -32,9 +32,8 @@ RESOURCE BA_RSS_SIGNATURE
 
 RESOURCE USBMASSSTORAGE_CONFIG usbms_config
 	{
-    vendorId    = "Nokia";  	    // no more than 8 characters
-    productId   = "S60";      // no more than 16 characters
-    productRev  = "1.0";    	    // no more than 4 characters
+    vendorId    = "vendorId";      	// no more than 8 characters
+    productId   = "productId";      // no more than 16 characters
+    productRev  = "rev";    	    // no more than 4 characters
     }
-
 

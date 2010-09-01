@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,13 +15,16 @@
 *
 */
 
-#include <usb/usblogger.h>
+
 #include "activewaitforecomevent.h"
+#include <usb/usblogger.h>
 #include "utils.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "activewaitforecomeventTraces.h"
+
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdf      ");
 #endif
+
 #ifdef _DEBUG
 _LIT( KFdfEcomEventAOPanicCategory, "FdfEcomEventAO" );
 #endif
@@ -30,20 +33,17 @@ CActiveWaitForEComEvent::CActiveWaitForEComEvent(MEComEventObserver& aObserver)
 :	CActive(CActive::EPriorityStandard),
 	iObserver(aObserver)
 	{
-    OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_CACTIVEWAITFORECOMEVENT_CONS_ENTRY );
-    
+	LOG_FUNC
+
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_CACTIVEWAITFORECOMEVENT_CONS_EXIT );
 	}
 
 CActiveWaitForEComEvent::~CActiveWaitForEComEvent()
 	{
-	OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_CACTIVEWAITFORECOMEVENT_DES_ENTRY );
-	
-    Cancel();
+	LOG_FUNC
+	Cancel();
 	iEComSession.Close();
 	REComSession::FinalClose();
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_CACTIVEWAITFORECOMEVENT_DES_EXIT );
 	}
 
 CActiveWaitForEComEvent* CActiveWaitForEComEvent::NewL(MEComEventObserver& aObserver)
@@ -63,36 +63,30 @@ void CActiveWaitForEComEvent::ConstructL()
 
 void CActiveWaitForEComEvent::Wait()
 	{
-    OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_WAIT_ENTRY );
-    
+	LOG_FUNC
 	iEComSession.NotifyOnChange(iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_WAIT_EXIT );
 	}
 
 void CActiveWaitForEComEvent::RunL()
 	{
-	OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_RUNL_ENTRY );
-	
-    iObserver.EComEventReceived();
+	LOG_LINE
+	LOG_FUNC
+	iObserver.EComEventReceived();
 	Wait();
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_RUNL_EXIT );
 	}
 
 void CActiveWaitForEComEvent::DoCancel()
 	{
-    OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_DOCANCEL_ENTRY );
-    
+	LOG_FUNC
 	iEComSession.CancelNotifyOnChange(iStatus);
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_DOCANCEL_EXIT );
 	}
 
 TInt CActiveWaitForEComEvent::RunError(TInt aError)
 	{
-	OstTraceFunctionEntry0( CACTIVEWAITFORECOMEVENT_RUNERROR_ENTRY );
-	OstTrace1( TRACE_FATAL, CACTIVEWAITFORECOMEVENT_RUNERROR, "ECOM change notification error = %d ", aError );
-	
-    __ASSERT_DEBUG(EFalse,User::Panic(KFdfEcomEventAOPanicCategory, aError));
-	OstTraceFunctionExit0( CACTIVEWAITFORECOMEVENT_RUNERROR_EXIT );
+	LOG_LINE
+	LOG_FUNC
+	LOGTEXT2(_L8("ECOM change notification error = %d "), aError);
+	__ASSERT_DEBUG(EFalse, _USB_PANIC(KFdfEcomEventAOPanicCategory, aError));
 	return KErrNone;
 	}

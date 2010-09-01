@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE testSuite SYSTEM "file:///c:/program files/common files/symbian/testSuite.dtd" [ ]>
+
+<testSuite>
+
+	<name>UsbRomConfigSuite</name>
+
+	<testItems>
+		<suite>UsbExcSuite</suite>
+		<suite>UsbIncSuite</suite>
+	</testItems>
+
+	<testExecuteServers>
+		<server>TestServerSymbianExcludeUsb</server>
+	</testExecuteServers>
+
+</testSuite>

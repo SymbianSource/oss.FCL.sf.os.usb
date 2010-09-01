@@ -119,16 +119,16 @@ void CObexClientHandler::ConstructL(TTransport aTransport)
 	
 	// Create file session and create a new private path on drive C
 	RFs fileSession;
-	User::LeaveIfError(fileSession.Connect());
+	fileSession.Connect();
 	
-	User::LeaveIfError(fileSession.CreatePrivatePath(EDriveC));
-	User::LeaveIfError(fileSession.SetSessionToPrivate(EDriveC));	
-	User::LeaveIfError(fileSession.SessionPath(iSessionPath));
+	fileSession.CreatePrivatePath(EDriveC);
+	fileSession.SetSessionToPrivate(EDriveC);	
+	fileSession.SessionPath(iSessionPath);
 	
 	// Copy the files from oby file ro the newly created path
-	User::LeaveIfError(BaflUtils::CopyFile(fileSession, KFilePath1, KFilename1,0));
-	User::LeaveIfError(BaflUtils::CopyFile(fileSession, KFilePath2, KFilename2,0));
-	User::LeaveIfError(BaflUtils::CopyFile(fileSession, KFilePath3, KFilename3,0));
+	BaflUtils::CopyFile(fileSession, KFilePath1, KFilename1,0);
+	BaflUtils::CopyFile(fileSession, KFilePath2, KFilename2,0);
+	BaflUtils::CopyFile(fileSession, KFilePath3, KFilename3,0);
  
 	fileSession.Close();
 	

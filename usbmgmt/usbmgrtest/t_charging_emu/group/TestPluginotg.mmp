@@ -47,17 +47,16 @@ START RESOURCE 1020DEA7.rss
 target usbbatterychargingtestpluginotg.rsc
 END
 
-USERINCLUDE		../inc 
-USERINCLUDE     ../../../usbmgr/usbman/chargingplugin/inc
+USERINCLUDE		../inc ../../../usbmgr/usbman/chargingplugin/inc
 USERINCLUDE		../../../usbmgr/usbman/chargingplugin/inc/default
 USERINCLUDE		../../../usbmgr/usbman/chargingplugin/public
-USERINCLUDE		../traces
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
 LIBRARY 		euser.lib 
 LIBRARY 		usbmanextensionplugin.lib 
 LIBRARY			centralrepository.lib
 
+#include <usb/usblogger.mmh>
 
 library	flogger.lib
 

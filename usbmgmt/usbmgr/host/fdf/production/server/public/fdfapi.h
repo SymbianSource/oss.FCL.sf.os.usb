@@ -28,14 +28,14 @@
 #ifdef __OVER_DUMMYUSBDI__
 const TUint32 KUsbFdfTUint = 0x10282B50;
 _LIT(KUsbFdfImg, "fdf_over_dummyusbdi.exe");
-_LIT(KUsbFdfServerName, "!FdfSrv_over_dummyusbdi");
 #else
 const TUint32 KUsbFdfTUint = 0x10282B48;
 _LIT(KUsbFdfImg, "fdf.exe");
-_LIT(KUsbFdfServerName, "!FdfSrv");
 #endif
 
 const TUid KUsbFdfUid = {KUsbFdfTUint};
+
+_LIT(KUsbFdfServerName, "!FdfSrv");
 
 /** Version numbers. */
 const TInt8 KUsbFdfSrvMajorVersionNumber = 1;

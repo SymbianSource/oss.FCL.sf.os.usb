@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -22,11 +22,11 @@
 #include "AcmPanic.h"
 #include "WriteObserver.h"
 #include "AcmUtils.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "ActiveWriterTraces.h"
-#endif
+#include <usb/usblogger.h>
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
+#endif
 
 CActiveWriter::CActiveWriter(MWriteObserver& aParent, RDevUsbcClient& aLdd, TEndpointNumber aEndpoint)
  :	CActive(KEcacmAOPriority), 
@@ -44,9 +44,7 @@ CActiveWriter::CActiveWriter(MWriteObserver& aParent, RDevUsbcClient& aLdd, TEnd
  * @param aEndpoint The endpoint to write to.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_CACTIVEWRITER_CONS_ENTRY );
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CACTIVEWRITER_CACTIVEWRITER_CONS_EXIT );
 	}
 
 CActiveWriter::~CActiveWriter()
@@ -54,9 +52,9 @@ CActiveWriter::~CActiveWriter()
  * Destructor.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_CACTIVEWRITER_DES_ENTRY );
+	LOG_FUNC
+
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEWRITER_CACTIVEWRITER_DES_EXIT );
 	}
 
 CActiveWriter* CActiveWriter::NewL(MWriteObserver& aParent, 
@@ -72,9 +70,9 @@ CActiveWriter* CActiveWriter::NewL(MWriteObserver& aParent,
  * @return Ownership of a new CActiveWriter object.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
+
 	CActiveWriter* self = new(ELeave) CActiveWriter(aParent, aLdd, aEndpoint);
-	OstTraceFunctionExit0( CACTIVEWRITER_NEWL_EXIT );
 	return self;
 	}
 
@@ -89,8 +87,8 @@ void CActiveWriter::Write(const TDesC8& aDes,
  * @param aZlp Whether ZLP termination may be required.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_WRITE_ENTRY );
-	
+	LOGTEXT(_L8(">>CActiveWriter::Write"));
+
 	if ( aZlp )
 		{
 		// the driver can be relied on to correctly handle appended ZLPs
@@ -111,7 +109,7 @@ void CActiveWriter::Write(const TDesC8& aDes,
 			{
 			iLdd.Write(iStatus, iEndpoint, aDes, aLen, EFalse);
 			iWritingState = ECompleteMessage;
-			OstTrace1( TRACE_NORMAL, CACTIVEWRITER_WRITE, "CActiveWriter::Write;Writing %d bytes", aLen );
+			LOGTEXT2(_L8("CActiveWriter::Writing %d bytes"), aLen);
 			}
 		else
 			{
@@ -127,12 +125,12 @@ void CActiveWriter::Write(const TDesC8& aDes,
 			iLdd.Write(iStatus, iEndpoint, iFirstPortion, aLen-1, EFalse);
 			
 			iWritingState = EFirstMessagePart;
-			OstTraceExt2( TRACE_NORMAL, CACTIVEWRITER_WRITE_DUP1, 
-					"CActiveWriter::Write;Writing %d bytes of the %d", aLen-1, aLen );
+			LOGTEXT3(_L8("CActiveWriter::Writing %d bytes of the %d"), aLen-1, aLen);
 			}
 		}
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEWRITER_WRITE_EXIT );
+
+	LOGTEXT(_L8("<<CActiveWriter::Write"));
 	}
 
 void CActiveWriter::DoCancel()
@@ -140,9 +138,9 @@ void CActiveWriter::DoCancel()
  * Cancel an outstanding write.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_DOCANCEL_ENTRY );
+	LOG_FUNC
+
 	iLdd.WriteCancel(iEndpoint);
-	OstTraceFunctionExit0( CACTIVEWRITER_DOCANCEL_EXIT );
 	}
 
 void CActiveWriter::RunL()
@@ -151,8 +149,8 @@ void CActiveWriter::RunL()
  * parent class of the completion.
  */
 	{
-	OstTraceFunctionEntry0( CACTIVEWRITER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CACTIVEWRITER_RUNL, "CActiveWriter::RunL;iStatus=%d", iStatus.Int() );
+	LOG_LINE
+	LOGTEXT2(_L8(">>CActiveWriter::RunL iStatus=%d"), iStatus.Int());
 	
 	if ( iWritingState == EFirstMessagePart )
 		{
@@ -161,8 +159,8 @@ void CActiveWriter::RunL()
 			// now send the second part..
 			iLdd.Write(iStatus, iEndpoint, iSecondPortion, iSecondPortion.Length(), EFalse);
 			iWritingState = EFinalMessagePart;
-			OstTrace0( TRACE_NORMAL, CACTIVEWRITER_RUNL_DUP1, 
-					"CActiveWriter::RunL;Writing 1 byte to complete original nx64 byte message" );
+			LOGTEXT(_L8("CActiveWriter::Writing 1 byte to complete original nx64 byte message"));
+
 			SetActive();
 			}
 		else
@@ -177,7 +175,7 @@ void CActiveWriter::RunL()
 		iParent.WriteCompleted(iStatus.Int());
 		}
 		
-	OstTraceFunctionExit0( CACTIVEWRITER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CActiveWriter::RunL"));
 	}
 
 //

@@ -48,13 +48,7 @@ CIdPinWatcher::CIdPinWatcher(MOtgPropertiesObserver* aObserver)
 
 void CIdPinWatcher::ConstructL()
 	{
-#ifdef __CHARGING_PLUGIN_TEST_CODE__
-    const TInt8 KPropertyOffsetForChargingTest = 100;
-    User::LeaveIfError(iIdPinProp.Attach(KUidUsbManCategory, KUsbOtgIdPinPresentProperty + KPropertyOffsetForChargingTest));
-#else
-    User::LeaveIfError(iIdPinProp.Attach(KUidUsbManCategory, KUsbOtgIdPinPresentProperty));
-#endif
-    
+	User::LeaveIfError(iIdPinProp.Attach(KUidUsbManCategory, KUsbOtgIdPinPresentProperty));
 	iIdPinProp.Subscribe(iStatus);
 	SetActive();
 

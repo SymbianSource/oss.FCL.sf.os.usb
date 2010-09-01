@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,16 +21,15 @@
  @file
 */
 
-#include <usb/usbshared.h>
 #include <usb/usblogger.h>
 #include "CUsbScheduler.h"
 #include "cusbotgwatcher.h"
 #include "CUsbOtg.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "cusbotgwatcherTraces.h"
-#endif
+#include <usb/usbshared.h>
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR-OTGWATCHER");
+#endif
 
 static _LIT_SECURITY_POLICY_PASS(KAllowAllPolicy);
 static _LIT_SECURITY_POLICY_S1(KNetworkControlPolicy,KUsbmanSvrSid,ECapabilityNetworkControl);
@@ -51,9 +50,8 @@ static _LIT_SECURITY_POLICY_C1(KRequestSessionPolicy,ECapabilityCommDD);
 CUsbOtgBaseWatcher::CUsbOtgBaseWatcher(RUsbOtgDriver& aLdd)
 	: CActive(CActive::EPriorityStandard), iLdd(aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGBASEWATCHER_CUSBOTGBASEWATCHER_CONS_ENTRY );
+	LOG_FUNC
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CUSBOTGBASEWATCHER_CUSBOTGBASEWATCHER_CONS_EXIT );
 	}
 
 /**
@@ -65,9 +63,8 @@ CUsbOtgBaseWatcher::CUsbOtgBaseWatcher(RUsbOtgDriver& aLdd)
  */
 CUsbOtgBaseWatcher::~CUsbOtgBaseWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGBASEWATCHER_CUSBOTGBASEWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
-	OstTraceFunctionExit0( CUSBOTGBASEWATCHER_CUSBOTGBASEWATCHER_DES_EXIT );
 	}
 
 /**
@@ -75,9 +72,8 @@ CUsbOtgBaseWatcher::~CUsbOtgBaseWatcher()
  */
 void CUsbOtgBaseWatcher::Start()
 	{
-	OstTraceFunctionEntry0( CUSBOTGBASEWATCHER_START_ENTRY );
+	LOG_FUNC
 	Post();
-	OstTraceFunctionExit0( CUSBOTGBASEWATCHER_START_EXIT );
 	}
 
 //---------------------------- Id-Pin watcher class --------------------------- 
@@ -93,13 +89,12 @@ void CUsbOtgBaseWatcher::Start()
  */
 CUsbOtgIdPinWatcher* CUsbOtgIdPinWatcher::NewL(RUsbOtgDriver& aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgIdPinWatcher* self = new (ELeave) CUsbOtgIdPinWatcher(aLdd);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_NEWL_EXIT );
 	return self;
 	}
 
@@ -113,10 +108,9 @@ CUsbOtgIdPinWatcher* CUsbOtgIdPinWatcher::NewL(RUsbOtgDriver& aLdd)
  */
 CUsbOtgIdPinWatcher::~CUsbOtgIdPinWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_CUSBOTGIDPINWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
 	RProperty::Delete(KUsbOtgIdPinPresentProperty);
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_CUSBOTGIDPINWATCHER_DES_EXIT );
 	}
 
 void CUsbOtgIdPinWatcher::ConstructL()
@@ -124,7 +118,7 @@ void CUsbOtgIdPinWatcher::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 
 	TInt err = RProperty::Define(KUsbOtgIdPinPresentProperty, RProperty::EInt, KAllowAllPolicy, KNetworkControlPolicy);
 	if ( err != KErrNone && err != KErrAlreadyExists )
@@ -136,7 +130,6 @@ void CUsbOtgIdPinWatcher::ConstructL()
 	    {
 	    User::LeaveIfError(err);
 	    }
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -150,8 +143,7 @@ void CUsbOtgIdPinWatcher::ConstructL()
 CUsbOtgIdPinWatcher::CUsbOtgIdPinWatcher(RUsbOtgDriver& aLdd)
 	: CUsbOtgBaseWatcher(aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_CUSBOTGIDPINWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_CUSBOTGIDPINWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 /**
@@ -159,19 +151,14 @@ CUsbOtgIdPinWatcher::CUsbOtgIdPinWatcher(RUsbOtgDriver& aLdd)
  */
 void CUsbOtgIdPinWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_RUNL, "CUsbOtgIdPinWatcher::RunL;iStatus=%d", iStatus.Int() );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::RunL [iStatus=%d]"), iStatus.Int());
 
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_RUNL_DUP1, "CUsbOtgIdPinWatcher::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
+	LEAVEIFERRORL(iStatus.Int());
 	
 	Post();
 
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbOtgIdPinWatcher::RunL"));
 	}
 
 
@@ -180,9 +167,8 @@ void CUsbOtgIdPinWatcher::RunL()
  */
 void CUsbOtgIdPinWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgIdPinNotification();
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -190,45 +176,38 @@ void CUsbOtgIdPinWatcher::DoCancel()
  */
 void CUsbOtgIdPinWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGIDPINWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST, "CUsbOtgIdPinWatcher::Post - About to call QueueOtgIdPinNotification" );
-	
+	LOGTEXT(_L8("CUsbOtgIdPinWatcher::Post() - About to call QueueOtgIdPinNotification"));
 	iLdd.QueueOtgIdPinNotification(iOtgIdPin, iStatus);
 	switch (iOtgIdPin)
 		{
 		case RUsbOtgDriver::EIdPinAPlug:
 			if (RProperty::Set(KUidUsbManCategory,KUsbOtgIdPinPresentProperty,ETrue) != KErrNone)
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST_DUP1, 
-				        "CUsbOtgIdPinWatcher::Post; [iOtgIdPin=%d] - failed to set the property value", iOtgIdPin );				
+				LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::Post [iOtgIdPin=%d] - failed to set the property value"), iOtgIdPin);
 				}
 			else
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST_DUP2, 
-				        "CUsbOtgIdPinWatcher::Post; [iOtgIdPin=%d] - property is set to 1", iOtgIdPin );				
+				LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::Post [iOtgIdPin=%d] - property is set to 1"), iOtgIdPin);
 				}
 			break;
 		case RUsbOtgDriver::EIdPinBPlug:
 		case RUsbOtgDriver::EIdPinUnknown:
 			if (RProperty::Set(KUidUsbManCategory,KUsbOtgIdPinPresentProperty,EFalse) != KErrNone)
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST_DUP3, 
-				        "CUsbOtgIdPinWatcher::Post; [iOtgIdPin=%d] - failed to set the property value", iOtgIdPin );				
+				LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::Post [iOtgIdPin=%d] - failed to set the property value"), iOtgIdPin);
 				}
 			else
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST_DUP4, 
-				        "CUsbOtgIdPinWatcher::Post; [iOtgIdPin=%d] - property is set to 0", iOtgIdPin );				
+				LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::Post [iOtgIdPin=%d] - property is set to 0"), iOtgIdPin);
 				}
 			break;
 		default:
-			OstTrace1( TRACE_NORMAL, CUSBOTGIDPINWATCHER_POST_DUP5, 
-			        "CUsbOtgIdPinWatcher::Post; [iOtgIdPin=%d] is unrecognized, re-request QueueOtgIdPinNotification", iOtgIdPin );
+			LOGTEXT2(_L8(">>CUsbOtgIdPinWatcher::Post [iOtgIdPin=%d] is unrecognized, re-request QueueOtgIdPinNotification"), iOtgIdPin);
 			break;
 		}
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGIDPINWATCHER_POST_EXIT );
 	}
 
 //----------------------------- VBus watcher class ---------------------------- 
@@ -244,13 +223,12 @@ void CUsbOtgIdPinWatcher::Post()
  */
 CUsbOtgVbusWatcher* CUsbOtgVbusWatcher::NewL(RUsbOtgDriver& aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgVbusWatcher* self = new (ELeave) CUsbOtgVbusWatcher(aLdd);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_NEWL_EXIT );
 	return self;
 	}
 
@@ -264,11 +242,10 @@ CUsbOtgVbusWatcher* CUsbOtgVbusWatcher::NewL(RUsbOtgDriver& aLdd)
  */
 CUsbOtgVbusWatcher::~CUsbOtgVbusWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_CUSBOTGVBUSWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
 
 	RProperty::Delete(KUsbOtgVBusPoweredProperty);
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_CUSBOTGVBUSWATCHER_DES_EXIT );
 	}
 
 void CUsbOtgVbusWatcher::ConstructL()
@@ -276,7 +253,7 @@ void CUsbOtgVbusWatcher::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 
 	TInt err = RProperty::Define(KUsbOtgVBusPoweredProperty, RProperty::EInt, KAllowAllPolicy, KNetworkControlPolicy);
 	if ( err != KErrNone && err != KErrAlreadyExists )
@@ -288,7 +265,6 @@ void CUsbOtgVbusWatcher::ConstructL()
 	    {
 	    User::LeaveIfError(err);
 	    }
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -301,8 +277,7 @@ void CUsbOtgVbusWatcher::ConstructL()
 CUsbOtgVbusWatcher::CUsbOtgVbusWatcher(RUsbOtgDriver& aLdd)
 	: CUsbOtgBaseWatcher(aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_CUSBOTGVBUSWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_CUSBOTGVBUSWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 /**
@@ -310,19 +285,14 @@ CUsbOtgVbusWatcher::CUsbOtgVbusWatcher(RUsbOtgDriver& aLdd)
  */
 void CUsbOtgVbusWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_RUNL, "CUsbOtgVbusWatcher::RunL;iStatus=%d", iStatus.Int() );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::RunL [iStatus=%d]"), iStatus.Int());
 
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_RUNL_DUP1, "CUsbOtgVbusWatcher::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
+	LEAVEIFERRORL(iStatus.Int());
 
 	Post();
 
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbOtgVbusWatcher::RunL"));
 	}
 
 
@@ -331,9 +301,8 @@ void CUsbOtgVbusWatcher::RunL()
  */
 void CUsbOtgVbusWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgVbusNotification();
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -341,45 +310,38 @@ void CUsbOtgVbusWatcher::DoCancel()
  */
 void CUsbOtgVbusWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGVBUSWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST, "CUsbOtgVbusWatcher::Post - About to call QueueOtgVbusNotification" );
-	
+	LOGTEXT(_L8("CUsbOtgVbusWatcher::Post() - About to call QueueOtgVbusNotification"));
 	iLdd.QueueOtgVbusNotification(iOtgVbus, iStatus);
 	switch (iOtgVbus)
 		{
 		case RUsbOtgDriver::EVbusHigh:
 			if (RProperty::Set(KUidUsbManCategory,KUsbOtgVBusPoweredProperty,ETrue) != KErrNone)
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST_DUP1, 
-				        "CUsbOtgVbusWatcher::Post;[iOtgVbus=%d](EVbusHigh) - failed to set the property value", iOtgVbus );
+				LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::Post [iOtgVbus=%d](EVbusHigh) - failed to set the property value"), iOtgVbus);
 				}
 			else
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST_DUP2, 
-				        "CUsbOtgVbusWatcher::Post;[iOtgVbus=%d](EVbusHigh) - property is set to ETrue", iOtgVbus );
+				LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::Post [iOtgVbus=%d](EVbusHigh) - property is set to ETrue"), iOtgVbus);
 				}
 			break;
 		case RUsbOtgDriver::EVbusLow:
 		case RUsbOtgDriver::EVbusUnknown:
 			if (RProperty::Set(KUidUsbManCategory,KUsbOtgVBusPoweredProperty,EFalse) != KErrNone)
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST_DUP3, 
-				        "CUsbOtgVbusWatcher::Post;[iOtgVbus=%d](1 - EVbusLow, 2 - EVbusUnknown) - failed to set the property value", iOtgVbus );
+				LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::Post [iOtgVbus=%d](1 - EVbusLow, 2 - EVbusUnknown) - failed to set the property value"), iOtgVbus);
 				}
 			else
 				{
-				OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST_DUP4, 
-				        "CUsbOtgVbusWatcher::Post;[iOtgVbus=%d](1 - EVbusLow, 2 - EVbusUnknown) - property is set to EFalse", iOtgVbus );
+				LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::Post [iOtgVbus=%d](1 - EVbusLow, 2 - EVbusUnknown) - property is set to EFalse"), iOtgVbus);
 				}
 			break;
 		default:
-			OstTrace1( TRACE_NORMAL, CUSBOTGVBUSWATCHER_POST_DUP5, 
-			        "CUsbOtgVbusWatcher::Post;iOtgVbus=%d] is unrecognized, re-request QueueOtgVbusNotification", iOtgVbus );
+			LOGTEXT2(_L8(">>CUsbOtgVbusWatcher::RunL [iOtgVbus=%d] is unrecognized, re-request QueueOtgVbusNotification"), iOtgVbus);
 			break;
 		}
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGVBUSWATCHER_POST_EXIT );
 	}
 
 
@@ -396,13 +358,12 @@ void CUsbOtgVbusWatcher::Post()
  */
 CUsbOtgStateWatcher* CUsbOtgStateWatcher::NewL(RUsbOtgDriver& aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgStateWatcher* self = new (ELeave) CUsbOtgStateWatcher(aLdd);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_NEWL_EXIT );
 	return self;
 	}
 
@@ -416,10 +377,9 @@ CUsbOtgStateWatcher* CUsbOtgStateWatcher::NewL(RUsbOtgDriver& aLdd)
  */
 CUsbOtgStateWatcher::~CUsbOtgStateWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_CUSBOTGSTATEWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
 	RProperty::Delete(KUsbOtgStateProperty);
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_CUSBOTGSTATEWATCHER_DES_EXIT );
 	}
 
 void CUsbOtgStateWatcher::ConstructL()
@@ -427,7 +387,7 @@ void CUsbOtgStateWatcher::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 
 	TInt err = RProperty::Define(KUsbOtgStateProperty, RProperty::EInt, KAllowAllPolicy, KNetworkControlPolicy);
 	if ( err != KErrNone && err != KErrAlreadyExists )
@@ -439,7 +399,6 @@ void CUsbOtgStateWatcher::ConstructL()
 	    {
 	    User::LeaveIfError(err);
 	    }
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -453,9 +412,8 @@ void CUsbOtgStateWatcher::ConstructL()
 CUsbOtgStateWatcher::CUsbOtgStateWatcher(RUsbOtgDriver& aLdd)
 	: CUsbOtgBaseWatcher(aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_CUSBOTGSTATEWATCHER_CONS_ENTRY );
+	LOG_FUNC
 	iOtgState = RUsbOtgDriver::EStateReset;
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_CUSBOTGSTATEWATCHER_CONS_EXIT );
 	}
 
 /**
@@ -463,19 +421,14 @@ CUsbOtgStateWatcher::CUsbOtgStateWatcher(RUsbOtgDriver& aLdd)
  */
 void CUsbOtgStateWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CUSBOTGSTATEWATCHER_RUNL, "CUsbOtgStateWatcher::RunL;iStatus.Int()=%d", iStatus.Int() );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CUsbOtgStateWatcher::RunL [iStatus=%d]"), iStatus.Int());
 
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBOTGSTATEWATCHER_RUNL_DUP1, "CUsbOtgStateWatcher::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
+	LEAVEIFERRORL(iStatus.Int());
 
 	Post();
 
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbOtgStateWatcher::RunL"));
 	}
 
 
@@ -484,9 +437,8 @@ void CUsbOtgStateWatcher::RunL()
  */
 void CUsbOtgStateWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgStateNotification();
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -494,20 +446,17 @@ void CUsbOtgStateWatcher::DoCancel()
  */
 void CUsbOtgStateWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGSTATEWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGSTATEWATCHER_POST, "CUsbOtgStateWatcher::Post - About to call QueueOtgStateNotification" );
+	LOGTEXT(_L8("CUsbOtgStateWatcher::Post() - About to call QueueOtgStateNotification"));	
 	iLdd.QueueOtgStateNotification(iOtgState, iStatus);
-	OstTraceExt2( TRACE_NORMAL, CUSBOTGSTATEWATCHER_POST_DUP1, 
-	        "CUsbOtgStateWatcher::Post;[iStatus=%d], iOtgState = %d", iStatus.Int(), iOtgState );
+	LOGTEXT3(_L8(">>CUsbOtgStateWatcher::RunL [iStatus=%d], iOtgState = %d"), iStatus.Int(), iOtgState);
 	if (RProperty::Set(KUidUsbManCategory,KUsbOtgStateProperty,(TInt)iOtgState) != KErrNone)
 	{
-		OstTraceExt2( TRACE_NORMAL, CUSBOTGSTATEWATCHER_POST_DUP2, 
-		        "CUsbOtgStateWatcher::Post;[iStatus=%d], iOtgState = %d - failed to set the property", iStatus.Int(), iOtgState );
+		LOGTEXT3(_L8(">>CUsbOtgStateWatcher::RunL [iStatus=%d], iOtgState = %d - failed to set the property"), iStatus.Int(), iOtgState);
 	}
 
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGSTATEWATCHER_POST_EXIT );
 	}
 
 //-------------------------- OTG Events watcher class ------------------------- 
@@ -526,13 +475,12 @@ void CUsbOtgStateWatcher::Post()
 CUsbOtgEventWatcher* CUsbOtgEventWatcher::NewL(CUsbOtg& aOwner, RUsbOtgDriver& aLdd,
 											   RUsbOtgDriver::TOtgEvent& aOtgEvent)
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgEventWatcher* self = new (ELeave) CUsbOtgEventWatcher(aOwner, aLdd, aOtgEvent);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_NEWL_EXIT );
 	return self;
 	}
 
@@ -546,9 +494,8 @@ CUsbOtgEventWatcher* CUsbOtgEventWatcher::NewL(CUsbOtg& aOwner, RUsbOtgDriver& a
  */
 CUsbOtgEventWatcher::~CUsbOtgEventWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_CUSBOTGEVENTWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_CUSBOTGEVENTWATCHER_DES_EXIT );
 	}
 
 void CUsbOtgEventWatcher::ConstructL()
@@ -556,8 +503,7 @@ void CUsbOtgEventWatcher::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_CONSTRUCTL_ENTRY );
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_CONSTRUCTL_EXIT );
+	LOG_FUNC
 	}
 
 /**
@@ -573,8 +519,7 @@ CUsbOtgEventWatcher::CUsbOtgEventWatcher(CUsbOtg& aOwner, RUsbOtgDriver& aLdd,
 										 RUsbOtgDriver::TOtgEvent& aOtgEvent)
 	: CUsbOtgBaseWatcher(aLdd), iOwner(aOwner), iOtgEvent(aOtgEvent)
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_CUSBOTGEVENTWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_CUSBOTGEVENTWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 /**
@@ -582,17 +527,11 @@ CUsbOtgEventWatcher::CUsbOtgEventWatcher(CUsbOtg& aOwner, RUsbOtgDriver& aLdd,
  */
 void CUsbOtgEventWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CUSBOTGEVENTWATCHER_RUNL, "CUsbOtgEventWatcher::RunL;iStatus=%d", iStatus.Int() );
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBOTGEVENTWATCHER_RUNL_DUP3, "CUsbOtgEventWatcher::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
-    
-	OstTrace1( TRACE_NORMAL, CUSBOTGEVENTWATCHER_RUNL_DUP1, 
-	        "CUsbOtgEventWatcher::RunL; - Otg Event reported: %d", (TInt)iOtgEvent );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CUsbOtgEventWatcher::RunL [iStatus=%d]"), iStatus.Int());
+
+	LEAVEIFERRORL(iStatus.Int());
+	LOGTEXT2(_L8("CUsbOtgEventWatcher::RunL() - Otg Event reported: %d"), (TInt)iOtgEvent);
 	if (  ( iOtgEvent == RUsbOtgDriver::EEventHnpDisabled )
 	    ||( iOtgEvent == RUsbOtgDriver::EEventHnpEnabled )
 	    ||( iOtgEvent == RUsbOtgDriver::EEventSrpInitiated )
@@ -602,14 +541,13 @@ void CUsbOtgEventWatcher::RunL()
 	   )
 		{
 		iOwner.NotifyOtgEvent();
-		OstTrace1( TRACE_NORMAL, CUSBOTGEVENTWATCHER_RUNL_DUP2, 
-		        "CUsbOtgEventWatcher::RunL - The owner is notified about Otg Event = %d", (TInt)iOtgEvent );
+		LOGTEXT2(_L8("CUsbOtgEventWatcher::RunL() - The owner is notified about Otg Event = %d"), (TInt)iOtgEvent);
 		}
 	Post();
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbOtgEventWatcher::RunL"));
 	}
 
-#ifndef _DEBUG
+#ifndef __FLOG_ACTIVE
 void CUsbOtgEventWatcher::LogEventText(RUsbOtgDriver::TOtgEvent /*aState*/)
 	{
 	}
@@ -619,48 +557,37 @@ void CUsbOtgEventWatcher::LogEventText(RUsbOtgDriver::TOtgEvent aEvent)
 	switch (aEvent)
 		{
 		case RUsbOtgDriver::EEventAPlugInserted:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT, 
-			        "CUsbOtgEventWatcher::LogEventText ***** A-Plug Inserted *****" );
+			LOGTEXT(_L8(" ***** A-Plug Inserted *****"));
 			break;
 		case RUsbOtgDriver::EEventAPlugRemoved:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP1, 
-			        "CUsbOtgEventWatcher::LogEventText ***** A-Plug Removed *****" );
+			LOGTEXT(_L8(" ***** A-Plug Removed *****"));
 			break;
 		case RUsbOtgDriver::EEventVbusRaised:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP2, 
-			        "CUsbOtgEventWatcher::LogEventText ***** VBus Raised *****" );
+			LOGTEXT(_L8(" ***** VBus Raised *****"));
 			break;
 		case RUsbOtgDriver::EEventVbusDropped:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP3, 
-			        "CUsbOtgEventWatcher::LogEventText ***** VBus Dropped *****" );
+			LOGTEXT(_L8(" ***** VBus Dropped *****"));
 			break;
 		case RUsbOtgDriver::EEventSrpInitiated:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP4, 
-			        "CUsbOtgEventWatcher::LogEventText ***** SRP Initiated *****" );
+			LOGTEXT(_L8(" ***** SRP Initiated *****"));
 			break;
 		case RUsbOtgDriver::EEventSrpReceived:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP5, 
-			        "CUsbOtgEventWatcher::LogEventText ***** SRP Received *****" );
+			LOGTEXT(_L8(" ***** SRP Received *****"));
 			break;
 		case RUsbOtgDriver::EEventHnpEnabled:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP6, 
-			        "CUsbOtgEventWatcher::LogEventText ***** HNP Enabled *****" );
+			LOGTEXT(_L8(" ***** HNP Enabled *****"));
 			break;
 		case RUsbOtgDriver::EEventHnpDisabled:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP7, 
-			        "CUsbOtgEventWatcher::LogEventText ***** HNP Disabled *****" );
+			LOGTEXT(_L8(" ***** HNP Disabled *****"));
 			break;
 		case RUsbOtgDriver::EEventRoleChangedToHost:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP8, 
-			        "CUsbOtgEventWatcher::LogEventText ***** Role Changed to Host *****" );
+			LOGTEXT(_L8(" ***** Role Changed to Host *****"));
 			break;
 		case RUsbOtgDriver::EEventRoleChangedToDevice:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP9, 
-			        "CUsbOtgEventWatcher::LogEventText ***** Role Changed to Device *****" );
+			LOGTEXT(_L8(" ***** Role Changed to Device *****"));
 			break;
 		case RUsbOtgDriver::EEventRoleChangedToIdle:
-			OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_LOGEVENTTEXT_DUP10, 
-			        "CUsbOtgEventWatcher::LogEventText ***** Role Changed to Idle *****" );
+			LOGTEXT(_L8(" ***** Role Changed to Idle *****"));
 			break;
 		default:
 			break;
@@ -673,9 +600,8 @@ void CUsbOtgEventWatcher::LogEventText(RUsbOtgDriver::TOtgEvent aEvent)
  */
 void CUsbOtgEventWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgEventRequest();
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -683,12 +609,11 @@ void CUsbOtgEventWatcher::DoCancel()
  */
 void CUsbOtgEventWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGEVENTWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGEVENTWATCHER_POST, "CUsbOtgEventWatcher::Post - About to call QueueOtgEventRequest" );
+	LOGTEXT(_L8("CUsbOtgEventWatcher::Post() - About to call QueueOtgEventRequest"));	
 	iLdd.QueueOtgEventRequest(iOtgEvent, iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGEVENTWATCHER_POST_EXIT );
 	}
 
 
@@ -708,10 +633,9 @@ void CUsbOtgEventWatcher::Post()
  */
 CUsbOtgWatcher* CUsbOtgWatcher::NewL(MUsbOtgObserver& aOwner, RUsbOtgDriver& aLdd, TUint& aOtgMessage)
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgWatcher* r = new (ELeave) CUsbOtgWatcher(aOwner, aLdd, aOtgMessage);
-	OstTraceFunctionExit0( CUSBOTGWATCHER_NEWL_EXIT );
 	return r;
 	}
 
@@ -725,7 +649,8 @@ CUsbOtgWatcher* CUsbOtgWatcher::NewL(MUsbOtgObserver& aOwner, RUsbOtgDriver& aLd
  */
 CUsbOtgWatcher::~CUsbOtgWatcher()
 	{
-	OstTraceFunctionEntry1( CUSBOTGWATCHER_CUSBOTGWATCHER_DES_ENTRY, this );
+	LOG_FUNC
+	LOGTEXT2(_L8(">CUsbOtgWatcher::~CUsbOtgWatcher (0x%08x)"), (TUint32) this);
 	Cancel();
 	}
 
@@ -741,9 +666,8 @@ CUsbOtgWatcher::~CUsbOtgWatcher()
 CUsbOtgWatcher::CUsbOtgWatcher(MUsbOtgObserver& aOwner, RUsbOtgDriver& aLdd, TUint& aOtgMessage)
 	: CActive(CActive::EPriorityStandard), iOwner(aOwner), iLdd(aLdd), iOtgMessage(aOtgMessage)
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_CUSBOTGWATCHER_CONS_ENTRY );
+	LOG_FUNC
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CUSBOTGWATCHER_CUSBOTGWATCHER_CONS_EXIT );
 	}
 
 /**
@@ -751,19 +675,17 @@ CUsbOtgWatcher::CUsbOtgWatcher(MUsbOtgObserver& aOwner, RUsbOtgDriver& aLdd, TUi
  */
 void CUsbOtgWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_RUNL_ENTRY );
+	LOG_FUNC
 	if (iStatus.Int() != KErrNone)
 		{
-		OstTrace1( TRACE_NORMAL, CUSBOTGWATCHER_RUNL, "CUsbOtgWatcher::RunL;Error=%d", iStatus.Int() );
-		OstTraceFunctionExit0( CUSBOTGWATCHER_RUNL_EXIT );
+		LOGTEXT2(_L8("CUsbOtgWatcher::RunL() - Error = %d"), iStatus.Int());
 		return;
 		}
 
-	OstTrace1( TRACE_NORMAL, CUSBOTGWATCHER_RUNL_DUP1, "CUsbOtgWatcher::RunL;Otg Message reported: %d", iOtgMessage );
+	LOGTEXT2(_L8("CUsbOtgWatcher::RunL() - Otg Message reported: %d"), iOtgMessage);
 	iOwner.NotifyMessage();
 
 	Post();
-	OstTraceFunctionExit0( CUSBOTGWATCHER_RUNL_EXIT_DUP1 );
 	}
 
 
@@ -772,9 +694,8 @@ void CUsbOtgWatcher::RunL()
  */
 void CUsbOtgWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgMessageRequest();
-	OstTraceFunctionExit0( CUSBOTGWATCHER_DOCANCEL_EXIT );
 	}
 
 
@@ -783,9 +704,8 @@ void CUsbOtgWatcher::DoCancel()
  */
 void CUsbOtgWatcher::Start()
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_START_ENTRY );
+	LOG_FUNC
 	Post();
-	OstTraceFunctionExit0( CUSBOTGWATCHER_START_EXIT );
 	}
 
 /**
@@ -793,12 +713,11 @@ void CUsbOtgWatcher::Start()
  */
 void CUsbOtgWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGWATCHER_POST, "CUsbOtgWatcher::Post - About to call QueueOtgMessageRequest" );
+	LOGTEXT(_L8("CUsbOtgWatcher::Post() - About to call QueueOtgMessageRequest"));
 	iLdd.QueueOtgMessageRequest((RUsbOtgDriver::TOtgMessage&)iOtgMessage, iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGWATCHER_POST_EXIT );
 	}
 
 
@@ -828,7 +747,7 @@ void CRequestSessionWatcher::ConstructL()
  * Performs 2nd phase construction of the OTG object.
  */
 	{
-	OstTraceFunctionEntry0( CREQUESTSESSIONWATCHER_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 
 	TInt err = RProperty::Define(KUsbRequestSessionProperty, RProperty::EInt, KAllowAllPolicy, KRequestSessionPolicy);
 	if ( err != KErrNone && err != KErrAlreadyExists )
@@ -843,15 +762,13 @@ void CRequestSessionWatcher::ConstructL()
 	User::LeaveIfError(iProp.Attach(KUidUsbManCategory, KUsbRequestSessionProperty));
 	iProp.Subscribe(iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CREQUESTSESSIONWATCHER_CONSTRUCTL_EXIT );
 	}
 
 CRequestSessionWatcher::CRequestSessionWatcher(MUsbOtgObserver& aOwner)
 	: CActive(CActive::EPriorityStandard), iOwner(aOwner)
 	{
-	OstTraceFunctionEntry0( CREQUESTSESSIONWATCHER_CREQUESTSESSIONWATCHER_CONS_ENTRY );
+	LOG_FUNC
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CREQUESTSESSIONWATCHER_CREQUESTSESSIONWATCHER_CONS_EXIT );
 	}
 
 /**
@@ -859,8 +776,8 @@ CRequestSessionWatcher::CRequestSessionWatcher(MUsbOtgObserver& aOwner)
  */
 void CRequestSessionWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CREQUESTSESSIONWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREQUESTSESSIONWATCHER_RUNL, "CRequestSessionWatcher::RunL;iStatus=%d", iStatus.Int() );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CRequestSessionWatcher::RunL [iStatus=%d]"), iStatus.Int());
 	RDebug::Printf(">>CRequestSessionWatcher::RunL [iStatus=%d]", iStatus.Int());
 	
 	iProp.Subscribe(iStatus);
@@ -872,7 +789,7 @@ void CRequestSessionWatcher::RunL()
 
 	iOwner.NotifyMessage(KUsbMessageRequestSession);
 	
-	OstTraceFunctionExit0( CREQUESTSESSIONWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CRequestSessionWatcher::RunL"));
 	}
 
 
@@ -881,9 +798,8 @@ void CRequestSessionWatcher::RunL()
  */
 void CRequestSessionWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CREQUESTSESSIONWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iProp.Cancel();
-	OstTraceFunctionExit0( CREQUESTSESSIONWATCHER_DOCANCEL_EXIT );
 	}
 
 //---------------------------- Connection Idle watcher class --------------------------- 
@@ -899,13 +815,12 @@ void CRequestSessionWatcher::DoCancel()
  */
 CUsbOtgConnectionIdleWatcher* CUsbOtgConnectionIdleWatcher::NewL(RUsbOtgDriver& aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbOtgConnectionIdleWatcher* self = new (ELeave) CUsbOtgConnectionIdleWatcher(aLdd);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_NEWL_EXIT );
 	return self;
 	}
 
@@ -919,10 +834,9 @@ CUsbOtgConnectionIdleWatcher* CUsbOtgConnectionIdleWatcher::NewL(RUsbOtgDriver& 
  */
 CUsbOtgConnectionIdleWatcher::~CUsbOtgConnectionIdleWatcher()
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_CUSBOTGCONNECTIONIDLEWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
 	RProperty::Delete(KUsbOtgConnectionIdleProperty);
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_CUSBOTGCONNECTIONIDLEWATCHER_DES_EXIT );
 	}
 
 /**
@@ -930,7 +844,7 @@ CUsbOtgConnectionIdleWatcher::~CUsbOtgConnectionIdleWatcher()
  */
 void CUsbOtgConnectionIdleWatcher::ConstructL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 
 	TInt err = RProperty::Define(KUsbOtgConnectionIdleProperty, RProperty::EInt, KAllowAllPolicy, KNetworkControlPolicy);
 	if ( err != KErrNone && err != KErrAlreadyExists )
@@ -942,7 +856,6 @@ void CUsbOtgConnectionIdleWatcher::ConstructL()
 	    {
 	    User::LeaveIfError(err);
 	    }
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_CONSTRUCTL_EXIT );
 	}
 
 /**
@@ -956,8 +869,7 @@ void CUsbOtgConnectionIdleWatcher::ConstructL()
 CUsbOtgConnectionIdleWatcher::CUsbOtgConnectionIdleWatcher(RUsbOtgDriver& aLdd)
 	: CUsbOtgBaseWatcher(aLdd)
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_CUSBOTGCONNECTIONIDLEWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_CUSBOTGCONNECTIONIDLEWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 /**
@@ -965,20 +877,14 @@ CUsbOtgConnectionIdleWatcher::CUsbOtgConnectionIdleWatcher(RUsbOtgDriver& aLdd)
  */
 void CUsbOtgConnectionIdleWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_RUNL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_RUNL, 
-	        "CUsbOtgConnectionIdleWatcher::RunL;iStatus=%d", iStatus.Int() );
+	LOG_FUNC
+	LOGTEXT2(_L8(">>CUsbOtgConnectionIdleWatcher::RunL [iStatus=%d]"), iStatus.Int());
+
+	LEAVEIFERRORL(iStatus.Int());
 	
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_RUNL_DUP1, "CUsbOtgConnectionIdleWatcher::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
-    
 	Post();
 
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbOtgConnectionIdleWatcher::RunL"));
 	}
 
 
@@ -987,9 +893,8 @@ void CUsbOtgConnectionIdleWatcher::RunL()
  */
 void CUsbOtgConnectionIdleWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	iLdd.CancelOtgConnectionNotification();
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_DOCANCEL_EXIT );
 	}
 
 /**
@@ -997,31 +902,26 @@ void CUsbOtgConnectionIdleWatcher::DoCancel()
  */
 void CUsbOtgConnectionIdleWatcher::Post()
 	{
-	OstTraceFunctionEntry0( CUSBOTGCONNECTIONIDLEWATCHER_POST_ENTRY );
+	LOG_FUNC
 
-	OstTrace0( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_POST, 
-	        "CUsbOtgConnectionIdleWatcher::Post - About to call QueueOtgIdPinNotification" );
+	LOGTEXT(_L8("CUsbOtgConnectionIdleWatcher::Post() - About to call QueueOtgIdPinNotification"));
 	iLdd.QueueOtgConnectionNotification(iConnectionIdle, iStatus);
 	switch (iConnectionIdle)
 		{
 		case RUsbOtgDriver::EConnectionIdle:
 		case RUsbOtgDriver::EConnectionUnknown:
 			RProperty::Set(KUidUsbManCategory,KUsbOtgConnectionIdleProperty,ETrue);
-			OstTrace1( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_POST_DUP1, 
-			        "CUsbOtgConnectionIdleWatcher::Post;[iConnectionIdle=%d] - property is set to 1", iConnectionIdle );
+			LOGTEXT2(_L8(">>CUsbOtgConnectionIdleWatcher::Post [iConnectionIdle=%d] - property is set to 1"), iConnectionIdle);
 			break;
 		case RUsbOtgDriver::EConnectionBusy:
 			RProperty::Set(KUidUsbManCategory,KUsbOtgConnectionIdleProperty,EFalse);
-			OstTrace1( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_POST_DUP2, 
-			        "CUsbOtgConnectionIdleWatcher::Post;[iConnectionIdle=%d] - property is set to 0", iConnectionIdle );
+			LOGTEXT2(_L8(">>CUsbOtgConnectionIdleWatcher::Post [iConnectionIdle=%d] - property is set to 0"), iConnectionIdle);
 			break;
 		default:
-			OstTrace1( TRACE_NORMAL, CUSBOTGCONNECTIONIDLEWATCHER_POST_DUP3, 
-			        "CUsbOtgConnectionIdleWatcher::Post;[iConnectionIdle=%d] is unrecognized, re-request QueueOtgIdPinNotification", iConnectionIdle );
+			LOGTEXT2(_L8(">>CUsbOtgConnectionIdleWatcher::Post [iConnectionIdle=%d] is unrecognized, re-request QueueOtgIdPinNotification"), iConnectionIdle);
 			break;
 		}
 	SetActive();
-	OstTraceFunctionExit0( CUSBOTGCONNECTIONIDLEWATCHER_POST_EXIT );
 	}
 
 

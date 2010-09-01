@@ -37,9 +37,6 @@ class CMsmmEngine;
 class CMsmmTerminator;
 class CDeviceEventQueue;
 class CMsmmPolicyPluginBase;
-class THostMsErrData;
-class CMsmmDismountUsbDrives;
-class TUSBMSDeviceDescription;
 
 // Server side resource container class
 // Intends to be used by any internal objects (such as sub-command objects) 
@@ -69,16 +66,11 @@ public:
     // CMsmmServer API
     virtual CSession2* NewSessionL(const TVersion& aVersion, 
             const RMessage2& aMessage) const;
-    CPolicyServer::TCustomResult CustomSecurityCheckL(const RMessage2& aMsg, 
-                                                        TInt& aAction,  
-                                                        TSecurityInfo& aMissing);
-
+    
     TInt SessionNumber() const;
     void AddSession();
     void RemoveSession();
 
-    void DismountUsbDrivesL(TUSBMSDeviceDescription& aDevice);
-    
     // From MMsmmSrvProxy
     inline CMsmmEngine& Engine() const;
     inline RFs& FileServerSession() const;
@@ -95,8 +87,6 @@ private: // Data members
     RFs                 iFs;
     CMsmmPolicyPluginBase*  iPolicyPlugin; // Owned
     CDeviceEventQueue* iEventQueue; // Owned
-    CMsmmDismountUsbDrives* iDismountManager; //Singleton to request dismounting usb drives via RFs
-    THostMsErrData* iDismountErrData; // The data nodes try, Owned
     };
 #include "msmmserver.inl" 
 #endif  // MSMMSERVER_H

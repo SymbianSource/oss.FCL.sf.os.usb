@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -17,14 +17,13 @@
 
 
 #include "cusbhostwatcher.h"
+#include <usb/usblogger.h>
 #include "cusbhost.h"
 
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "cusbhostwatcherTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "hoststatewatcher");
 #endif
-
-
 
 /*
  * 	Base class for USB Host watchers
@@ -37,26 +36,23 @@ CActiveUsbHostWatcher::CActiveUsbHostWatcher(RUsbHostStack& aUsbHostStack,
 	iOwner(aOwner),
 	iWatcherId(aWatcherId)
 	{
-    OstTraceFunctionEntry0( CACTIVEUSBHOSTWATCHER_CACTIVEUSBHOSTWATCHER_CONS_ENTRY );
+	LOG_FUNC
 	CActiveScheduler::Add(this);
-	OstTraceFunctionExit0( CACTIVEUSBHOSTWATCHER_CACTIVEUSBHOSTWATCHER_CONS_EXIT );
 	}
 
 CActiveUsbHostWatcher::~CActiveUsbHostWatcher()
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTWATCHER_CACTIVEUSBHOSTWATCHER_DES_ENTRY );	
+	LOG_FUNC
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTWATCHER_CACTIVEUSBHOSTWATCHER_DES_EXIT );
 	}
 
 void CActiveUsbHostWatcher::RunL()
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTWATCHER_RUNL_ENTRY );
+	LOG_FUNC
 
 	ASSERT(iStatus.Int() == KErrNone);
 	iOwner.NotifyHostEvent(iWatcherId);
 	Post();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTWATCHER_RUNL_EXIT );
 	}
 
 
@@ -84,32 +80,28 @@ CActiveUsbHostEventWatcher::CActiveUsbHostEventWatcher(
 														 , iHostEventInfo(aHostEventInfo)
 
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTEVENTWATCHER_CACTIVEUSBHOSTEVENTWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CACTIVEUSBHOSTEVENTWATCHER_CACTIVEUSBHOSTEVENTWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 CActiveUsbHostEventWatcher::~CActiveUsbHostEventWatcher()
 	{
-    OstTraceFunctionEntry0( CACTIVEUSBHOSTEVENTWATCHER_CACTIVEUSBHOSTEVENTWATCHER_DES_ENTRY );
+	LOG_FUNC
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTEVENTWATCHER_CACTIVEUSBHOSTEVENTWATCHER_DES_EXIT );
 	}
 
 void CActiveUsbHostEventWatcher::Post()
 	{
-    OstTraceFunctionEntry0( CACTIVEUSBHOSTEVENTWATCHER_POST_ENTRY );
+	LOG_FUNC
 
 	iUsbHostStack.NotifyDeviceEvent(iStatus, iHostEventInfo);
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTEVENTWATCHER_POST_EXIT );
 	}
 
 void CActiveUsbHostEventWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTEVENTWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 
 	iUsbHostStack.NotifyDeviceEventCancel();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTEVENTWATCHER_DOCANCEL_EXIT );
 	}
 
 
@@ -128,9 +120,9 @@ CActiveUsbHostMessageWatcher* CActiveUsbHostMessageWatcher::NewL(
 
 CActiveUsbHostMessageWatcher::~CActiveUsbHostMessageWatcher()
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTMESSAGEWATCHER_CACTIVEUSBHOSTMESSAGEWATCHER_DES_ENTRY ); 
+	LOG_FUNC
+
 	Cancel();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTMESSAGEWATCHER_CACTIVEUSBHOSTMESSAGEWATCHER_DES_EXIT );
 	}
 
 CActiveUsbHostMessageWatcher::CActiveUsbHostMessageWatcher(
@@ -142,25 +134,22 @@ CActiveUsbHostMessageWatcher::CActiveUsbHostMessageWatcher(
 															   KHostMessageMonitor)
 										, iHostMessage(aHostMessage)
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTMESSAGEWATCHER_CACTIVEUSBHOSTMESSAGEWATCHER_CONS_ENTRY );
-	OstTraceFunctionExit0( CACTIVEUSBHOSTMESSAGEWATCHER_CACTIVEUSBHOSTMESSAGEWATCHER_CONS_EXIT );
+	LOG_FUNC
 	}
 
 void CActiveUsbHostMessageWatcher::Post()
 	{
-    OstTraceFunctionEntry0( CACTIVEUSBHOSTMESSAGEWATCHER_POST_ENTRY );
+	LOG_FUNC
 	
 	iUsbHostStack.NotifyDevmonEvent(iStatus, iHostMessage);
 	SetActive();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTMESSAGEWATCHER_POST_EXIT );
 	}
 
 
 void CActiveUsbHostMessageWatcher::DoCancel()
 	{
-	OstTraceFunctionEntry0( CACTIVEUSBHOSTMESSAGEWATCHER_DOCANCEL_ENTRY );
+	LOG_FUNC
 	
 	iUsbHostStack.NotifyDevmonEventCancel();
-	OstTraceFunctionExit0( CACTIVEUSBHOSTMESSAGEWATCHER_DOCANCEL_EXIT );
 	}
 

@@ -28,5 +28,4 @@ DEFAULT
 PRJ_TESTMMPFILES
 ../server/group/msmmserver_over_dummycomponent.mmp
 ../client/group/msmmclient_over_dummycomponent.mmp
-../client/group/msmmindicatorclient_over_dummycomponent.mmp
 ../referencepolicyplugin/group/refpp_over_dummycomponent.mmp

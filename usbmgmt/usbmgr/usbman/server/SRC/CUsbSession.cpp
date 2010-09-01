@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -20,11 +20,7 @@
  @file
 */
 
-#include <usbstates.h>
-#include <usberrors.h>
-#include <usb/usbshared.h>
 #include <usb/usblogger.h>
-
 #include "CUsbSession.h"
 #include "CUsbDevice.h"
 #include "CUsbServer.h"
@@ -34,15 +30,17 @@
 #include "cusbhost.h"
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
+#include <usbstates.h>
+#include <usberrors.h>
+
+#include <usb/usbshared.h>
 #include "CPersonality.h"
 #include "rusb.h"
 #include "UsbSettings.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbSessionTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
 #endif
-
-
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 CUsbSession* CUsbSession::iCtlSession = NULL;
@@ -58,7 +56,7 @@ CUsbSession* CUsbSession::iCtlSession = NULL;
  */
 CUsbSession* CUsbSession::NewL(CUsbServer* aServer)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	//this class has moved away from standard NewL() semantics
 	//and now uses the virtual CSession2::CreateL() function
@@ -77,10 +75,9 @@ CUsbSession* CUsbSession::NewL(CUsbServer* aServer)
 CUsbSession::CUsbSession(CUsbServer* aServer)
 	: iUsbServer(aServer)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_CUSBSESSION_CONS_ENTRY );
+	LOG_FUNC
 
 	iUsbServer->IncrementSessionCount();
-	OstTraceFunctionExit0( CUSBSESSION_CUSBSESSION_CONS_EXIT );
 	}
 
 
@@ -89,18 +86,18 @@ CUsbSession::CUsbSession(CUsbServer* aServer)
  */
 CUsbSession::~CUsbSession()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_CUSBSESSION_DES_ENTRY );
+	LOG_FUNC
 
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_CUSBSESSION, "CUsbSession::~CUsbSession;About to Device().DeRegisterObserver(%08x)", this );
+	LOGTEXT2(_L8("About to Device().DeRegisterObserver(%08x"),this);
 	iUsbServer->Device().DeRegisterObserver(*this);
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 #ifndef __OVER_DUMMYUSBDI__
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_CUSBSESSION_DUP1, "CUsbSession::~CUsbSession;About to Otg().DeRegisterObserver(%08x)", this );
+	LOGTEXT2(_L8("About to Otg().DeRegisterObserver(%08x"),this);
 	iUsbServer->Otg().DeRegisterObserver(*this);
 #endif
 
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_CUSBSESSION_DUP2, "CUsbSession::~CUsbSession;About to Host().DeRegisterObserver(%08x)", this );
+	LOGTEXT2(_L8("About to Host().DeRegisterObserver(%08x"),this);
 	iUsbServer->Host().DeregisterObserver(*this);
 
 	if ( iCtlSession && (iCtlSession == this) )
@@ -109,9 +106,8 @@ CUsbSession::~CUsbSession()
 		}
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
-	OstTrace0( TRACE_NORMAL, CUSBSESSION_CUSBSESSION_DUP3, "CUsbSession::~CUsbSession;About to iUsbServer->DecrementSessionCount()" );
+	LOGTEXT(_L8("About to iUsbServer->DecrementSessionCount()"));
 	iUsbServer->DecrementSessionCount();
-	OstTraceFunctionExit0( CUSBSESSION_CUSBSESSION_DES_EXIT );
 	}
 
 
@@ -122,10 +118,9 @@ CUsbSession::~CUsbSession()
  */
 void CUsbSession::ServiceL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_SERVICEL_ENTRY );
+	LOG_FUNC
 
 	DispatchMessageL(aMessage);
-	OstTraceFunctionExit0( CUSBSESSION_SERVICEL_EXIT );
 	}
 
 /**
@@ -135,7 +130,7 @@ void CUsbSession::ServiceL(const RMessage2& aMessage)
  */
 void CUsbSession::CreateL()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_CREATEL_ENTRY );
+	LOG_FUNC
 
 	// This code originally existed in the typical non-virtual ConstructL() method.
 	// However it was moved to this method for minor optimisation reasons [three less
@@ -143,19 +138,18 @@ void CUsbSession::CreateL()
 
 	iPersonalityCfged = iUsbServer->Device().isPersonalityCfged();
 
-    OstTrace0( TRACE_NORMAL, CUSBSESSION_CREATEL, "CUsbSession::CreateL;Registering Device Observer" );
+    LOGTEXT(_L8("Registering Device Observer\n"));
 	iUsbServer->Device().RegisterObserverL(*this);
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 #ifndef __OVER_DUMMYUSBDI__
-	OstTrace0( TRACE_NORMAL, CUSBSESSION_CREATEL_DUP1, "CUsbSession::CreateL;Registering OTG Observer" );
+	LOGTEXT(_L8("Registering OTG Observer\n"));
 	iUsbServer->Otg().RegisterObserverL(*this);
 #endif
 
-	OstTrace0( TRACE_NORMAL, CUSBSESSION_CREATEL_DUP2, "CUsbSession::CreateL;Registering HOST Observer" );
+	LOGTEXT(_L8("Registering HOST Observer\n"));
 	iUsbServer->Host().RegisterObserverL(*this);
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-	OstTraceFunctionExit0( CUSBSESSION_CREATEL_EXIT );
 	}
 
 /**
@@ -169,8 +163,8 @@ void CUsbSession::CreateL()
 void CUsbSession::UsbServiceStateChange(TInt aLastError, TUsbServiceState aOldState,
 										TUsbServiceState aNewState)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBSERVICESTATECHANGE_ENTRY );
-	OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBSERVICESTATECHANGE, "CUsbSession::UsbServiceStateChange;aOldState=0x%X, aNewState=0x%X", aOldState, aNewState );
+	LOG_FUNC
+	LOGTEXT3(_L8("    aOldState=0x%X, aNewState=0x%X"), aOldState, aNewState);
 	(void) aOldState; // a-void build warning in UREL
 
 	// Note that it's possible to have both a start and a stop outstanding!
@@ -194,7 +188,6 @@ void CUsbSession::UsbServiceStateChange(TInt aLastError, TUsbServiceState aOldSt
 		const TInt err = iServiceObserverMessage.Write(0, pckg);
 		iServiceObserverMessage.Complete(err);
 		}
-	OstTraceFunctionExit0( CUSBSESSION_USBSERVICESTATECHANGE_EXIT );
 	}
 
 /**
@@ -206,17 +199,17 @@ void CUsbSession::UsbServiceStateChange(TInt aLastError, TUsbServiceState aOldSt
 void CUsbSession::HandleServiceStateChangeWhileStarting(TInt aLastError,
 												 TUsbServiceState aNewState)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING_ENTRY );
+	LOG_FUNC
 
 	switch (aNewState)
 		{
 	case EUsbServiceStarted:
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING, "CUsbSession::HandleServiceStateChangeWhileStarting    Completing Start successfully" );
+		LOGTEXT(_L8("    Completing Start successfully"));
 
 		// If the user has tried to cancel the start, they're too late!
 		if (iCancelOutstanding)
 			{
-			OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING_DUP1, "CUsbSession::HandleServiceStateChangeWhileStarting    Completing cancel request with KErrNone" );
+			LOGTEXT(_L8("    Completing cancel request with KErrNone"));
 			iCancelOutstanding = EFalse;
 			iCancelMessage.Complete(KErrNone);
 			}
@@ -226,7 +219,7 @@ void CUsbSession::HandleServiceStateChangeWhileStarting(TInt aLastError,
 		break;
 
 	case EUsbServiceIdle:
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING_DUP2, "CUsbSession::HandleServiceStateChangeWhileStarting;    Completing Start with error=%d", aLastError );
+		LOGTEXT2(_L8("    Completing Start with error=%d"), aLastError);
 
 		// If there hasn't actually been an error, but we're in an unexpected
 		// state now, that means that this client cancelled the request, or
@@ -237,7 +230,7 @@ void CUsbSession::HandleServiceStateChangeWhileStarting(TInt aLastError,
 			// the start message should be completed with KErrCancel.
 			if (iCancelOutstanding)
 				{
-				OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING_DUP3, "CUsbSession::HandleServiceStateChangeWhileStarting    Completing original message with KErrCancel" );
+				LOGTEXT(_L8("    Completing original message with KErrCancel"));
 				iCancelOutstanding = EFalse;
 				iCancelMessage.Complete(KErrNone);
 				iStartMessage.Complete(KErrCancel);
@@ -265,7 +258,6 @@ void CUsbSession::HandleServiceStateChangeWhileStarting(TInt aLastError,
 	default:
 		break;
 		}
-	OstTraceFunctionExit0( CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTARTING_EXIT );
 	}
 
 /**
@@ -277,12 +269,12 @@ void CUsbSession::HandleServiceStateChangeWhileStarting(TInt aLastError,
 void CUsbSession::HandleServiceStateChangeWhileStopping(TInt aLastError,
 												 TUsbServiceState aNewState)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING_ENTRY );
+	LOG_FUNC
 
 	switch (aNewState)
 		{
 	case EUsbServiceStarted:
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING, "CUsbSession::HandleServiceStateChangeWhileStopping;    Completing Stop with error=%d", aLastError );
+		LOGTEXT2(_L8("    Completing Stop with error=%d"), aLastError);
 
 		// If there hasn't actually been an error, but we're in an unexpected
 		// state now, that means that this client cancelled the request, or
@@ -293,7 +285,7 @@ void CUsbSession::HandleServiceStateChangeWhileStopping(TInt aLastError,
 			// the stop message should be completed with KErrCancel.
 			if (iCancelOutstanding)
 				{
-				OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING_DUP1, "CUsbSession::HandleServiceStateChangeWhileStopping;    Completing original message with KErrCancel" );
+				LOGTEXT(_L8("    Completing original message with KErrCancel"));
 				iCancelOutstanding = EFalse;
 				iCancelMessage.Complete(KErrNone);
 				iStopMessage.Complete(KErrCancel);
@@ -319,12 +311,12 @@ void CUsbSession::HandleServiceStateChangeWhileStopping(TInt aLastError,
 		break;
 
 	case EUsbServiceIdle:
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING_DUP2, "CUsbSession::HandleServiceStateChangeWhileStopping    Completing Stop with KErrNone" );
+		LOGTEXT(_L8("    Completing Stop with KErrNone"));
 
 		// If the user has tried to cancel the stop, they're too late!
 		if (iCancelOutstanding)
 			{
-			OstTrace0( TRACE_NORMAL, CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING_DUP3, "CUsbSession::HandleServiceStateChangeWhileStopping    Completing cancel request with KErrNone" );
+			LOGTEXT(_L8("    Completing cancel request with KErrNone"));
 			iCancelOutstanding = EFalse;
 			iCancelMessage.Complete(KErrNone);
 			}
@@ -336,7 +328,6 @@ void CUsbSession::HandleServiceStateChangeWhileStopping(TInt aLastError,
 	default:
 		break;
 		}
-	OstTraceFunctionExit0( CUSBSESSION_HANDLESERVICESTATECHANGEWHILESTOPPING_EXIT );
 	}
 
 /**
@@ -352,7 +343,7 @@ void CUsbSession::HandleServiceStateChangeWhileStopping(TInt aLastError,
 void CUsbSession::UsbDeviceStateChange(TInt /*aLastError*/, TUsbDeviceState /*aOldState*/,
 									   TUsbDeviceState aNewState)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBDEVICESTATECHANGE_ENTRY );
+	LOG_FUNC
 
 	// can we bypass the queue?
  	if ((iDeviceObserverOutstanding) && (iDevStateQueueHead == iDevStateQueueTail))
@@ -393,8 +384,9 @@ void CUsbSession::UsbDeviceStateChange(TInt /*aLastError*/, TUsbDeviceState /*aO
  				if (aNewState == iDeviceStateQueue[queuePtr])
  					{
  					// Event is already queued; discard the duplicate and in-between events
- 					OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBDEVICESTATECHANGE, "CUsbSession::UsbDeviceStateChange;--- collapsing queue head (%d, %d)", iDevStateQueueHead, ((queuePtr + 1) % KDeviceStatesQueueSize) );
-
+ 					LOGTEXT3(_L8("--- collapsing queue head (%d, %d)"),
+						iDevStateQueueHead,
+						(queuePtr + 1) % KDeviceStatesQueueSize);
 
  					// queue head moved to position following the match
  					iDevStateQueueHead = (queuePtr + 1) % KDeviceStatesQueueSize;
@@ -413,13 +405,13 @@ void CUsbSession::UsbDeviceStateChange(TInt /*aLastError*/, TUsbDeviceState /*aO
  			// add event to head of queue
  			iDeviceStateQueue[iDevStateQueueHead] = aNewState;
  			iDevStateQueueHead = (iDevStateQueueHead + 1) % KDeviceStatesQueueSize;
- 			OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBDEVICESTATECHANGE_DUP1, "CUsbSession::UsbDeviceStateChange;+++ addqueue (%d, %d)", iDevStateQueueHead, iDevStateQueueTail );
+ 			LOGTEXT3(_L8("+++ addqueue (%d, %d)"), iDevStateQueueHead,
+				iDevStateQueueTail);
  			}
 
  		// UsbDeviceDequeueEvent() will read from queue when RegisterObserver()
 		// is next called.
 		}
-	OstTraceFunctionExit0( CUSBSESSION_USBDEVICESTATECHANGE_EXIT );
 	}
 
 /**
@@ -427,7 +419,7 @@ void CUsbSession::UsbDeviceStateChange(TInt /*aLastError*/, TUsbDeviceState /*aO
  */
 void CUsbSession::UsbDeviceDequeueEvent()
  	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBDEVICEDEQUEUEEVENT_ENTRY );
+	LOG_FUNC
 
  	// Work our way through the queue, until we reach the end
  	// OR we find an event the current observer wants.
@@ -448,7 +440,7 @@ void CUsbSession::UsbDeviceDequeueEvent()
 
  			iNotifiedDevState = newState;
 
- 			OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBDEVICEDEQUEUEEVENT, "CUsbSession::UsbDeviceDequeueEvent;dequeued event #%d (0x%x)", iDevStateQueueTail, newState );
+ 			LOGTEXT3(_L8(">>> dequeued event #%d (0x%x)"), iDevStateQueueTail, newState);
 
   			iDeviceObserverOutstanding = EFalse;
 			const TInt err = iDeviceObserverMessage.Write(1, pckg);
@@ -456,7 +448,6 @@ void CUsbSession::UsbDeviceDequeueEvent()
  			break;
    			}
    		}
-   	OstTraceFunctionExit0( CUSBSESSION_USBDEVICEDEQUEUEEVENT_EXIT );
    	}
 
 /**
@@ -467,12 +458,12 @@ void CUsbSession::UsbDeviceDequeueEvent()
  */
 void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DISPATCHMESSAGEL_ENTRY );
+	LOG_FUNC
 
 	TBool complete = ETrue;
 	TInt ret = KErrNone;
 
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL, "CUsbSession::DispatchMessageL;func#=%d", aMessage.Function() );
+	LOGTEXT2(_L8("CUsbSession::DispatchMessageL(): func# %d"), aMessage.Function());
 
 	switch (aMessage.Function())
 		{
@@ -527,6 +518,9 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 	case EUsbGetDescription:
 		ret = GetDescription(aMessage);
 		break;
+	case EUsbGetDetailedDescription:
+		ret = GetDetailedDescription(aMessage);
+		break;
 	case EUsbGetPersonalityProperty:
 		ret = GetPersonalityProperty(aMessage);
 		break;
@@ -538,20 +532,20 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 	// Heap failure debug APIs.
 
 	case EUsbDbgMarkHeap:
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP1, "CUsbSession::DispatchMessageL;Marking heap" );
+		LOGTEXT(_L8("Marking heap"));
 		__UHEAP_MARK;
 		break;
 	case EUsbDbgCheckHeap:
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP2, "CUsbSession::DispatchMessageL;Checking heap (expecting %d cells)", aMessage.Int0() );
+		LOGTEXT2(_L8("Checking heap (expecting %d cells)"), aMessage.Int0());
 		__UHEAP_CHECK(aMessage.Int0());
 		break;
 	case EUsbDbgMarkEnd:
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP3, "CUsbSession::DispatchMessageL;End of marking heap (expecting %d cells)", aMessage.Int0() );
+		LOGTEXT2(_L8("End of marking heap (expecting %d cells)"), aMessage.Int0());
 		__UHEAP_MARKENDC(aMessage.Int0());
 		break;
 	case EUsbDbgFailNext:
 		{
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP4, "CUsbSession::DispatchMessageL;Simulating failure after %d allocation(s)", aMessage.Int0() );
+		LOGTEXT2(_L8("Simulating failure after %d allocation(s)"), aMessage.Int0());
 		if (aMessage.Int0() == 0)
 			__UHEAP_RESET;
 		else
@@ -562,7 +556,7 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 		{
 		ret = KErrNone;
 #ifdef _DEBUG
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP5, "CUsbSession::DispatchMessageL;allocate on the heap" );
+		LOGTEXT(_L8("\tallocate on the heap"));
 		TInt* x = NULL;
 		TRAP(ret, x = new(ELeave) TInt);
 		delete x;
@@ -652,7 +646,7 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
 	default:
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_DISPATCHMESSAGEL_DUP6, "CUsbSession::DispatchMessageL;Illegal IPC argument(%d) - Panicking Client...", aMessage.Function() );
+		LOGTEXT2(_L8("Illegal IPC argument(%d) - Panicking Client..."), aMessage.Function());
 		aMessage.Panic(KUsbCliPncCat, EUsbPanicIllegalIPC);
 		complete = EFalse;
 		break;
@@ -660,7 +654,6 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 
 	if (complete)
 		aMessage.Complete(ret);
-	OstTraceFunctionExit0( CUSBSESSION_DISPATCHMESSAGEL_EXIT );
 	}
 
 
@@ -673,13 +666,12 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
  */
 TInt CUsbSession::StartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_STARTDEVICEL_ENTRY );
+	LOG_FUNC
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	// Only 'control' session is allowed to start USB support
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STARTDEVICEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
@@ -713,7 +705,6 @@ TInt CUsbSession::StartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		iStartOutstanding = ETrue;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_STARTDEVICEL_EXIT_DUP1 );
 	return KErrNone;
 
 #else
@@ -724,7 +715,6 @@ TInt CUsbSession::StartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	iStartOutstanding = EFalse;
 	aMessage.IsNull();
 	aComplete = ETrue;
-	OstTraceFunctionExit0( CUSBSESSION_STARTDEVICEL_EXIT_DUP2 );
 	return KErrNone;
 
 #endif
@@ -739,20 +729,18 @@ TInt CUsbSession::StartDeviceL(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::StopDeviceL(const RMessage2& aMessage, TBool& aComplete)
     {
-	OstTraceFunctionEntry0( CUSBSESSION_STOPDEVICEL_ENTRY );
+	LOG_FUNC
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	// Only 'control' session is allowed to stop USB support
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STOPDEVICEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
 
 	if (iStopOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STOPDEVICEL_EXIT_DUP1 );
 		return KErrInUse;
 		}
 
@@ -772,7 +760,6 @@ TInt CUsbSession::StopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		iStopOutstanding = ETrue;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_STOPDEVICEL_EXIT_DUP2 );
 	return KErrNone;
 
 #else
@@ -783,7 +770,6 @@ TInt CUsbSession::StopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	aComplete = ETrue;
 	aMessage.IsNull();
 	iStopOutstanding = EFalse;
-	OstTraceFunctionExit0( CUSBSESSION_STOPDEVICEL_EXIT_DUP3 );
 	return KErrNone;
 
 #endif
@@ -800,13 +786,12 @@ TInt CUsbSession::StopDeviceL(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::StartCancel(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_STARTCANCEL_ENTRY );
+	LOG_FUNC
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	// Only 'control' session is allowed to cancel outstaning start request
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STARTCANCEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
@@ -826,7 +811,6 @@ TInt CUsbSession::StartCancel(const RMessage2& aMessage, TBool& aComplete)
 #endif
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_STARTCANCEL_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -841,19 +825,18 @@ TInt CUsbSession::StartCancel(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::StopCancel(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_STOPCANCEL_ENTRY );
+	LOG_FUNC
+
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	// Only 'control' session is allowed to cancel outstaning stop request
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STOPCANCEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
 
 	if (!iStopOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_STOPCANCEL_EXIT_DUP1 );
 		return KErrNone;
 		}
 
@@ -867,7 +850,6 @@ TInt CUsbSession::StopCancel(const RMessage2& aMessage, TBool& aComplete)
 		return errHost;
 #endif
 	TRAPD(err, iUsbServer->Device().StartL());
-	OstTraceFunctionExit0( CUSBSESSION_STOPCANCEL_EXIT_DUP2 );
 	return err;
 	}
 
@@ -883,11 +865,10 @@ TInt CUsbSession::StopCancel(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::RegisterDeviceObserver(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_REGISTERDEVICEOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (iDeviceObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_REGISTERDEVICEOBSERVER_EXIT );
 		return KErrInUse;
 		}
 
@@ -899,7 +880,7 @@ TInt CUsbSession::RegisterDeviceObserver(const RMessage2& aMessage, TBool& aComp
 	 	{
  		// This is the first observer after c'tor or DeregisterObserver(),
  		// so zap the device event queue.
- 		OstTrace0( TRACE_NORMAL, CUSBSESSION_REGISTERDEVICEOBSERVER, "CUsbSession::RegisterDeviceObserver    Reset Device Event Queue" );
+ 		LOGTEXT(_L8("    Reset Device Event Queue"));
  		iDevStateQueueHead = 0;
  		iDevStateQueueTail = 0;
  		iObserverQueueEvents = ETrue;
@@ -910,7 +891,6 @@ TInt CUsbSession::RegisterDeviceObserver(const RMessage2& aMessage, TBool& aComp
  		UsbDeviceDequeueEvent();
 	 	}
 
-	OstTraceFunctionExit0( CUSBSESSION_REGISTERDEVICEOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -926,18 +906,16 @@ TInt CUsbSession::RegisterDeviceObserver(const RMessage2& aMessage, TBool& aComp
  */
 TInt CUsbSession::RegisterServiceObserver(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_REGISTERSERVICEOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (iServiceObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_REGISTERSERVICEOBSERVER_EXIT );
 		return KErrInUse;
 		}
 
 	iServiceObserverMessage = aMessage;
 	iServiceObserverOutstanding = ETrue;
 	aComplete = EFalse;
-	OstTraceFunctionExit0( CUSBSESSION_REGISTERSERVICEOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -953,10 +931,10 @@ TInt CUsbSession::RegisterServiceObserver(const RMessage2& aMessage, TBool& aCom
  */
 TInt CUsbSession::GetCurrentServiceState(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETCURRENTSERVICESTATE_ENTRY );
+	LOG_FUNC
 
 	TUsbServiceState state = iUsbServer->Device().ServiceState();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_GETCURRENTSERVICESTATE, "CUsbSession::GetCurrentServiceState;state=%d", state );
+	LOGTEXT2(_L8("\tstate = %d"), state);
 	TPckg<TUint32> pckg(state);
 	return aMessage.Write(0, pckg);
 	}
@@ -972,10 +950,10 @@ TInt CUsbSession::GetCurrentServiceState(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetCurrentDeviceState(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETCURRENTDEVICESTATE_ENTRY );
+	LOG_FUNC
 
 	TUsbDeviceState state = iUsbServer->Device().DeviceState();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_GETCURRENTDEVICESTATE, "CUsbSession::GetCurrentDeviceState;state=%d", state );
+	LOGTEXT2(_L8("\tstate = %d"), state);
 	TPckg<TUint32> pckg(state);
 	return aMessage.Write(0, pckg);
 	}
@@ -990,11 +968,10 @@ TInt CUsbSession::GetCurrentDeviceState(const RMessage2& aMessage)
  */
 TInt CUsbSession::DeRegisterDeviceObserver()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DEREGISTERDEVICEOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (!iDeviceObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_DEREGISTERDEVICEOBSERVER_EXIT );
 		return KErrNone;
 		}
 
@@ -1004,7 +981,6 @@ TInt CUsbSession::DeRegisterDeviceObserver()
 	// client doesn't need events queuing any more
  	iObserverQueueEvents = EFalse;
 
-	OstTraceFunctionExit0( CUSBSESSION_DEREGISTERDEVICEOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -1017,17 +993,15 @@ TInt CUsbSession::DeRegisterDeviceObserver()
  */
 TInt CUsbSession::DeRegisterServiceObserver()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DEREGISTERSERVICEOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (!iServiceObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_DEREGISTERSERVICEOBSERVER_EXIT );
 		return KErrNone;
 		}
 
 	iServiceObserverOutstanding = EFalse;
 	iServiceObserverMessage.Complete(KErrCancel);
-	OstTraceFunctionExit0( CUSBSESSION_DEREGISTERSERVICEOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -1041,7 +1015,7 @@ TInt CUsbSession::DeRegisterServiceObserver()
  */
 TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_TRYSTARTDEVICEL_ENTRY );
+	LOG_FUNC
 
 #ifndef __OVER_DUMMYUSBDI__
 
@@ -1049,20 +1023,17 @@ TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	// Only 'control' session is allowed to start USB support
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
 
 	if (!iPersonalityCfged)
 	{
-	OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP1 );
 	return KErrNotSupported;
 	}
 
 	if (iStartOutstanding || iStopOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP2 );
 		return KErrServerBusy;
 		}
 
@@ -1099,7 +1070,6 @@ TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		{
 		if (aMessage.Int0() != iUsbServer->Device().CurrentPersonalityId())
 			{
-			OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP3 );
 			return KErrAbort;
 			}
 
@@ -1112,11 +1082,9 @@ TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		}
 	else if (state == EUsbServiceStopping)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP4 );
 		return KErrServerBusy;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP5 );
 	return KErrNone;
 
 #else
@@ -1127,7 +1095,6 @@ TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	iStartOutstanding = EFalse;
 	aMessage.IsNull();
 	aComplete = ETrue;
-	OstTraceFunctionExit0( CUSBSESSION_TRYSTARTDEVICEL_EXIT_DUP6 );
 	return KErrNone;
 #endif
 	}
@@ -1142,7 +1109,7 @@ TInt CUsbSession::TryStartDeviceL(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_TRYSTOPDEVICEL_ENTRY );
+	LOG_FUNC
 
 #ifndef __OVER_DUMMYUSBDI__
 
@@ -1150,20 +1117,17 @@ TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	// Only 'control' session is allowed to stop USB support
 	if ( !iSessionCtlMode )
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT );
 		return KErrAccessDenied;
 		}
 #endif
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT_DUP1 );
 		return KErrNotSupported;
 		}
 
 	if (iStartOutstanding || iStopOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT_DUP2 );
 		return KErrServerBusy;
 		}
 
@@ -1193,7 +1157,6 @@ TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		}
 	else if (state == EUsbServiceStarting)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT_DUP3 );
 		return KErrServerBusy;
 		}
 	else if (state == EUsbServiceStopping)
@@ -1203,7 +1166,6 @@ TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 		iStopOutstanding = ETrue;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT_DUP4 );
 	return KErrNone;
 
 #else
@@ -1214,7 +1176,6 @@ TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
 	aMessage.IsNull();
 	aComplete = ETrue;
 	iStopOutstanding = EFalse;
-	OstTraceFunctionExit0( CUSBSESSION_TRYSTOPDEVICEL_EXIT_DUP5 );
 	return KErrNone;
 #endif
 	}
@@ -1229,11 +1190,10 @@ TInt CUsbSession::TryStopDeviceL(const RMessage2& aMessage, TBool& aComplete)
  */
 TInt CUsbSession::CancelInterest(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_CANCELINTEREST_ENTRY );
+	LOG_FUNC
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_CANCELINTEREST_EXIT );
 		return KErrNotSupported;
 		}
 
@@ -1255,7 +1215,6 @@ TInt CUsbSession::CancelInterest(const RMessage2& aMessage)
 			}
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_CANCELINTEREST_EXIT_DUP1 );
 	return KErrCancel;
 	}
 
@@ -1268,16 +1227,15 @@ TInt CUsbSession::CancelInterest(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetCurrentPersonalityId(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETCURRENTPERSONALITYID_ENTRY );
+	LOG_FUNC
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_GETCURRENTPERSONALITYID_EXIT );
 		return KErrNotSupported;
 		}
 
 	TInt currentPersonalityId = iUsbServer->Device().CurrentPersonalityId();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_GETCURRENTPERSONALITYID, "CUsbSession::GetCurrentPersonalityId;currentPersonalityId=%d", currentPersonalityId );
+	LOGTEXT2(_L8("\tcurrentPersonalityId = %d"), currentPersonalityId);
 	TPckgC<TInt> pckg(currentPersonalityId);
 	return aMessage.Write(0, pckg);
 	}
@@ -1293,11 +1251,10 @@ TInt CUsbSession::GetCurrentPersonalityId(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETSUPPORTEDCLASSES_ENTRY );
+	LOG_FUNC
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDCLASSES_EXIT );
 		return KErrNotSupported;
 		}
 
@@ -1309,11 +1266,7 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 	TInt personalityCount = personalities.Count();
 	for (TInt i = 0; i < personalityCount; i++)
 		{
-		if(personalities[i] == NULL)
-		    {
-            OstTrace1( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDCLASSES, "CUsbSession::GetSupportedClasses;ENullPersonalityPointer=%d", ENullPersonalityPointer );
-            User::Panic(KUsbSvrPncCat, ENullPersonalityPointer);
-		    }
+		__ASSERT_ALWAYS(personalities[i] != NULL, _USB_PANIC(KUsbSvrPncCat, ENullPersonalityPointer));
 		if (aMessage.Int0() == personalities[i]->PersonalityId())
 			{
 			classUids[0] = personalities[i]->SupportedClasses().Count();
@@ -1321,13 +1274,11 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 				{
 				if (j < KUsbMaxSupportedClasses + 1)
 					{
-					classUids[j] = personalities[i]->SupportedClasses()[j - 1].iClassUid.iUid;
-					OstTrace1( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDCLASSES_DUP1, "CUsbSession::GetSupportedClasses;classUids[%d] = ", j );
-					OstTrace1( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDCLASSES_DUP2, "%d", classUids[j] );					
+					classUids[j] = personalities[i]->SupportedClasses()[j - 1].iUid;
+					LOGTEXT3(_L8("\tclassUids[%d] = %d"), j, classUids[j]);
 					}
 				else
 					{
-					OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDCLASSES_EXIT_DUP1 );
 					return KErrTooBig;
 					}
 				}
@@ -1338,7 +1289,6 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 	if (classUids[0] == 0)
 		{
 		// No supported classes are found
-		OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDCLASSES_EXIT_DUP2 );
 		return KErrNotSupported;
 		}
 
@@ -1353,7 +1303,6 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
 		}
 
 	delete buf;
-	OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDCLASSES_EXIT_DUP3 );
 	return ret;
 	}
 
@@ -1366,11 +1315,10 @@ TInt CUsbSession::GetSupportedClasses(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetPersonalityIds(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETPERSONALITYIDS_ENTRY );
+	LOG_FUNC
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_GETPERSONALITYIDS_EXIT );
 		return KErrNotSupported;
 		}
 
@@ -1381,11 +1329,7 @@ TInt CUsbSession::GetPersonalityIds(const RMessage2& aMessage)
 	TInt personalityCount = personalities.Count();
 	for (TInt i = 0; i < personalityCount; ++i)
 		{
-        if(personalities[i] == NULL)
-            {
-            OstTrace1( TRACE_NORMAL, CUSBSESSION_GETPERSONALITYIDS, "CUsbSession::GetPersonalityIds;Panic reason=%d", ENullPersonalityPointer );
-            User::Panic(KUsbSvrPncCat, ENullPersonalityPointer);
-            }
+		__ASSERT_ALWAYS(personalities[i] != NULL, _USB_PANIC(KUsbSvrPncCat, ENullPersonalityPointer));
 		personalityIds[i + 1] = personalities[i]->PersonalityId();
 		}
 	personalityIds[0] = personalityCount;
@@ -1401,7 +1345,6 @@ TInt CUsbSession::GetPersonalityIds(const RMessage2& aMessage)
 		}
 
 	delete buf;
-	OstTraceFunctionExit0( CUSBSESSION_GETPERSONALITYIDS_EXIT_DUP1 );
 	return ret;
 	}
 
@@ -1414,11 +1357,10 @@ TInt CUsbSession::GetPersonalityIds(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetDescription(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETDESCRIPTION_ENTRY );
+	LOG_FUNC
 
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_GETDESCRIPTION_EXIT );
 		return KErrNotSupported;
 		}
 
@@ -1430,10 +1372,39 @@ TInt CUsbSession::GetDescription(const RMessage2& aMessage)
 		}
 
 	// We should never reach here
-	OstTraceFunctionExit0( CUSBSESSION_GETDESCRIPTION_EXIT_DUP1 );
 	return KErrNotSupported;
 	}
 
+/**
+ * Gets personality detailed description
+ *
+ * @internalComponent
+ * @param   aMessage    Message received from the client
+ * @return  Any error that occurred or KErrNone
+ */
+TInt CUsbSession::GetDetailedDescription(const RMessage2& aMessage)
+	{
+	LOG_FUNC
+
+ 	if (!iPersonalityCfged)
+		{
+		return KErrNotSupported;
+		}
+
+	TInt personalityId = aMessage.Int0();
+	const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
+    	if (personality)
+        	{
+        	if(personality->Version() < EUsbManagerResourceVersionTwo)
+            		{
+            		return KErrNotFound;
+            		}
+		return aMessage.Write(1, *(personality->DetailedDescription()));
+		}
+
+	// We should never reach here
+	return KErrNotSupported;
+	}
 
 /**
  * Gets personality property
@@ -1444,11 +1415,10 @@ TInt CUsbSession::GetDescription(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetPersonalityProperty(const RMessage2& aMessage)
 	{
-		OstTraceFunctionEntry0( CUSBSESSION_GETPERSONALITYPROPERTY_ENTRY );
+		LOG_FUNC
 
 		if (!iPersonalityCfged)
 			{
-			OstTraceFunctionExit0( CUSBSESSION_GETPERSONALITYPROPERTY_EXIT );
 			return KErrNotSupported;
 			}
 
@@ -1456,11 +1426,14 @@ TInt CUsbSession::GetPersonalityProperty(const RMessage2& aMessage)
 		const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
 		if (personality)
 			{
+			if(personality->Version() < EUsbManagerResourceVersionThree)
+				{
+				return KErrNotFound;
+				}
 			TPckg<TUint32> pckg(personality->Property());
 			return aMessage.Write(1, pckg);
 			}
 
-		OstTraceFunctionExit0( CUSBSESSION_GETPERSONALITYPROPERTY_EXIT_DUP2 );
 		return KErrNotSupported;
 	}
 
@@ -1473,10 +1446,10 @@ TInt CUsbSession::GetPersonalityProperty(const RMessage2& aMessage)
  */
 TInt CUsbSession::ClassSupported(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_CLASSSUPPORTED_ENTRY );
+	LOG_FUNC
+
 	if (!iPersonalityCfged)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_CLASSSUPPORTED_EXIT );
 		return KErrNotSupported;
 		}
 
@@ -1486,13 +1459,12 @@ TInt CUsbSession::ClassSupported(const RMessage2& aMessage)
 	const CPersonality* personality = iUsbServer->Device().GetPersonality(personalityId);
 	if (personality)
 		{
-		isSupported = personality->ClassSupported(classUid);
+		isSupported = (personality->ClassSupported(classUid) != KErrNotFound);
 		TPckg<TBool> pkg2(isSupported);
 		return aMessage.Write(2, pkg2);
 		}
 
 	// We should never reach here
-	OstTraceFunctionExit0( CUSBSESSION_CLASSSUPPORTED_EXIT_DUP1 );
 	return KErrNotSupported;
 	}
 
@@ -1506,12 +1478,12 @@ TInt CUsbSession::ClassSupported(const RMessage2& aMessage)
  */
 TInt CUsbSession::SetCtlSessionMode(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_SETCTLSESSIONMODE_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 
 	TBool value = (TBool)aMessage.Int0();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_SETCTLSESSIONMODE, "CUsbSession::SetCtlSessionMode;Setting = %d", static_cast<TInt>(value) );
+	LOGTEXT2(_L8("\tSetting = %d"), static_cast<TInt>(value));
 
 	// Verify if this is the same session which set the value before
 	if ( iCtlSession && (iCtlSession != this) )
@@ -1533,7 +1505,6 @@ TInt CUsbSession::SetCtlSessionMode(const RMessage2& aMessage)
 			}
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_SETCTLSESSIONMODE_EXIT );
 	return ret;
 	}
 
@@ -1546,7 +1517,7 @@ TInt CUsbSession::SetCtlSessionMode(const RMessage2& aMessage)
  */
 TInt CUsbSession::BusRequest()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_BUSREQUEST_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1558,7 +1529,6 @@ TInt CUsbSession::BusRequest()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_BUSREQUEST_EXIT );
 	return ret;
 	}
 
@@ -1573,7 +1543,7 @@ TInt CUsbSession::BusRequest()
  */
 TInt CUsbSession::BusRespondSrp()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_BUSRESPONDSRP_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1585,7 +1555,6 @@ TInt CUsbSession::BusRespondSrp()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_BUSRESPONDSRP_EXIT );
 	return ret;
 	}
 
@@ -1599,7 +1568,7 @@ TInt CUsbSession::BusRespondSrp()
  */
 TInt CUsbSession::BusClearError()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_BUSCLEARERROR_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1611,7 +1580,6 @@ TInt CUsbSession::BusClearError()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_BUSCLEARERROR_EXIT );
 	return ret;
 	}
 
@@ -1624,7 +1592,7 @@ TInt CUsbSession::BusClearError()
  */
 TInt CUsbSession::BusDrop()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_BUSDROP_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1636,7 +1604,6 @@ TInt CUsbSession::BusDrop()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_BUSDROP_EXIT );
 	return ret;
 	}
 
@@ -1649,7 +1616,7 @@ TInt CUsbSession::BusDrop()
  */
 TInt CUsbSession::EnableFunctionDriverLoading()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_ENABLEFUNCTIONDRIVERLOADING_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1661,7 +1628,6 @@ TInt CUsbSession::EnableFunctionDriverLoading()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_ENABLEFUNCTIONDRIVERLOADING_EXIT );
 	return ret;
 	}
 
@@ -1674,7 +1640,7 @@ TInt CUsbSession::EnableFunctionDriverLoading()
  */
 TInt CUsbSession::DisableFunctionDriverLoading()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DISABLEFUNCTIONDRIVERLOADING_ENTRY );
+	LOG_FUNC
 
 	TInt ret = KErrNone;
 	if ( iSessionCtlMode )
@@ -1686,7 +1652,6 @@ TInt CUsbSession::DisableFunctionDriverLoading()
 		ret = KErrAccessDenied;
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_DISABLEFUNCTIONDRIVERLOADING_EXIT );
 	return ret;
 	}
 
@@ -1699,9 +1664,8 @@ TInt CUsbSession::DisableFunctionDriverLoading()
  */
 TInt CUsbSession::GetSupportedLanguages(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETSUPPORTEDLANGUAGES_ENTRY );
+	LOG_FUNC
 	TRAPD(err, GetSupportedLanguagesL(aMessage));
-	OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDLANGUAGES_EXIT );
 	return err;
 	}
 
@@ -1714,10 +1678,11 @@ TInt CUsbSession::GetSupportedLanguages(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETSUPPORTEDLANGUAGESL_ENTRY );
+	LOG_FUNC
+
 
 	const TUint deviceId = aMessage.Int0();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDLANGUAGESL, "CUsbSession::GetSupportedLanguagesL;deviceId=%d", deviceId );
+	LOGTEXT2(_L8("\tdeviceId = %d"), deviceId);
 
 	RArray<TUint> langIds;
 	CleanupClosePushL(langIds);
@@ -1726,7 +1691,7 @@ TInt CUsbSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 	if (ret == KErrNone)
 		{
 		const TUint count = langIds.Count();
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDLANGUAGESL_DUP1, "CUsbSession::GetSupportedLanguagesL;count=%d", count );
+		LOGTEXT2(_L8("\tcount = %d"), count);
 
 		// Set error code if there is no languages or there are too many
 		if ( count == 0 )
@@ -1752,7 +1717,7 @@ TInt CUsbSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 			for ( TUint ii = 0 ; ii < count; ++ii )
 				{
 				buf.Append((TUint8*)&(langIds[ii]), sizeof(TUint));
-				OstTraceExt2( TRACE_NORMAL, CUSBSESSION_GETSUPPORTEDLANGUAGESL_DUP2, "CUsbSession::GetSupportedLanguagesL;Append langID[%d] = %d", ii, langIds[ii] );
+				LOGTEXT3(_L8("Append langID[%d] = %d"),ii,langIds[ii]);
 				}
 
 			// Write back to the client.
@@ -1763,7 +1728,6 @@ TInt CUsbSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 
 	CleanupStack::PopAndDestroy();
 
-	OstTraceFunctionExit0( CUSBSESSION_GETSUPPORTEDLANGUAGESL_EXIT );
 	return ret;
 	}
 
@@ -1776,21 +1740,20 @@ TInt CUsbSession::GetSupportedLanguagesL(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetManufacturerStringDescriptor(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
+	LOG_FUNC
 
 	const TUint deviceId = aMessage.Int0();
 	const TUint langId = aMessage.Int1();
-	OstTraceExt2( TRACE_NORMAL, CUSBSESSION_GETMANUFACTURERSTRINGDESCRIPTOR, "CUsbSession::GetManufacturerStringDescriptor;langId=%d;deviceId=%d", langId, deviceId );
+	LOGTEXT3(_L8("\tdeviceId = %d, langId = %d"), deviceId, langId);
 
 	TName string;
 	TInt ret = iUsbServer->Host().GetManufacturerStringDescriptor(deviceId,langId,string);
 	if (ret == KErrNone)
 		{
-		OstTraceExt1( TRACE_NORMAL, CUSBSESSION_GETMANUFACTURERSTRINGDESCRIPTOR_DUP1, "CUsbSession::GetManufacturerStringDescriptor;string = \"%S\"", string );
+		LOGTEXT2(_L("\tstring = \"%S\""), &string);
 		ret = aMessage.Write(2, string);
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_GETMANUFACTURERSTRINGDESCRIPTOR_EXIT );
 	return ret;
 	}
 
@@ -1803,21 +1766,20 @@ TInt CUsbSession::GetManufacturerStringDescriptor(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetProductStringDescriptor(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETPRODUCTSTRINGDESCRIPTOR_ENTRY );
+	LOG_FUNC
 
 	const TUint deviceId = aMessage.Int0();
 	const TUint langId = aMessage.Int1();
-	OstTraceExt2( TRACE_NORMAL, CUSBSESSION_GETPRODUCTSTRINGDESCRIPTOR, "CUsbSession::GetProductStringDescriptor;deviceId=%d;langId=%d", deviceId, langId );
+	LOGTEXT3(_L8("\tdeviceId = %d, langId = %d"), deviceId, langId);
 
 	TName string;
 	TInt ret = iUsbServer->Host().GetProductStringDescriptor(deviceId,langId,string);
 	if (ret == KErrNone)
 		{
-		OstTraceExt1( TRACE_NORMAL, CUSBSESSION_GETPRODUCTSTRINGDESCRIPTOR_DUP1, "CUsbSession::GetProductStringDescriptor;string = \"%S\"", string );
+		LOGTEXT2(_L("\tstring = \"%S\""), &string);
 		ret = aMessage.Write(2, string);
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_GETPRODUCTSTRINGDESCRIPTOR_EXIT );
 	return ret;
 	}
 
@@ -1830,10 +1792,10 @@ TInt CUsbSession::GetProductStringDescriptor(const RMessage2& aMessage)
  */
 TInt CUsbSession::GetOtgDescriptor(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_GETOTGDESCRIPTOR_ENTRY );
+	LOG_FUNC
 
 	const TUint deviceId = aMessage.Int0();
-	OstTrace1( TRACE_NORMAL, CUSBSESSION_GETOTGDESCRIPTOR, "CUsbSession::GetOtgDescriptor;deviceId=%d", deviceId );
+	LOGTEXT2(_L8("\tdeviceId = %d"), deviceId);
 
     TOtgDescriptor otgDescriptor;
 	TInt ret = iUsbServer->Host().GetOtgDescriptor(deviceId, otgDescriptor);
@@ -1843,7 +1805,6 @@ TInt CUsbSession::GetOtgDescriptor(const RMessage2& aMessage)
 		ret = aMessage.Write(1, buf);
 		}
 
-	OstTraceFunctionExit0( CUSBSESSION_GETOTGDESCRIPTOR_EXIT );
 	return ret;
 	}
 
@@ -1861,11 +1822,10 @@ TInt CUsbSession::GetOtgDescriptor(const RMessage2& aMessage)
  */
 TInt CUsbSession::RegisterHostObserver(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_REGISTERHOSTOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (iHostEventObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_REGISTERHOSTOBSERVER_EXIT );
 		return KErrInUse;
 		}
 
@@ -1877,7 +1837,7 @@ TInt CUsbSession::RegisterHostObserver(const RMessage2& aMessage, TBool& aComple
 	 	{
  		// This is the first observer after c'tor or DeregisterObserver(),
  		// so zap the device event queue.
- 		OstTrace0( TRACE_NORMAL, CUSBSESSION_REGISTERHOSTOBSERVER, "CUsbSession::RegisterHostObserver;    Reset OTG Host State Queue" );
+ 		LOGTEXT(_L8("    Reset OTG Host State Queue"));
  		iHostEventQueueHead = 0;
  		iHostEventQueueTail = 0;
  		iHostEventObserverQueueEvents = ETrue;
@@ -1888,7 +1848,6 @@ TInt CUsbSession::RegisterHostObserver(const RMessage2& aMessage, TBool& aComple
  		UsbHostEventDequeue();
 	 	}
 
-	OstTraceFunctionExit0( CUSBSESSION_REGISTERHOSTOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -1900,13 +1859,13 @@ TInt CUsbSession::RegisterHostObserver(const RMessage2& aMessage, TBool& aComple
  */
 TInt CUsbSession::DeRegisterHostObserver()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DEREGISTERHOSTOBSERVER_ENTRY );
+	LOG_FUNC
+
 
 	if (!iHostEventObserverQueueEvents)
 		{
 		//Never register
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_DEREGISTERHOSTOBSERVER, "CUsbSession::DeRegisterHostObserver;iHostEventObserverQueueEvents is FALSE!" );
-		OstTraceFunctionExit0( CUSBSESSION_DEREGISTERHOSTOBSERVER_EXIT );
+		LOGTEXT(_L8("iHostEventObserverQueueEvents is FALSE!"));
 		return KErrNone;
 		}
 
@@ -1914,7 +1873,7 @@ TInt CUsbSession::DeRegisterHostObserver()
 		{
 		iHostEventObserverOutstanding = EFalse;
 		iHostEventObserverMessage.Complete(KErrCancel);
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_DEREGISTERHOSTOBSERVER_DUP1, "CUsbSession::DeRegisterHostObserver;iHostEventObserverMessage.Complete(KErrCancel);" );
+		LOGTEXT(_L8("iHostEventObserverMessage.Complete(KErrCancel);"));
 		}
 
 	// client doesn't need events queuing any more
@@ -1923,7 +1882,6 @@ TInt CUsbSession::DeRegisterHostObserver()
 	iHostEventQueueHead = 0;
 	iHostEventQueueTail = 0;
 
-	OstTraceFunctionExit0( CUSBSESSION_DEREGISTERHOSTOBSERVER_EXIT_DUP1 );
 	return KErrNone;	
 	}
 
@@ -1941,11 +1899,10 @@ TInt CUsbSession::DeRegisterHostObserver()
  */
 TInt CUsbSession::RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplete)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_REGISTERMSGOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (iMsgObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_REGISTERMSGOBSERVER_EXIT );
 		return KErrInUse;
 		}
 
@@ -1957,7 +1914,7 @@ TInt CUsbSession::RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplet
 	 	{
  		// This is the first observer after c'tor or DeregisterObserver(),
  		// so zap the device event queue.
- 		OstTrace0( TRACE_NORMAL, CUSBSESSION_REGISTERMSGOBSERVER, "CUsbSession::RegisterMsgObserver;    Reset OTG Message Queue" );
+ 		LOGTEXT(_L8("    Reset OTG Message Queue"));
  		iMsgQueueHead = 0;
  		iMsgQueueTail = 0;
  		iMsgObserverQueueEvents = ETrue;
@@ -1968,7 +1925,6 @@ TInt CUsbSession::RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplet
  		UsbMsgDequeue();
 	 	}
 
-	OstTraceFunctionExit0( CUSBSESSION_REGISTERMSGOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -1980,11 +1936,10 @@ TInt CUsbSession::RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplet
  */
 TInt CUsbSession::DeRegisterMsgObserver()
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_DEREGISTERMSGOBSERVER_ENTRY );
+	LOG_FUNC
 
 	if (!iMsgObserverOutstanding)
 		{
-		OstTraceFunctionExit0( CUSBSESSION_DEREGISTERMSGOBSERVER_EXIT );
 		return KErrNone;
 		}
 
@@ -1994,7 +1949,6 @@ TInt CUsbSession::DeRegisterMsgObserver()
 	// client doesn't need events queuing any more
  	iMsgObserverQueueEvents = EFalse;
 
-	OstTraceFunctionExit0( CUSBSESSION_DEREGISTERMSGOBSERVER_EXIT_DUP1 );
 	return KErrNone;
 	}
 
@@ -2008,7 +1962,7 @@ TInt CUsbSession::DeRegisterMsgObserver()
  */
 void CUsbSession::UsbOtgHostMessage(TInt aMessage)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBOTGHOSTMESSAGE_ENTRY );
+	LOG_FUNC
 
 	// can we bypass the queue?
  	if ((iMsgObserverOutstanding) && (iMsgQueueHead == iMsgQueueTail))
@@ -2026,12 +1980,12 @@ void CUsbSession::UsbOtgHostMessage(TInt aMessage)
 		// add event to head of queue
 		iMsgQueue[iMsgQueueHead] = aMessage;
 		iMsgQueueHead = (iMsgQueueHead + 1) % KOtgHostMessageQueueSize;
-		OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBOTGHOSTMESSAGE, "CUsbSession::UsbOtgHostMessage; addqueue (%d, %d)", iMsgQueueHead, iMsgQueueTail );
+		LOGTEXT3(_L8("+++ CUsbSession::UsbOtgMessage() addqueue (%d, %d)"), iMsgQueueHead,
+			iMsgQueueTail);
 
  		// UsbMsgDequeueEvent() will read from queue when RegisterMsgObserver()
 		// is next called.
 		}
-	OstTraceFunctionExit0( CUSBSESSION_USBOTGHOSTMESSAGE_EXIT );
 	}
 
 /**
@@ -2045,7 +1999,7 @@ void CUsbSession::UsbOtgHostMessage(TInt aMessage)
  */
 void CUsbSession::UsbHostEvent(TDeviceEventInformation& aDevInfo)
 	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBHOSTEVENT_ENTRY );
+	LOG_FUNC
 
 	// can we bypass the queue?
  	if ((iHostEventObserverOutstanding) && (iHostEventQueueHead == iHostEventQueueTail))
@@ -2053,24 +2007,24 @@ void CUsbSession::UsbHostEvent(TDeviceEventInformation& aDevInfo)
 		iNotifiedHostState = aDevInfo;
 		iHostEventObserverOutstanding = EFalse;
 
-		OstTrace0( TRACE_NORMAL, CUSBSESSION_USBHOSTEVENT, "CUsbSession::UsbHostEvent detected outstanding request" );
+		LOGTEXT(_L8("CUsbSession::UsbHostEvent() detected outstanding request"));
 
 		TPckg<TDeviceEventInformation> info(aDevInfo);
 		const TInt err = iHostEventObserverMessage.Write(0, info);
 		iHostEventObserverMessage.Complete(err);
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_USBHOSTEVENT_DUP1, "CUsbSession::UsbHostEvent; detects outstanding request: request is compeleted with %d", err );
+		LOGTEXT2(_L8("CUsbSession::UsbHostEvent() detects outstanding request: request is compeleted with %d"), err);
 		}
 	else if (iHostEventObserverQueueEvents)
 		{
 		// add dev info to head of queue
 		iHostStateQueue[iHostEventQueueHead] = aDevInfo;
 		iHostEventQueueHead = (iHostEventQueueHead + 1) % KDeviceStatesQueueSize;
-		OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBHOSTEVENT_DUP2, "CUsbSession::UsbHostEvent; addqueue (%d, %d)", iHostEventQueueHead, iHostEventQueueTail );
+		LOGTEXT3(_L8("+++ CUsbSession::UsbHostEvent() addqueue (%d, %d)"), iHostEventQueueHead,
+			iHostEventQueueTail);
 
  		// UsbHostStateDequeueEvent() will read from queue when RegisterHostObserver()
 		// is next called.
 		}
-	OstTraceFunctionExit0( CUSBSESSION_USBHOSTEVENT_EXIT );
 	}
 
 /**
@@ -2078,7 +2032,7 @@ void CUsbSession::UsbHostEvent(TDeviceEventInformation& aDevInfo)
  */
 void CUsbSession::UsbMsgDequeue()
  	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBMSGDEQUEUE_ENTRY );
+	LOG_FUNC
 
 	// Work our way through the queue, until we reach the end
  	// OR we find an event the current observer wants.
@@ -2092,13 +2046,12 @@ void CUsbSession::UsbMsgDequeue()
  		TPckg<TUint32> pckg(newMsg);
  		iNotifiedMsg = newMsg;
 
- 		OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBMSGDEQUEUE, "CUsbSession::UsbMsgDequeue;dequeued event #%d (0x%x)", iMsgQueueTail, newMsg );
+ 		LOGTEXT3(_L8(">>> dequeued event #%d (0x%x)"), iMsgQueueTail, newMsg);
 
 		iMsgObserverOutstanding = EFalse;
 		const TInt err = iMsgObserverMessage.Write(0, pckg);
 		iMsgObserverMessage.Complete(err);
    		}
-  	OstTraceFunctionExit0( CUSBSESSION_USBMSGDEQUEUE_EXIT );
   	}
 
 /**
@@ -2106,7 +2059,7 @@ void CUsbSession::UsbMsgDequeue()
  */
 void CUsbSession::UsbHostEventDequeue()
  	{
-	OstTraceFunctionEntry0( CUSBSESSION_USBHOSTEVENTDEQUEUE_ENTRY );
+	LOG_FUNC
 
 	// Work our way through the queue, until we reach the end
  	// OR we find an event the current observer wants.
@@ -2120,16 +2073,15 @@ void CUsbSession::UsbHostEventDequeue()
  		// advance tail towards the head
  		iHostEventQueueTail = (iHostEventQueueTail + 1) % KDeviceStatesQueueSize;
 
-		OstTraceExt2( TRACE_NORMAL, CUSBSESSION_USBHOSTEVENTDEQUEUE, "CUsbSession::UsbHostEventDequeue; dequeued event #%d (0x%x)", iHostEventQueueTail, newDevInfo.iEventType );
+		LOGTEXT3(_L8(">>> CUsbSession::UsbHostStateDequeueEvent() dequeued event #%d (0x%x)"), iHostEventQueueTail, newDevInfo.iEventType);
 
 		TPckg<TDeviceEventInformation> info(newDevInfo);
 		iHostEventObserverOutstanding = EFalse;
 		const TInt err = iHostEventObserverMessage.Write(0, info);
 		iHostEventObserverMessage.Complete(err);
 
-		OstTrace1( TRACE_NORMAL, CUSBSESSION_USBHOSTEVENTDEQUEUE_DUP1, "CUsbSession::UsbHostStateDequeueEvent() detects outstanding request: request is compeleted with %d", err );
+		LOGTEXT2(_L8("CUsbSession::UsbHostStateDequeueEvent() detects outstanding request: request is compeleted with %d"), err);
    		}
-   	OstTraceFunctionExit0( CUSBSESSION_USBHOSTEVENTDEQUEUE_EXIT );
    	}
 
 TInt CUsbSession::RequestSession()

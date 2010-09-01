@@ -31,11 +31,6 @@ _LIT8(KLogComponent, "USBCHARGE TEST");
 #include <dummyldd.h>
 #define __D32USBC_H__ // ensure that d32usbc is ignored, and dummyldd used instead
 #include "CUsbBatteryChargingTestPlugin.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbBatteryChargingTestPluginTraces.h"
-#endif
-
 
 // Define the private interface UIDs
 const TImplementationProxy ImplementationTable[] =
@@ -52,8 +47,8 @@ EXPORT_C const TImplementationProxy* ImplementationGroupProxy(TInt& aTableCount)
 
 CUsbBatteryChargingTestPlugin* CUsbBatteryChargingTestPlugin::NewL(MUsbmanExtensionPluginObserver& aObserver)
 	{
-    OstTrace0( TRACE_NORMAL, CUSBBATTERYCHARGINGTESTPLUGIN_NEWL, _L8("NewL Test plug-n"));
-    
+	LOGTEXT(_L8("NewL Test plug-n"));
+
 	CUsbBatteryChargingTestPlugin* self = new(ELeave) CUsbBatteryChargingTestPlugin(aObserver);
 	CleanupStack::PushL(self);
 	self->ConstructL();

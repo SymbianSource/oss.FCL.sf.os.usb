@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -25,11 +25,6 @@
 #include <ecom/ecom.h>
 #include <ecom/implementationproxy.h>
 #include "CUsbACMClassController.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbAcmClassImpCollectionTraces.h"
-#endif
-
 
 // Define the private interface UIDs
 const TImplementationProxy UsbCCImplementationTable[] =
@@ -39,9 +34,8 @@ const TImplementationProxy UsbCCImplementationTable[] =
 
 EXPORT_C const TImplementationProxy* ImplementationGroupProxy(TInt& aTableCount)
     {
-	OstTraceFunctionEntry0( USBACMCLASSIMPCONTROLLER_IMPLEMENTATIONGROUPPROXY_ENTRY );
     aTableCount = sizeof(UsbCCImplementationTable) / sizeof(TImplementationProxy);
-    OstTraceFunctionExit0( USBACMCLASSIMPCONTROLLER_IMPLEMENTATIONGROUPPROXY_EXIT );
+
     return UsbCCImplementationTable;
     }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -20,42 +20,41 @@
 /**
  @file
 */
+
+#include "CUsbDevice.h"
+#include "CUsbDeviceStateWatcher.h"
 #include <cusbclasscontrolleriterator.h>
+#include "MUsbDeviceNotify.h"
+#include "UsbSettings.h"
+#include "CUsbServer.h"
 #include <cusbclasscontrollerbase.h>
 #include <cusbclasscontrollerplugin.h>
+#include "UsbUtils.h"
 #include <cusbmanextensionplugin.h>
+
+#ifdef USE_DUMMY_CLASS_CONTROLLER
+#include "CUsbDummyClassController.h"
+#endif
+
 #include <bafl/sysutil.h>
 #include <usb/usblogger.h>
 #include <e32svr.h>
 #include <e32base.h>
 #include <e32std.h>
+#include <usbman.rsg>
 #include <f32file.h>
 #include <barsc.h>
 #include <barsread.h>
 #include <bautils.h>
 #include <e32property.h> //Publish & Subscribe header
-#ifdef USE_DUMMY_CLASS_CONTROLLER
-#include "CUsbDummyClassController.h"
-#endif
-#include "MUsbDeviceNotify.h"
-#include "UsbSettings.h"
-#include "CUsbServer.h"
-#include "UsbUtils.h"
-#include "CUsbDevice.h"
-#include "CUsbDeviceStateWatcher.h"
 #include "CPersonality.h"
-#include "usbmancenrepmanager.h"
-#include "usbmanprivatecrkeys.h"
-
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbDeviceTraces.h"
-#endif
-
 
 _LIT(KUsbLDDName, "eusbc"); //Name used in call to User::LoadLogicalDevice
 _LIT(KUsbLDDFreeName, "Usbc"); //Name used in call to User::FreeLogicalDevice
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
+#endif
 
 // Panic category only used in debug builds
 #ifdef _DEBUG
@@ -83,13 +82,12 @@ CUsbDevice* CUsbDevice::NewL(CUsbServer& aUsbServer)
  * @return	A new CUsbDevice object
  */
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
 
 	CUsbDevice* r = new (ELeave) CUsbDevice(aUsbServer);
 	CleanupStack::PushL(r);
 	r->ConstructL();
 	CleanupStack::Pop(r);
-	OstTraceFunctionExit0( CUSBDEVICE_NEWL_EXIT );
 	return r;
 	}
 
@@ -99,7 +97,7 @@ CUsbDevice::~CUsbDevice()
  * Destructor.
  */
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_CUSBDEVICE_DES_ENTRY );
+	LOG_FUNC
 
 	// Cancel any outstanding asynchronous operation.
 	Cancel();
@@ -110,11 +108,6 @@ CUsbDevice::~CUsbDevice()
 	iSupportedClassUids.Close();
 
 	iExtensionPlugins.ResetAndDestroy();
-	
-	delete iCenRepManager;
-	
-	delete  iDeviceConfiguration.iManufacturerName;
-	delete  iDeviceConfiguration.iProductName;  
 
 	if(iEcom)
 		iEcom->Close();
@@ -125,29 +118,24 @@ CUsbDevice::~CUsbDevice()
 	// the observers themselves.
 	iObservers.Reset();
 
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_CUSBDEVICE, "CUsbDevice::~CUsbDevice;about to delete device state watcher @ %08x", (TUint32)iDeviceStateWatcher );
-	
+	LOGTEXT2(_L8("about to delete device state watcher @ %08x"), (TUint32) iDeviceStateWatcher);
 	delete iDeviceStateWatcher;
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CUSBDEVICE_DUP1, "CUsbDevice::~CUsbDevice;deleted device state watcher" );
+	LOGTEXT(_L8("deleted device state watcher"));
 
 	iLdd.Close();
 
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CUSBDEVICE_DUP2, "CUsbDevice::~CUsbDevice;Freeing logical device" );
-	
+	LOGTEXT(_L8("Freeing logical device"));
 	TInt err = User::FreeLogicalDevice(KUsbLDDFreeName);
 	//Putting the LOGTEXT2 inside the if statement prevents a compiler
 	//warning about err being unused in UREL builds.
 	if(err)
 		{
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CUSBDEVICE_DUP3, "CUsbDevice::~CUsbDevice; User::FreeLogicalDevice returned err=%d", err );
+		LOGTEXT2(_L8("     User::FreeLogicalDevice returned %d"),err);
 		}
-#endif
 #endif	
 
 	delete iDefaultSerialNumber;
-	OstTraceFunctionExit0( CUSBDEVICE_CUSBDEVICE_DES_EXIT );
 	}
 
 
@@ -170,36 +158,24 @@ void CUsbDevice::ConstructL()
  * Performs 2nd phase construction of the USB device.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_CONSTRUCTL_ENTRY );
+	LOG_FUNC
 	
 	iEcom = &(REComSession::OpenL());
 
 	iUsbClassControllerIterator = new(ELeave) CUsbClassControllerIterator(iSupportedClasses);
-	iCenRepManager = CUsbManCenRepManager::NewL(*this);
 
-	iDeviceConfiguration.iManufacturerName   = HBufC::NewL(KUsbStringDescStringMaxSize);
-	iDeviceConfiguration.iProductName        = HBufC::NewL(KUsbStringDescStringMaxSize);
-#ifndef __OVER_DUMMYUSBDI__	
 #ifndef __WINS__
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL, "CUsbDevice::ConstructL; About to load LDD" );
-	
+	LOGTEXT(_L8("About to load LDD"));
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
 
 	if (err != KErrNone && err != KErrAlreadyExists)
 		{
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP10, "CUsbDevice::ConstructL;err=%d", err );
-		User::Leave(err);
+		LEAVEL(err);
 		}
 
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP1, "CUsbDevice::ConstructL; About to open LDD" );	
-	err = iLdd.Open(0);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP9, "CUsbDevice::ConstructL;iLdd.Open(0) with error=%d", err );
-        User::Leave(err);
-	    }
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP2, "CUsbDevice::ConstructL; LDD opened" );
-	
+	LOGTEXT(_L8("About to open LDD"));
+	LEAVEIFERRORL(iLdd.Open(0));
+	LOGTEXT(_L8("LDD opened"));
 	
 	// hide bus from host while interfaces are being set up
 	iLdd.DeviceDisconnectFromHost();
@@ -210,33 +186,21 @@ void CUsbDevice::ConstructL()
 	// the device state is not undefined. This is to save power in the UDC 
 	// when there's no point it being powered.
 	TUsbDeviceCaps devCapsBuf;
-	err = iLdd.DeviceCaps(devCapsBuf);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP11, "CUsbDevice::ConstructL;iLdd.DeviceCaps(devCapsBuf) with error=%d", err );
-        User::Leave(err);
-	    }
-	
+	LEAVEIFERRORL(iLdd.DeviceCaps(devCapsBuf));
 	if ( devCapsBuf().iFeatureWord1 & KUsbDevCapsFeatureWord1_CableDetectWithoutPower )
 		{
-        OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP3, "CUsbDevice::ConstructL: UDC supports cable detect when unpowered" );
+		LOGTEXT(_L8("\tUDC supports cable detect when unpowered"));
 		iUdcSupportsCableDetectWhenUnpowered = ETrue;
 		}
 	else
 		{
-        OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP4, "CUsbDevice::ConstructL; UDC does not support cable detect when unpowered" );
+		LOGTEXT(_L8("\tUDC does not support cable detect when unpowered"));
 		}
 
 	TUsbcDeviceState deviceState;
-	err = iLdd.DeviceStatus(deviceState);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP13, "CUsbDevice::ConstructL;iLdd.DeviceStatus(deviceState) with error=%d", err );
-        User::Leave(err);
-	    }
+	LEAVEIFERRORL(iLdd.DeviceStatus(deviceState));
 	SetDeviceState(deviceState);
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP5, "CUsbDevice::ConstructL; Got device state" );
-	
+	LOGTEXT(_L8("Got device state"));
 
 	iDeviceStateWatcher = CUsbDeviceStateWatcher::NewL(*this, iLdd);
 	iDeviceStateWatcher->Start();
@@ -251,43 +215,35 @@ void CUsbDevice::ConstructL()
 		{
 		delete iDefaultSerialNumber;
 		iDefaultSerialNumber = NULL;
-		OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP6, "CUsbDevice::ConstructL; No default serial number" );
-		
+		LOGTEXT(_L8("No default serial number"));
 		}
 	else
 		{
-        if(err < 0)
-            {
-            OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP12, "CUsbDevice::ConstructL;error=%d", err );
-            User::Leave(err);
-            }
-#ifdef _DEBUG
-		OstTraceExt1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP7, "CUsbDevice::ConstructL;serNum=%S", serNum );
-#endif //_DEBUG  
+		LEAVEIFERRORL(err);
+#ifdef __FLOG_ACTIVE
+		TBuf8<KUsbStringDescStringMaxSize> narrowString;
+		narrowString.Copy(serNum);
+		LOGTEXT2(_L8("Got default serial number %S"), &narrowString);
+#endif //__FLOG_ACTIVE		
 		}
 
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP8, "CUsbDevice::ConstructL; UsbDevice::ConstructL() finished" );
-	
-#endif
+	LOGTEXT(_L8("UsbDevice::ConstructL() finished"));
 #endif
 	
 #ifndef __OVER_DUMMYUSBDI__
 	InstantiateExtensionPluginsL();
 #endif
-	OstTraceFunctionExit0( CUSBDEVICE_CONSTRUCTL_EXIT );
 	}
 
 void CUsbDevice::InstantiateExtensionPluginsL()
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_INSTANTIATEEXTENSIONPLUGINSL_ENTRY );
-    
+	LOGTEXT(_L8(">>CUsbDevice::InstantiateExtensionPluginsL"));
 	const TUid KUidExtensionPluginInterface = TUid::Uid(KUsbmanExtensionPluginInterfaceUid);
 	RImplInfoPtrArray implementations;
 	const TEComResolverParams noResolverParams;
 	REComSession::ListImplementationsL(KUidExtensionPluginInterface, noResolverParams, KRomOnlyResolverUid, implementations);
 	CleanupResetAndDestroyPushL(implementations);
-	OstTrace1( TRACE_FLOW, CUSBDEVICE_INSTANTIATEEXTENSIONPLUGINSL, "CUsbDevice::InstantiateExtensionPluginsL;Number of implementations of extension plugin interface: %d", implementations.Count() );
-	
+	LOGTEXT2(_L8("Number of implementations of extension plugin interface: %d"), implementations.Count());
 
 	for (TInt i=0; i<implementations.Count(); i++)
 		{
@@ -295,14 +251,13 @@ void CUsbDevice::InstantiateExtensionPluginsL()
 		CleanupStack::PushL(plugin);
 		iExtensionPlugins.AppendL(plugin); // transfer ownership to iExtensionPlugins
 		CleanupStack::Pop(plugin);
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_INSTANTIATEEXTENSIONPLUGINSL_DUP1, 
-		        "CUsbDevice::InstantiateExtensionPluginsL;Added extension plugin with UID 0x%08x", 
-		        implementations[i]->ImplementationUid().iUid );
-		
+		LOGTEXT2(_L8("Added extension plugin with UID 0x%08x"),
+			implementations[i]->ImplementationUid());
 		}
 
 	CleanupStack::PopAndDestroy(&implementations);
-	OstTraceFunctionExit0( CUSBDEVICE_INSTANTIATEEXTENSIONPLUGINSL_EXIT );
+
+	LOGTEXT(_L8("<<CUsbDevice::InstantiateExtensionPluginsL"));
 	}
 
 
@@ -314,7 +269,7 @@ void CUsbDevice::EnumerateClassControllersL()
  *
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_ENUMERATECLASSCONTROLLERSL_ENTRY );
+	LOG_FUNC
 	
 #ifdef USE_DUMMY_CLASS_CONTROLLER
 	//create a TLinearOrder to supply the comparison function, Compare(), to be used  
@@ -328,12 +283,8 @@ void CUsbDevice::EnumerateClassControllersL()
 		{
 		AddClassControllerL(CUsbDummyClassController::NewL(*this, ii), order);	
 		}
-	TInt err = iUsbClassControllerIterator->First();   
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_ENUMERATECLASSCONTROLLERSL_DUP2, "CUsbDevice::EnumerateClassControllersL;iUsbClassControllerIterator->First() with error=%d", err );
-        User::Leave(err);
-	    }
+	    
+	LEAVEIFERRORL(iUsbClassControllerIterator->First());
 	    
 #else
 
@@ -351,24 +302,19 @@ void CUsbDevice::EnumerateClassControllersL()
 	REComSession::ListImplementationsL(KUidUsbPlugIns, noResolverParams, KRomOnlyResolverUid, implementations);
   	CleanupResetAndDestroyPushL(implementations);
   	
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_ENUMERATECLASSCONTROLLERSL, "CUsbDevice::EnumerateClassControllersL;Number of implementations to load %d", implementations.Count() );
+	LOGTEXT2(_L8("Number of implementations to load  %d"), implementations.Count());
 	
 	for (TInt i=0; i<implementations.Count(); i++)
 		{
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_ENUMERATECLASSCONTROLLERSL_DUP1, "CUsbDevice::EnumerateClassControllersL;Adding class controller with UID %x", implementations[i]->ImplementationUid().iUid );
-        const TUid uid = implementations[i]->ImplementationUid();
-		TInt err = iSupportedClassUids.Append(uid);
-		if(err < 0)
-		    {
-            OstTrace1( TRACE_NORMAL, CUSBDEVICE_ENUMERATECLASSCONTROLLERSL_DUP3, "CUsbDevice::EnumerateClassControllersL;iSupportedClassUids.Append(uid) with error=%d", err );
-            User::Leave(err);
-		    }
+		LOGTEXT2(_L8("Adding class controller with UID %x"),
+			implementations[i]->ImplementationUid());
+		const TUid uid = implementations[i]->ImplementationUid();
+		LEAVEIFERRORL(iSupportedClassUids.Append(uid));
 		}	
 			
 	CleanupStack::PopAndDestroy(&implementations);
 	
 #endif // USE_DUMMY_CLASS_CONTROLLER
-	OstTraceFunctionExit0( CUSBDEVICE_ENUMERATECLASSCONTROLLERSL_EXIT );
 	}
 
 void CUsbDevice::AddClassControllerL(CUsbClassControllerBase* aClassController, 
@@ -384,7 +330,7 @@ void CUsbDevice::AddClassControllerL(CUsbClassControllerBase* aClassController,
  *                              added
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_ADDCLASSCONTROLLERL_ENTRY );
+	LOG_FUNC
 	
 	
 	TInt rc = KErrNone;	
@@ -403,10 +349,8 @@ void CUsbDevice::AddClassControllerL(CUsbClassControllerBase* aClassController,
 		{
 		// Avoid memory leak by deleting class controller if the append fails.
 		delete aClassController;
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_ADDCLASSCONTROLLERL, "CUsbDevice::AddClassControllerL;Leave rc=%d", rc );
-		User::Leave(rc);
+		LEAVEL(rc);
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_ADDCLASSCONTROLLERL_EXIT );
 	}
 
 void CUsbDevice::RegisterObserverL(MUsbDeviceNotify& aObserver)
@@ -417,14 +361,9 @@ void CUsbDevice::RegisterObserverL(MUsbDeviceNotify& aObserver)
  * @param	aObserver	New Observer of the device
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_REGISTEROBSERVERL_ENTRY );
-	TInt err = iObservers.Append(&aObserver);
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_REGISTEROBSERVERL, "CUsbDevice::RegisterObserverL;iObservers.Append(&aObserver) with err=%d", err );
-        User::Leave(err);
-	    }
-	OstTraceFunctionExit0( CUSBDEVICE_REGISTEROBSERVERL_EXIT );
+	LOG_FUNC
+
+	LEAVEIFERRORL(iObservers.Append(&aObserver));
 	}
 
 
@@ -435,13 +374,12 @@ void CUsbDevice::DeRegisterObserver(MUsbDeviceNotify& aObserver)
  * @param	aObserver	The existing device observer to be de-registered
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_DEREGISTEROBSERVER_ENTRY );
+	LOG_FUNC
 
 	TInt index = iObservers.Find(&aObserver);
 
 	if (index >= 0)
 		iObservers.Remove(index);
-	OstTraceFunctionExit0( CUSBDEVICE_DEREGISTEROBSERVER_EXIT );
 	}
 
 
@@ -451,7 +389,7 @@ void CUsbDevice::StartL()
  * Reports errors and state changes via observer interface.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_STARTL_ENTRY );
+	LOG_FUNC
 
 	Cancel();
 	SetServiceState(EUsbServiceStarting);
@@ -459,14 +397,12 @@ void CUsbDevice::StartL()
 	TRAPD(err, SetDeviceDescriptorL());
 	if ( err != KErrNone )
 		{
-		SetServiceState(EUsbServiceIdle);	
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_STARTL, "CUsbDevice::StartL;Leave with error=%d", err );
-		User::Leave(err);		
+		SetServiceState(EUsbServiceIdle);
+		LEAVEL(err);		
 		}
 
 	iLastError = KErrNone;
 	StartCurrentClassController();
-	OstTraceFunctionExit0( CUSBDEVICE_STARTL_EXIT );
 	}
 
 void CUsbDevice::Stop()
@@ -474,14 +410,13 @@ void CUsbDevice::Stop()
  * Stop the USB device and all its associated USB classes.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_STOP_ENTRY );
+	LOG_FUNC
 
 	Cancel();
 	SetServiceState(EUsbServiceStopping);
 	
 	iLastError = KErrNone;
 	StopCurrentClassController();
-	OstTraceFunctionExit0( CUSBDEVICE_STOP_EXIT );
 	}
 
 void CUsbDevice::SetServiceState(TUsbServiceState aState)
@@ -491,11 +426,8 @@ void CUsbDevice::SetServiceState(TUsbServiceState aState)
  * @param	aState	New state that the device is moving to
  */
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_SETSERVICESTATE_ENTRY );
-    
-	OstTraceExt2( TRACE_NORMAL, CUSBDEVICE_SETSERVICESTATE, 
-	        "CUsbDevice::SetServiceState;iServiceState=%d;aState=%d", iServiceState, aState );
-	
+	LOGTEXT3(_L8("Calling: CUsbDevice::SetServiceState [iServiceState=%d,aState=%d]"),
+		iServiceState, aState);
 
 	if (iServiceState != aState)
 		{
@@ -513,7 +445,7 @@ void CUsbDevice::SetServiceState(TUsbServiceState aState)
 		if (iServiceState == EUsbServiceIdle)
 			iUsbServer.LaunchShutdownTimerIfNoSessions();
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_SETSERVICESTATE_EXIT );
+	LOGTEXT(_L8("Exiting: CUsbDevice::SetServiceState"));
 	}
 
 void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
@@ -526,9 +458,8 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
  * @param	aState	New state that the device is moving to
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SETDEVICESTATE_ENTRY );
-	OstTraceExt2( TRACE_NORMAL, CUSBDEVICE_SETDEVICESTATE, 
-	        "CUsbDevice::SetDeviceState;aState=%d;iDeviceState=%d", aState, iDeviceState );
+	LOG_FUNC
+	LOGTEXT3(_L8("\taState = %d, iDeviceState = %d"), aState, iDeviceState);
 
 	TUsbDeviceState state;
 	switch (aState)
@@ -560,7 +491,6 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 
 	if (iDeviceState != state)
 		{
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 		if (iDeviceState == EUsbDeviceStateUndefined &&
 			iUdcSupportsCableDetectWhenUnpowered &&
@@ -572,8 +502,7 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 			// it up (so long as usbman is fully started).
 			(void)PowerUpAndConnect(); // We don't care about any errors here.
 			}
-#endif
-#endif // __OVER_DUMMYUSBDI__
+#endif // __WINS__
 		// Change state straight away in case any of the clients check it
 		TUsbDeviceState oldState = iDeviceState;
 		iDeviceState = state;
@@ -584,7 +513,6 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 			iObservers[i]->UsbDeviceStateChange(LastError(), oldState, iDeviceState);
 			}
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_SETDEVICESTATE_EXIT );
 	}
 
 /**
@@ -593,7 +521,7 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
  */
 void CUsbDevice::BusEnumerationCompleted()
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_BUSENUMERATIONCOMPLETED_ENTRY );
+	LOG_FUNC
 
 	// Has the start been cancelled?
 	if (iServiceState == EUsbServiceStarting)
@@ -602,10 +530,8 @@ void CUsbDevice::BusEnumerationCompleted()
 		}
 	else
 		{
-        OstTrace0( TRACE_NORMAL, CUSBDEVICE_BUSENUMERATIONCOMPLETED, 
-                "CUsbDevice::BusEnumerationCompleted;    Start has been cancelled!" );
+		LOGTEXT(_L8("    Start has been cancelled!"));
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_BUSENUMERATIONCOMPLETED_EXIT );
 	}
 
 void CUsbDevice::BusEnumerationFailed(TInt aError)
@@ -616,8 +542,7 @@ void CUsbDevice::BusEnumerationFailed(TInt aError)
  * @param	aError	Error that has occurred during Re-enumeration
  */
 	{
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_BUSENUMERATIONFAILED, "CUsbDevice::BusEnumerationFailed;aError=%d", aError );
-	
+	LOGTEXT2(_L8("CUsbDevice::BusEnumerationFailed [aError=%d]"), aError);
 	iLastError = aError;
 
 	if (iServiceState == EUsbServiceStarting)
@@ -627,8 +552,7 @@ void CUsbDevice::BusEnumerationFailed(TInt aError)
 		}
 	else
 		{
-		OstTrace0( TRACE_NORMAL, CUSBDEVICE_BUSENUMERATIONFAILED_DUP1, 
-		        "CUsbDevice::BusEnumerationFailed;    Start has been cancelled!" );		
+		LOGTEXT(_L8("    Start has been cancelled!"));
 		}
 	}
 
@@ -638,11 +562,10 @@ void CUsbDevice::StartCurrentClassController()
  * Called numerous times to start all the USB classes.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_STARTCURRENTCLASSCONTROLLER_ENTRY );
+	LOG_FUNC
 
 	iUsbClassControllerIterator->Current()->Start(iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CUSBDEVICE_STARTCURRENTCLASSCONTROLLER_EXIT );
 	}
 
 void CUsbDevice::StopCurrentClassController()
@@ -650,11 +573,10 @@ void CUsbDevice::StopCurrentClassController()
  * Called numerous times to stop all the USB classes.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_STOPCURRENTCLASSCONTROLLER_ENTRY );	
+	LOG_FUNC
 
 	iUsbClassControllerIterator->Current()->Stop(iStatus);
 	SetActive();
-	OstTraceFunctionExit0( CUSBDEVICE_STOPCURRENTCLASSCONTROLLER_EXIT );
 	}
 
 /**
@@ -663,19 +585,12 @@ device to the host.
 */
 TInt CUsbDevice::PowerUpAndConnect()
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_POWERUPANDCONNECT_ENTRY );
-	
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_POWERUPANDCONNECT, "CUsbDevice::PowerUpAndConnect;Powering up UDC..." );
-	
+	LOG_FUNC
+	LOGTEXT(_L8("\tPowering up UDC..."));
 	TInt res = iLdd.PowerUpUdc();
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_POWERUPANDCONNECT_DUP1, 
-	        "CUsbDevice::PowerUpAndConnect;PowerUpUdc res = %d", res );
-	
+	LOGTEXT2(_L8("\tPowerUpUdc res = %d"), res);
 	res = iLdd.DeviceConnectToHost();
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_POWERUPANDCONNECT_DUP2, 
-	        "CUsbDevice::PowerUpAndConnect;DeviceConnectToHost res = %d", res );
-	
-	OstTraceFunctionExit0( CUSBDEVICE_POWERUPANDCONNECT_EXIT );
+	LOGTEXT2(_L8("\tDeviceConnectToHost res = %d"), res);
 	return res;
 	}
 
@@ -686,36 +601,27 @@ void CUsbDevice::RunL()
  * classes have been completed.
  */
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_RUNL_ENTRY );
-    OstTrace1( TRACE_NORMAL, CUSBDEVICE_RUNL, "CUsbDevice::RunL;iStatus.Int()=%d", iStatus.Int() );
+	LOGTEXT2(_L8(">>CUsbDevice::RunL [iStatus=%d]"), iStatus.Int());
 
-    TInt err = iStatus.Int();
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_RUNL_DUP4, "CUsbDevice::RunL;iStatus.Int() with error=%d", err );
-        User::Leave(err);
-        }
+	LEAVEIFERRORL(iStatus.Int());
 
 	switch (iServiceState)
 		{
 	case EUsbServiceStarting:
 		if (iUsbClassControllerIterator->Next() == KErrNotFound)
 			{
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 			if (!iUdcSupportsCableDetectWhenUnpowered || iDeviceState != EUsbDeviceStateUndefined)
 				{
 				// We've finished starting the classes. We can just power up the UDC
 				// now: there's no need to re-enumerate, because we soft disconnected
 				// earlier. This will also do a soft connect.
-				OstTrace0( TRACE_NORMAL, CUSBDEVICE_RUNL_DUP1, "CUsbDevice::RunL;Finished starting classes: powering up UDC" );
-				
+				LOGTEXT(_L8("Finished starting classes: powering up UDC"));
 
 				// It isn't an error if this call fails. This will happen, for example,
 				// in the case where there are no USB classes defined.
 				(void)PowerUpAndConnect();
 				}
-#endif
 #endif
 			// If we're not running on target, we can just go to "started".
 			SetServiceState(EUsbServiceStarted);
@@ -730,7 +636,6 @@ void CUsbDevice::RunL()
 		if (iUsbClassControllerIterator->Previous() == KErrNotFound)
 			{
 			// if stopping classes, hide the USB interface from the host
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 			iLdd.DeviceDisconnectFromHost();
 
@@ -738,15 +643,14 @@ void CUsbDevice::RunL()
 			if (iDefaultSerialNumber)
 				{
 				TInt res = iLdd.SetSerialNumberStringDescriptor(*iDefaultSerialNumber);
-				OstTrace1( TRACE_NORMAL, CUSBDEVICE_RUNL_DUP2, "CUsbDevice::RunL;Restore default serial number res = %d", res );				
+				LOGTEXT2(_L8("Restore default serial number res = %d"), res);
 				}
 			else
 				{
 				TInt res = iLdd.RemoveSerialNumberStringDescriptor();
-				OstTrace1( TRACE_NORMAL, CUSBDEVICE_RUNL_DUP3, "CUsbDevice::RunL;Remove serial number res = %d", res );				
+				LOGTEXT2(_L8("Remove serial number res = %d"), res);
 				}
-
-#endif				
+				
 #endif			
 			SetServiceState(EUsbServiceIdle);
 			}
@@ -757,13 +661,10 @@ void CUsbDevice::RunL()
 		break;
 
 	default:
-
-        OstTrace1( TRACE_FATAL, CUSBDEVICE_RUNL_DUP5, "CUsbDevice::RunL;Panic reason=%d", EBadAsynchronousCall );
-        __ASSERT_DEBUG( EFalse, User::Panic(KUsbDevicePanicCategory, EBadAsynchronousCall) );
-
+		__ASSERT_DEBUG( EFalse, _USB_PANIC(KUsbDevicePanicCategory, EBadAsynchronousCall) );
 		break;
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_RUNL_EXIT );
+	LOGTEXT(_L8("<<CUsbDevice::RunL"));
 	}
 
 void CUsbDevice::DoCancel()
@@ -773,7 +674,7 @@ void CUsbDevice::DoCancel()
  * this function being called is a programming error.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_DOCANCEL_ENTRY );
+	LOG_FUNC
 
 	switch (iServiceState)
 		{
@@ -783,12 +684,9 @@ void CUsbDevice::DoCancel()
 		break;
 
 	default:
-
-        OstTrace1( TRACE_FATAL, CUSBDEVICE_DOCANCEL, "CUsbDevice::DoCancel;Panic reason=%d", EBadAsynchronousCall );
-        __ASSERT_DEBUG( EFalse, User::Panic(KUsbDevicePanicCategory, EBadAsynchronousCall ) );
+		__ASSERT_DEBUG( EFalse, _USB_PANIC(KUsbDevicePanicCategory, EBadAsynchronousCall) );
 		break;
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_DOCANCEL_EXIT );
 	}
 
 TInt CUsbDevice::RunError(TInt aError)
@@ -800,8 +698,7 @@ TInt CUsbDevice::RunError(TInt aError)
  * @return Always KErrNone, to avoid an active scheduler panic
  */
 	{
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_RUNERROR, "CUsbDevice::RunError;aError=%d", aError );
-	
+	LOGTEXT2(_L8("CUsbDevice::RunError [aError=%d]"), aError);
 
 	iLastError = aError;
 
@@ -833,8 +730,7 @@ TInt CUsbDevice::RunError(TInt aError)
 		break;
 
 	default:
-        OstTrace1( TRACE_FATAL, CUSBDEVICE_RUNERROR_DUP1, "CUsbDevice::RunError;Panic reason=%d", EBadAsynchronousCall );
-        __ASSERT_DEBUG( EFalse, User::Panic(KUsbDevicePanicCategory, EBadAsynchronousCall ) );
+		__ASSERT_DEBUG( EFalse, _USB_PANIC(KUsbDevicePanicCategory, EBadAsynchronousCall) );
 		break;
 		}
 
@@ -850,7 +746,7 @@ CUsbClassControllerIterator* CUsbDevice::UccnGetClassControllerIteratorL()
  * @return A new iterator
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_UCCNGETCLASSCONTROLLERITERATORL_ENTRY );
+	LOG_FUNC
 
 	return new (ELeave) CUsbClassControllerIterator(iSupportedClasses);
 	}
@@ -863,31 +759,30 @@ void CUsbDevice::UccnError(TInt aError)
  * @param aError The error that's occurred
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_UCCNERROR_ENTRY );
+	LOG_FUNC
 
 	RunError(aError);
-	OstTraceFunctionExit0( CUSBDEVICE_UCCNERROR_EXIT );
 	}
 
 
-#ifdef _DEBUG
+#ifdef __FLOG_ACTIVE
 void CUsbDevice::PrintDescriptor(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
 	{
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR, "CUsbDevice::PrintDescriptor;iLength=%d", aDeviceDescriptor.iLength );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP1, "CUsbDevice::PrintDescriptor;iDescriptorType=%d", aDeviceDescriptor.iDescriptorType );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP2, "CUsbDevice::PrintDescriptor;iBcdUsb=0x%04x", aDeviceDescriptor.iBcdUsb );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP3, "CUsbDevice::PrintDescriptor;iDeviceClass=0x%02x", aDeviceDescriptor.iDeviceClass );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP4, "CUsbDevice::PrintDescriptor;iDeviceSubClass=0x%02x", aDeviceDescriptor.iDeviceSubClass );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP5, "CUsbDevice::PrintDescriptor;iDeviceProtocol=0x%02x", aDeviceDescriptor.iDeviceProtocol );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP6, "CUsbDevice::PrintDescriptor;iMaxPacketSize=0x%02x", aDeviceDescriptor.iMaxPacketSize );
+	LOGTEXT2(_L8("\tiLength is %d"), aDeviceDescriptor.iLength);
+	LOGTEXT2(_L8("\tiDescriptorType is %d"), aDeviceDescriptor.iDescriptorType);
+	LOGTEXT2(_L8("\tBcdUsb is: 0x%04x"), aDeviceDescriptor.iBcdUsb);
+	LOGTEXT2(_L8("\tDeviceClass is: 0x%02x"), aDeviceDescriptor.iDeviceClass);
+	LOGTEXT2(_L8("\tDeviceSubClass is: 0x%02x"), aDeviceDescriptor.iDeviceSubClass);
+	LOGTEXT2(_L8("\tDeviceProtocol is: 0x%02x"), aDeviceDescriptor.iDeviceProtocol);
+	LOGTEXT2(_L8("\tiMaxPacketSize is: 0x%02x"), aDeviceDescriptor.iMaxPacketSize);
 	
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP7, "CUsbDevice::PrintDescriptor;iIdVendor=0x%04x", aDeviceDescriptor.iIdVendor );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP8, "CUsbDevice::PrintDescriptor;iProductId=0x%04x", aDeviceDescriptor.iProductId );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP9, "CUsbDevice::PrintDescriptor;iBcdDevice=0x%04x", aDeviceDescriptor.iBcdDevice );
-	
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP10, "CUsbDevice::PrintDescriptor;iManufacturer=0x%04x", aDeviceDescriptor.iManufacturer );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP11, "CUsbDevice::PrintDescriptor;iSerialNumber=0x%04x", aDeviceDescriptor.iSerialNumber );
-	OstTrace1( TRACE_DUMP, CUSBDEVICE_PRINTDESCRIPTOR_DUP12, "CUsbDevice::PrintDescriptor;iNumConfigurations=0x%04x", aDeviceDescriptor.iNumConfigurations );	
+	LOGTEXT2(_L8("\tVendorId is: 0x%04x"), aDeviceDescriptor.iIdVendor);
+	LOGTEXT2(_L8("\tProductId is: 0x%04x"), aDeviceDescriptor.iIdProduct);
+	LOGTEXT2(_L8("\tBcdDevice is: 0x%04x"), aDeviceDescriptor.iBcdDevice);
+
+	LOGTEXT2(_L8("\tiManufacturer is: 0x%04x"), aDeviceDescriptor.iManufacturer);
+	LOGTEXT2(_L8("\tiSerialNumber is: 0x%04x"), aDeviceDescriptor.iSerialNumber);
+	LOGTEXT2(_L8("\tiNumConfigurations is: 0x%04x"), aDeviceDescriptor.iNumConfigurations);
 	}
 #endif
 //
@@ -896,13 +791,13 @@ void CUsbDevice::SetDeviceDescriptorL()
  * Modifies the USB device descriptor.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SETDEVICEDESCRIPTORL_ENTRY );
+	LOG_FUNC
 
-#if !defined(__OVER_DUMMYUSBDI__) && !defined(__WINS__)
+#ifndef __WINS__
 
 	TInt desSize = 0;
 	iLdd.GetDeviceDescriptorSize(desSize);
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETDEVICEDESCRIPTORL, "CUsbDevice::SetDeviceDescriptorL;UDeviceDescriptorSize = %d", desSize );
+	LOGTEXT2(_L8("UDeviceDescriptorSize = %d"), desSize);
 	HBufC8* deviceBuf = HBufC8::NewLC(desSize);
 	TPtr8   devicePtr = deviceBuf->Des();
 	devicePtr.SetLength(0);
@@ -911,8 +806,8 @@ void CUsbDevice::SetDeviceDescriptorL()
 
 	if (ret != KErrNone)
 		{
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETDEVICEDESCRIPTORL_DUP1, "CUsbDevice::SetDeviceDescriptorL;Unable to fetch device descriptor. Error: %d", ret );
-		User::Leave(ret);
+		LOGTEXT2(_L8("Unable to fetch device descriptor. Error: %d"), ret);
+		LEAVEL(ret);
 		}
 
 	TUsbDeviceDescriptor* deviceDescriptor = reinterpret_cast<TUsbDeviceDescriptor*>(
@@ -926,7 +821,7 @@ void CUsbDevice::SetDeviceDescriptorL()
 	TUsbDeviceDescriptor descriptor;
 	TUsbDeviceDescriptor* deviceDescriptor = &descriptor;
 	
-#endif // __OVER_DUMMYUSBDI__ && _WINS_
+#endif // __WINS__
 
 	if (iPersonalityCfged)
 		{
@@ -934,26 +829,21 @@ void CUsbDevice::SetDeviceDescriptorL()
 		}
 	else
 		{
-        OstTrace0( TRACE_NORMAL, CUSBDEVICE_SETDEVICEDESCRIPTORL_DUP3, 
-                "CUsbDevice::SetDeviceDescriptorL;USB configuration is not read" );
-        User::Leave(KErrNotFound);
+	SetUsbDeviceSettingsL(*deviceDescriptor);
 		}
 	
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	ret = iLdd.SetDeviceDescriptor(devicePtr);
 
 	if (ret != KErrNone)
 		{
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETDEVICEDESCRIPTORL_DUP2, "CUsbDevice::SetDeviceDescriptorL;Unable to set device descriptor. Error: %d", ret );
-		User::Leave(ret);
+		LOGTEXT2(_L8("Unable to set device descriptor. Error: %d"), ret);
+		LEAVEL(ret);
 		}
 
 	CleanupStack::PopAndDestroy(deviceBuf);
 
-#endif
-#endif // __OVER_DUMMYUSBDI__
-	OstTraceFunctionExit0( CUSBDEVICE_SETDEVICEDESCRIPTORL_EXIT );
+#endif // __WINS__
 	}
 
 void CUsbDevice::SetUsbDeviceSettingsDefaultsL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
@@ -968,7 +858,134 @@ void CUsbDevice::SetUsbDeviceSettingsDefaultsL(CUsbDevice::TUsbDeviceDescriptor&
 	aDeviceDescriptor.iDeviceSubClass	= KUsbDefaultDeviceSubClass;
 	aDeviceDescriptor.iDeviceProtocol	= KUsbDefaultDeviceProtocol;
 	aDeviceDescriptor.iIdVendor			= KUsbDefaultVendorId;
-	aDeviceDescriptor.iProductId		= KUsbDefaultProductId;
+	aDeviceDescriptor.iIdProduct		= KUsbDefaultProductId;
+	}
+
+void CUsbDevice::SetUsbDeviceSettingsL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
+/**
+ * Configure the USB device, reading in the settings from a
+ * resource file where possible.
+ *
+ * @param aDeviceDescriptor The device descriptor for the USB device
+ */
+	{
+	LOG_FUNC
+
+	// First, use the default values
+	LOGTEXT(_L8("Setting default values for the configuration"));
+	SetUsbDeviceSettingsDefaultsL(aDeviceDescriptor);
+
+	// Now try to get the configuration from the resource file
+	RFs fs;
+	LEAVEIFERRORL(fs.Connect());
+	CleanupClosePushL(fs);
+
+	RResourceFile resource;
+	TRAPD(err, resource.OpenL(fs, KUsbManagerResource));
+	LOGTEXT2(_L8("Opened resource file with error %d"), err);
+
+	if (err != KErrNone)
+		{
+		LOGTEXT(_L8("Unable to open resource file: using default settings"));
+		CleanupStack::PopAndDestroy(&fs);
+		return;
+		}
+
+	CleanupClosePushL(resource);
+
+	resource.ConfirmSignatureL(KUsbManagerResourceVersion);
+
+	HBufC8* id = resource.AllocReadLC(USB_CONFIG);
+
+	// The format of the USB resource structure is:
+	//
+	//	STRUCT usb_configuration
+	//		{
+	//		WORD	vendorId		= 0x0e22;
+	//		WORD	productId		= 0x000b;
+	//		WORD	bcdDevice		= 0x0000;
+	//		LTEXT	manufacturer	= "Symbian Ltd.";
+	//		LTEXT	product			= "Symbian OS";
+	//		}
+	//
+	// Note that the resource must be read in this order!
+	
+	TResourceReader reader;
+	reader.SetBuffer(id);
+
+	aDeviceDescriptor.iIdVendor = static_cast<TUint16>(reader.ReadUint16());
+	aDeviceDescriptor.iIdProduct = static_cast<TUint16>(reader.ReadUint16());
+	aDeviceDescriptor.iBcdDevice = static_cast<TUint16>(reader.ReadUint16());
+
+	// Try to read device and manufacturer name from new SysUtil API
+	TPtrC16 sysUtilModelName;
+	TPtrC16 sysUtilManuName;
+	
+	// This method returns ownership.
+	CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
+	CleanupStack::PushL(deviceInfo);
+	TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
+	TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
+	
+	TPtrC manufacturerString = reader.ReadTPtrC();
+	TPtrC productString = reader.ReadTPtrC();
+	
+	// If we succesfully read the manufacturer or device name from SysUtil API
+	// then set these results, otherwise use the values defined in resource file
+#ifndef __WINS__
+	if (gotSysUtilManuName == KErrNone)
+		{
+		LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(sysUtilManuName));
+		}
+	else
+		{
+		LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(manufacturerString));
+		}
+
+	if (gotSysUtilModelName == KErrNone)
+		{
+		LEAVEIFERRORL(iLdd.SetProductStringDescriptor(sysUtilModelName));
+		}
+	else
+		{
+		LEAVEIFERRORL(iLdd.SetProductStringDescriptor(productString));
+		}
+#endif // __WINS__
+
+#ifdef __FLOG_ACTIVE
+	PrintDescriptor(aDeviceDescriptor);	
+	TBuf8<KUsbStringDescStringMaxSize> narrowString;
+	narrowString.Copy(manufacturerString);
+	LOGTEXT2(_L8("Manufacturer is: '%S'"), &narrowString);
+	narrowString.Copy(productString);
+	LOGTEXT2(_L8("Product is: '%S'"), &narrowString);
+#endif // __FLOG_ACTIVE
+
+#ifndef __WINS__	
+	//Read the published serial number. The key is the UID KUidUsbmanServer = 0x101FE1DB
+	TBuf16<KUsbStringDescStringMaxSize> serNum;
+	TInt r = RProperty::Get(KUidSystemCategory,0x101FE1DB,serNum);
+	if(r==KErrNone)
+		{
+#ifdef __FLOG_ACTIVE
+		TBuf8<KUsbStringDescStringMaxSize> narrowString;
+		narrowString.Copy(serNum);
+		LOGTEXT2(_L8("Setting published SerialNumber: %S"), &narrowString);
+#endif // __FLOG_ACTIVE
+		//USB spec doesn't give any constraints on what constitutes a valid serial number.
+		//As long as it is a string descriptor it is valid.
+		LEAVEIFERRORL(iLdd.SetSerialNumberStringDescriptor(serNum));	
+		}
+#ifdef __FLOG_ACTIVE
+	else
+		{
+		LOGTEXT(_L8("SerialNumber has not been published"));	
+		}
+#endif // __FLOG_ACTIVE
+#endif // __WINS__
+
+
+	CleanupStack::PopAndDestroy(4, &fs); //  deviceInfo, id, resource, fs
 	}
 
 void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDescriptor& aDeviceDescriptor)
@@ -978,83 +995,63 @@ void CUsbDevice::SetUsbDeviceSettingsFromPersonalityL(CUsbDevice::TUsbDeviceDesc
  * @param aDeviceDescriptor The device descriptor for the USB device
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_ENTRY );
+	LOG_FUNC
 
 	// First, use the default values
-	OstTrace0( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;Setting default values for the configuration" );
+	LOGTEXT(_L8("Setting default values for the configuration"));
 	SetUsbDeviceSettingsDefaultsL(aDeviceDescriptor);
 
 	// Now try to get the configuration from the current personality
-    aDeviceDescriptor.iDeviceClass          = iCurrentPersonality->DeviceClass();
-    aDeviceDescriptor.iDeviceSubClass       = iCurrentPersonality->DeviceSubClass();
-    aDeviceDescriptor.iDeviceProtocol       = iCurrentPersonality->DeviceProtocol();
-    aDeviceDescriptor.iIdVendor             = iDeviceConfiguration.iVendorId;
-    aDeviceDescriptor.iProductId            = iCurrentPersonality->ProductId();
-    aDeviceDescriptor.iBcdDevice            = iCurrentPersonality->BcdDevice();
-    aDeviceDescriptor.iNumConfigurations    = iCurrentPersonality->NumConfigurations();	
-	
+	const CUsbDevice::TUsbDeviceDescriptor& deviceDes = iCurrentPersonality->DeviceDescriptor();
+	aDeviceDescriptor.iDeviceClass			= deviceDes.iDeviceClass;
+	aDeviceDescriptor.iDeviceSubClass		= deviceDes.iDeviceSubClass;
+	aDeviceDescriptor.iDeviceProtocol		= deviceDes.iDeviceProtocol;
+	aDeviceDescriptor.iIdVendor				= deviceDes.iIdVendor;
+	aDeviceDescriptor.iIdProduct			= deviceDes.iIdProduct;
+	aDeviceDescriptor.iBcdDevice			= deviceDes.iBcdDevice;
+	aDeviceDescriptor.iSerialNumber			= deviceDes.iSerialNumber;
+	aDeviceDescriptor.iNumConfigurations	= deviceDes.iNumConfigurations;
 
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
-	TInt err = iLdd.SetManufacturerStringDescriptor(*(iDeviceConfiguration.iManufacturerName));
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP7, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;iLdd.SetManufacturerStringDescriptor(*(iCurrentPersonality->Manufacturer())) with error=%d", err );
-        User::Leave(err);
-	    }  
-	err = iLdd.SetProductStringDescriptor(*(iDeviceConfiguration.iProductName));
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP6, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;iLdd.SetProductStringDescriptor(*(iCurrentPersonality->Product())) with error=%d", err );
-        User::Leave(err);
-        }
-
+	LEAVEIFERRORL(iLdd.SetManufacturerStringDescriptor(*(iCurrentPersonality->Manufacturer())));
+	LEAVEIFERRORL(iLdd.SetProductStringDescriptor(*(iCurrentPersonality->Product())));
 
 	//Read the published serial number. The key is the UID KUidUsbmanServer = 0x101FE1DB
 	TBuf16<KUsbStringDescStringMaxSize> serNum;
 	TInt r = RProperty::Get(KUidSystemCategory,0x101FE1DB,serNum);
 	if(r==KErrNone)
 		{
-#ifdef _DEBUG
-		OstTraceExt1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP1, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;Setting published SerialNumber: %S", serNum );
-#endif//_DEBUG
+#ifdef __FLOG_ACTIVE
+		TBuf8<KUsbStringDescStringMaxSize> narrowString;
+		narrowString.Copy(serNum);
+		LOGTEXT2(_L8("Setting published SerialNumber: %S"), &narrowString);
+#endif // __FLOG_ACTIVE
 		//USB spec doesn't give any constraints on what constitutes a valid serial number.
 		//As long as it is a string descriptor it is valid.
-		err = iLdd.SetSerialNumberStringDescriptor(serNum);	
-		if(err < 0)
-		    {
-            OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP3, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;iLdd.SetSerialNumberStringDescriptor(serNum) with error=%d", err );
-            User::Leave(err);
-		    }
+		LEAVEIFERRORL(iLdd.SetSerialNumberStringDescriptor(serNum));	
 		}
-#ifdef _DEBUG
+#ifdef __FLOG_ACTIVE
 	else
 		{
-		OstTrace0( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP2, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;SerialNumber has not been published" );	
+		LOGTEXT(_L8("SerialNumber has not been published"));	
 		}
-#endif // _DEBUG
-
-#endif
-#endif // __OVER_DUMMYUSBDI__
+#endif // __FLOG_ACTIVE
+#endif // __WINS__
 
 
-#ifdef _DEBUG
+#ifdef __FLOG_ACTIVE
 	PrintDescriptor(aDeviceDescriptor);		
 
-#ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
 	TBuf16<KUsbStringDescStringMaxSize> wideString;
-	TInt tmp = iLdd.GetConfigurationStringDescriptor(wideString);	
-	if(tmp < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP5, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;iLdd.GetConfigurationStringDescriptor(wideString) with error=%d", tmp );
-        User::Leave(tmp);
-	    }
-	OstTraceExt1( TRACE_NORMAL, CUSBDEVICE_SETUSBDEVICESETTINGSFROMPERSONALITYL_DUP4, "CUsbDevice::SetUsbDeviceSettingsFromPersonalityL;Configuration is:%S", wideString );
-#endif
-#endif // __OVER_DUMMYUSBDI__
+	TBuf8<KUsbStringDescStringMaxSize> narrowString;
 
-#endif // _DEBUG
+	LEAVEIFERRORL(iLdd.GetConfigurationStringDescriptor(wideString));
+	narrowString.Copy(wideString);
+	LOGTEXT2(_L8("Configuration is: '%S'"), &narrowString);
+#endif // __WINS__
+
+#endif // __FLOG_ACTIVE
 	}
 	
 void CUsbDevice::TryStartL(TInt aPersonalityId)
@@ -1066,7 +1063,7 @@ void CUsbDevice::TryStartL(TInt aPersonalityId)
  * @param aPersonalityId a personality id
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_TRYSTARTL_ENTRY );
+	LOG_FUNC
 	SetCurrentPersonalityL(aPersonalityId);
 	
 	SelectClassControllersL();
@@ -1075,14 +1072,12 @@ void CUsbDevice::TryStartL(TInt aPersonalityId)
 	TRAPD(err, SetDeviceDescriptorL());
 	if ( err != KErrNone )
 		{
-		SetServiceState(EUsbServiceIdle);	
-		OstTrace1( TRACE_NORMAL, CUSBDEVICE_TRYSTARTL, "CUsbDevice::TryStartL;leave with error=%d", err );
-		User::Leave(err);		
+		SetServiceState(EUsbServiceIdle);
+		LEAVEL(err);		
 		}
 
 	iLastError = KErrNone;
 	StartCurrentClassController();
- 	OstTraceFunctionExit0( CUSBDEVICE_TRYSTARTL_EXIT );
  	}
  	
 TInt CUsbDevice::CurrentPersonalityId() const
@@ -1090,7 +1085,7 @@ TInt CUsbDevice::CurrentPersonalityId() const
  * @return the current personality id
  */
  	{
-	OstTraceFunctionEntry0( CUSBDEVICE_CURRENTPERSONALITYID_ENTRY );
+	LOG_FUNC
  	return iCurrentPersonality->PersonalityId();
  	}
  	
@@ -1099,7 +1094,7 @@ const RPointerArray<CPersonality>& CUsbDevice::Personalities() const
  * @return a const reference to RPointerArray<CPersonality>
  */
  	{
-	OstTraceFunctionEntry0( CUSBDEVICE_PERSONALITIES_ENTRY );
+	LOG_FUNC
  	return iSupportedPersonalities;
  	} 
  	
@@ -1112,19 +1107,17 @@ const CPersonality* CUsbDevice::GetPersonality(TInt aPersonalityId) const
  * or 0 otherwise.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_GETPERSONALITY_ENTRY );
+	LOG_FUNC
 	
 	TInt count = iSupportedPersonalities.Count();
 	for (TInt i = 0; i < count; i++)
 		{
 		if (iSupportedPersonalities[i]->PersonalityId() == aPersonalityId)
 			{
-			OstTraceFunctionExit0( CUSBDEVICE_GETPERSONALITY_EXIT );
 			return iSupportedPersonalities[i];
 			}
 		}
 	
-	OstTraceFunctionExit0( CUSBDEVICE_GETPERSONALITY_EXIT_DUP1 );
 	return 0;
 	}
 	
@@ -1133,16 +1126,15 @@ void CUsbDevice::SetCurrentPersonalityL(TInt aPersonalityId)
  * Sets the current personality to the personality with id aPersonalityId
  */
  	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SETCURRENTPERSONALITYL_ENTRY );
+	LOG_FUNC
 	const CPersonality* personality = GetPersonality(aPersonalityId);
 	if (!personality)
 		{
-		OstTrace0( TRACE_NORMAL, CUSBDEVICE_SETCURRENTPERSONALITYL, "CUsbDevice::SetCurrentPersonalityL;Personality id not found" );
-		User::Leave(KErrNotFound);
+		LOGTEXT(_L8("Personality id not found"));
+		LEAVEL(KErrNotFound);
 		}
 		
 	iCurrentPersonality = personality;
- 	OstTraceFunctionExit0( CUSBDEVICE_SETCURRENTPERSONALITYL_EXIT );
  	}
 	
 void CUsbDevice::ValidatePersonalitiesL()
@@ -1151,34 +1143,31 @@ void CUsbDevice::ValidatePersonalitiesL()
  * Leave if validation fails.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_VALIDATEPERSONALITIESL_ENTRY );
+	LOG_FUNC
 
 	TInt personalityCount = iSupportedPersonalities.Count();
 	for (TInt i = 0; i < personalityCount; i++)
 		{
-		const RArray<CPersonalityConfigurations::TUsbClasses>& classes = iSupportedPersonalities[i]->SupportedClasses();
-		TInt uidCount = classes.Count();
+		const RArray<TUid>& classUids = iSupportedPersonalities[i]->SupportedClasses();
+		TInt uidCount = classUids.Count();
 		for (TInt j = 0; j < uidCount; j++)	
 			{
 			TInt ccCount = iSupportedClassUids.Count();
 			TInt k;
-		    OstTrace1( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL_DUP1, "CUsbDevice::ValidatePersonalitiesL;iSupportedClassUids Count = %d", ccCount );
 			for (k = 0; k < ccCount; k++)
 				{
-                OstTraceExt4( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL_DUP2, "CUsbDevice::ValidatePersonalitiesL;iSupportedClassUids %d %x classes %d %x", k, iSupportedClassUids[k].iUid, j, classes[j].iClassUid.iUid );
-				if (iSupportedClassUids[k] == classes[j].iClassUid)
+				if (iSupportedClassUids[k] == classUids[j])
 					{
 					break;
 					}
 				}
 			if (k == ccCount)
 				{
-				OstTrace0( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL, "CUsbDevice::ValidatePersonalitiesL;personality validation failed" );
-				User::Leave(KErrAbort);
+				LOGTEXT(_L8("personality validation failed"));
+				LEAVEL(KErrAbort);
 				}					
 			}	
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_VALIDATEPERSONALITIESL_EXIT );
 	}
 /**
 Converts text string with UIDs to array of Uint
@@ -1192,15 +1181,8 @@ so there may still be UIDs allocated in the RArray.
 */
 void CUsbDevice::ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray)	
 	{
-    OstTraceFunctionEntry0( CUSBDEVICE_CONVERTUIDSL_ENTRY );
 	// Function assumes that aUIDs is empty
-#ifdef _DEBUG
-    if(aUidArray.Count() != 0)
-        {
-        OstTrace1( TRACE_FATAL, CUSBDEVICE_CONVERTUIDSL, "CUsbDevice::ConvertUidsL;Panic reason=%d", EUidArrayNotEmpty );
-        User::Panic(KUsbDevicePanicCategory, EUidArrayNotEmpty);
-        }
-#endif
+	__ASSERT_DEBUG( aUidArray.Count() == 0, _USB_PANIC(KUsbDevicePanicCategory, EUidArrayNotEmpty) );
 
 	TLex input(aStr);
 
@@ -1216,71 +1198,230 @@ void CUsbDevice::ConvertUidsL(const TDesC& aStr, RArray<TUint>& aUidArray)
 
 		// Convert and add to array
 		TUint val;
-		TInt err = input.Val(val,EHex);
-		if(err < 0)
-		    {
-            OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONVERTUIDSL_DUP1, "CUsbDevice::ConvertUidsL;input.Val(val,EHex) with error=%d", err );
-            User::Leave(err);
-		    }
+		LEAVEIFERRORL(input.Val(val,EHex));
 		aUidArray.AppendL(val);
 		}
 	while (!input.Eos());	
-	OstTraceFunctionExit0( CUSBDEVICE_CONVERTUIDSL_EXIT );
 	}
 
 void CUsbDevice::ReadPersonalitiesL()
-    {    
-    OstTraceFunctionEntry0( CUSBDEVICE_READPERSONALITIESL_ENTRY );
-    TPtrC16 sysUtilModelName;
-    TPtrC16 sysUtilManuName;
-    
-    iPersonalityCfged = EFalse;
-    
-    iCenRepManager->ReadDeviceConfigurationL(iDeviceConfiguration);
-    
-    iCenRepManager->ReadPersonalitiesL(iSupportedPersonalities);
-    
-    //update info for SetManufacturer & SetProduct
-    CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
-    CleanupStack::PushL(deviceInfo);
-    TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
-    TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
-    
-    //To overlap info 
-    if (gotSysUtilManuName == KErrNone)
-        {
-        iDeviceConfiguration.iManufacturerName->Des().Copy(sysUtilManuName); 
-        }
-        
-    if (gotSysUtilModelName == KErrNone)
-        {
-        iDeviceConfiguration.iProductName->Des().Copy(sysUtilModelName);
-        }
-    CleanupStack::PopAndDestroy(deviceInfo);
-    iPersonalityCfged = ETrue;
-    OstTraceFunctionExit0( CUSBDEVICE_READPERSONALITIESL_EXIT );
-    }
+/**
+ * Reads configured personalities from the resource file
+ */
+	{
+	LOG_FUNC
+	iPersonalityCfged = EFalse;
+	// Now try to connect to file server
+	RFs fs;
+	LEAVEIFERRORL(fs.Connect());
+	CleanupClosePushL(fs);
+
+	TFileName resourceFileName;
+	ResourceFileNameL(resourceFileName);
+	RResourceFile resource;
+	TRAPD(err, resource.OpenL(fs, resourceFileName));
+	LOGTEXT2(_L8("Opened resource file with error %d"), err);
+
+	if (err != KErrNone)
+		{
+		LOGTEXT(_L8("Unable to open resource file"));
+		CleanupStack::PopAndDestroy(&fs);
+		return;
+		}
+
+	CleanupClosePushL(resource);
+
+	TInt resourceVersion = resource.SignatureL();
+	LOGTEXT2(_L8("Resource file signature is %d"), resourceVersion);
+	// Check for the version is valid(EUsbManagerResourceVersionOne, EUsbManagerResourceVersionTwo
+	// or EUsbManagerResourceVersionThree).
+	if(resourceVersion > EUsbManagerResourceVersionThree)
+		{
+		LOGTEXT2(_L8("Version of resource file is valid (>%d)"), EUsbManagerResourceVersionThree);
+		User::LeaveIfError(KErrNotSupported);
+		}
+	
+	resource.ConfirmSignatureL(resourceVersion);
+
+	HBufC8* personalityBuf = 0;
+	TRAPD(ret, personalityBuf = resource.AllocReadL(DEVICE_PERSONALITIES));
+	// If personalities resource is not found, swallow the error and return
+	// as no specified personalities is a valid configuration
+	if (ret == KErrNotFound)
+		{
+		LOGTEXT(_L8("Personalities are not configured"));
+		CleanupStack::PopAndDestroy(2, &fs); 
+		return;
+		}
+	// Otherwise leave noisily if the AllocRead fails
+	LEAVEIFERRORL(ret);
+	CleanupStack::PushL(personalityBuf);
+
+	// The format of the USB resource structure is:
+	//
+	// 	STRUCT PERSONALITY
+	//		{
+	// 		WORD	bcdDeviceClass;
+	// 		WORD	bcdDeviceSubClass;
+	//		WORD 	protocol;
+	//		WORD	numConfigurations;
+	//		WORD 	vendorId;
+	//		WORD 	productId;
+	//		WORD 	bcdDevice;
+	//		LTEXT 	manufacturer;
+	//		LTEXT 	product;
+	//		WORD 	id;					// personality id
+	//		LTEXT	class_uids;	
+	//		LTEXT 	description;		// personality description
+	//     	LTEXT   detailedDescription;  //detailed description. This is in version 2
+	//		LONG 	Property;
+	//		}
+	//
+	// Note that the resource must be read in this order!
+	
+	TResourceReader reader;
+	reader.SetBuffer(personalityBuf);
+
+	TUint16 personalityCount 	= static_cast<TUint16>(reader.ReadUint16());
+	
+	// Read the manufacturer and device name (product) here from SysUtil class
+	TPtrC16 sysUtilModelName;
+	TPtrC16 sysUtilManuName;
+
+	// This method returns ownership.
+	CDeviceTypeInformation* deviceInfo = SysUtil::GetDeviceTypeInfoL();
+	CleanupStack::PushL(deviceInfo);
+	TInt gotSysUtilModelName = deviceInfo->GetModelName(sysUtilModelName);
+	TInt gotSysUtilManuName = deviceInfo->GetManufacturerName(sysUtilManuName);
+	
+	for (TInt idx = 0; idx < personalityCount; idx++)
+		{
+		// read a personality 
+		TUint8 	bDeviceClass 		= static_cast<TUint8>(reader.ReadUint8());
+		TUint8 	bDeviceSubClass 	= static_cast<TUint8>(reader.ReadUint8());
+		TUint8 	protocol 			= static_cast<TUint8>(reader.ReadUint8());
+		TUint8 	numConfigurations	= static_cast<TUint8>(reader.ReadUint8());
+		TUint16 vendorId			= static_cast<TUint16>(reader.ReadUint16());
+		TUint16 productId			= static_cast<TUint16>(reader.ReadUint16());
+		TUint16 bcdDevice			= static_cast<TUint16>(reader.ReadUint16());
+		TPtrC	manufacturer		= reader.ReadTPtrC();
+		TPtrC	product				= reader.ReadTPtrC();
+		TUint16 id					= static_cast<TUint16>(reader.ReadUint16());
+		TPtrC	uidsStr				= reader.ReadTPtrC();
+		TPtrC 	description			= reader.ReadTPtrC();
+		
+		RArray<TUint> uids;
+		CleanupClosePushL(uids);
+		ConvertUidsL(uidsStr, uids);
+		// creates a CPersonality object
+		CPersonality* personality = CPersonality::NewL();
+		CleanupStack::PushL(personality);
+
+		personality->SetVersion(resourceVersion);
+		
+		// populates personality object
+		personality->SetId(id);
+		        
+		for (TInt uidIdx = 0; uidIdx < uids.Count(); uidIdx++)
+			{
+			LEAVEIFERRORL(personality->AddSupportedClasses(TUid::Uid(uids[uidIdx])));
+			}
+		
+		// gets a handle to iDeviceDescriptor of personality
+		CUsbDevice::TUsbDeviceDescriptor& dvceDes = personality->DeviceDescriptor();
+		if (gotSysUtilManuName == KErrNone)
+			{
+			personality->SetManufacturer(&sysUtilManuName);
+			}
+		else
+			{
+			personality->SetManufacturer(&manufacturer);
+			}
+			
+		if (gotSysUtilModelName == KErrNone)
+			{
+			personality->SetProduct(&sysUtilModelName);
+			}
+		else
+			{
+			personality->SetProduct(&product);
+			}
+			
+		personality->SetDescription(&description);
+		dvceDes.iDeviceClass = bDeviceClass;
+		dvceDes.iDeviceSubClass = bDeviceSubClass;
+		dvceDes.iDeviceProtocol = protocol;
+		dvceDes.iIdVendor = vendorId;
+		dvceDes.iIdProduct= productId;
+		dvceDes.iBcdDevice = bcdDevice;
+		dvceDes.iNumConfigurations = numConfigurations;
+		
+		//detailedDescription is only supported after EUsbManagerResourceVersionTwo
+		if(resourceVersion >= EUsbManagerResourceVersionTwo)
+			{
+			TPtrC   detailedDescription = reader.ReadTPtrC();        
+			personality->SetDetailedDescription(&detailedDescription);
+#ifdef __FLOG_ACTIVE
+			TBuf8<KUsbDescMaxSize_String> narrowLongBuf;
+			narrowLongBuf.Copy(detailedDescription);
+			LOGTEXT2(_L8("detailed description = '%S'"),        &narrowLongBuf);            
+#endif // __FLOG_ACTIVE
+			}
+
+		//Property is only supported after EUsbManagerResourceVersionThree
+		if(resourceVersion >= EUsbManagerResourceVersionThree)
+			{
+			TUint32 property			= static_cast<TUint32>(reader.ReadUint32());
+			personality->SetProperty(property);
+#ifdef __FLOG_ACTIVE
+		LOGTEXT2(_L8("property = %d\n"), 			property);
+#endif // __FLOG_ACTIVE
+			}
+		
+		// Append personality to iSupportedPersonalities
+		iSupportedPersonalities.AppendL(personality);
+		// Now pop off personality
+		CleanupStack::Pop(personality);
+#ifdef __FLOG_ACTIVE
+		// Debugging
+		LOGTEXT2(_L8("personalityCount = %d\n"), 	personalityCount);
+		LOGTEXT2(_L8("bDeviceClass = %d\n"), 		bDeviceClass);
+		LOGTEXT2(_L8("bDeviceSubClass = %d\n"), 	bDeviceSubClass);
+		LOGTEXT2(_L8("protocol = %d\n"), 			protocol);
+		LOGTEXT2(_L8("numConfigurations = %d\n"), 	numConfigurations);
+		LOGTEXT2(_L8("vendorId = %d\n"), 			vendorId);
+		LOGTEXT2(_L8("productId = %d\n"), 			productId);
+		LOGTEXT2(_L8("bcdDevice = %d\n"), 			bcdDevice);
+		TBuf8<KMaxName> narrowBuf;
+		narrowBuf.Copy(manufacturer);
+		LOGTEXT2(_L8("manufacturer = '%S'"), 		&narrowBuf);
+		narrowBuf.Copy(product);
+		LOGTEXT2(_L8("product = '%S'"), 			&narrowBuf);
+		LOGTEXT2(_L8("id = %d\n"), 					id);
+		LOGTEXT(_L8("ClassUids{"));
+		for (TInt k = 0; k < uids.Count(); k++)
+			{
+			LOGTEXT2(_L8("%d"), uids[k]);
+			}
+		LOGTEXT(_L8("}"));
+		narrowBuf.Copy(description);
+		LOGTEXT2(_L8("description = '%S'"), 		&narrowBuf);
+#endif // __FLOG_ACTIVE
+		CleanupStack::PopAndDestroy(&uids);	// close uid array		
+		}
+		
+	CleanupStack::PopAndDestroy(4, &fs); // deviceInfo, personalityBuf, resource, fs
+	iPersonalityCfged = ETrue;	
+	}
 	
 void CUsbDevice::SelectClassControllersL()
 /**
  * Selects class controllers for the current personality
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SELECTCLASSCONTROLLERSL_ENTRY );
-    const RArray<CPersonalityConfigurations::TUsbClasses>& classes = iCurrentPersonality->SupportedClasses();
-	RArray<TUid> classUids;
-	CleanupClosePushL( classUids ); 
-    TInt classCount = classes.Count();
-	for(TInt classIndex = 0; classIndex<classCount; ++classIndex)
-	    {
-        TUid uid = classes[classIndex].iClassUid;
-        classUids.AppendL(uid);
-	    }
-	
-	CreateClassControllersL(classUids);
-	
-    CleanupStack::PopAndDestroy( &classUids );
-	OstTraceFunctionExit0( CUSBDEVICE_SELECTCLASSCONTROLLERSL_EXIT );
+	LOG_FUNC
+
+	CreateClassControllersL(iCurrentPersonality->SupportedClasses());
 	}
 #ifdef USE_DUMMY_CLASS_CONTROLLER	
 void CUsbDevice::CreateClassControllersL(const RArray<TUid>& /* aClassUids*/)
@@ -1293,7 +1434,7 @@ void CUsbDevice::CreateClassControllersL(const RArray<TUid>& aClassUids)
  * @param aClassUids an array of class uids
  */
  	{
-	OstTraceFunctionEntry0( CUSBDEVICE_CREATECLASSCONTROLLERSL_ENTRY );
+	LOG_FUNC
 
 #ifndef USE_DUMMY_CLASS_CONTROLLER
 
@@ -1305,19 +1446,15 @@ void CUsbDevice::CreateClassControllersL(const RArray<TUid>& aClassUids)
 	
 	// destroy any class controller objects in iSupportedClasses and reset it for reuse
 	iSupportedClasses.ResetAndDestroy();
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_CREATECLASSCONTROLLERSL, "CUsbDevice::CreateClassControllersL;aClassUids.Count() = %d", count );
+	LOGTEXT2(_L8("aClassUids.Count() = %d\n"), 	count);
 	for (TInt i = 0; i < count; i++)
 		{ 
 		CUsbClassControllerPlugIn* plugIn = CUsbClassControllerPlugIn::NewL(aClassUids[i], *this);
 		AddClassControllerL(reinterpret_cast<CUsbClassControllerBase*>(plugIn), order);
 		} 
 #endif // USE_DUMMY_CLASS_CONTROLLER	
-	TInt err = iUsbClassControllerIterator->First();	
-	if(err < 0)
-	    {
-        OstTrace1( TRACE_NORMAL, CUSBDEVICE_CREATECLASSCONTROLLERSL_DUP1, "CUsbDevice::CreateClassControllersL;iUsbClassControllerIterator->First() with error=%d", err );
-        User::Leave(err);
-	    }
+
+	LEAVEIFERRORL(iUsbClassControllerIterator->First());
  	}
 
 void CUsbDevice::SetDefaultPersonalityL()
@@ -1325,10 +1462,11 @@ void CUsbDevice::SetDefaultPersonalityL()
  * Sets default personality. Used for Start request.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_SETDEFAULTPERSONALITYL_ENTRY );
+	LOG_FUNC
 
 	TInt smallestId = iSupportedPersonalities[0]->PersonalityId();
  	TInt count = iSupportedPersonalities.Count();
+ 	
  	for (TInt i = 1; i < count; i++)
  		{
  		if(iSupportedPersonalities[i]->PersonalityId() < smallestId)
@@ -1336,10 +1474,9 @@ void CUsbDevice::SetDefaultPersonalityL()
  			smallestId = iSupportedPersonalities[i]->PersonalityId();
  			}
  		}
-    
+
 	SetCurrentPersonalityL(smallestId);
 	SelectClassControllersL();
-	OstTraceFunctionExit0( CUSBDEVICE_SETDEFAULTPERSONALITYL_EXIT );
 	}
 
 void CUsbDevice::LoadFallbackClassControllersL()
@@ -1351,12 +1488,49 @@ void CUsbDevice::LoadFallbackClassControllersL()
  * or stopped
  */
  	{
-	OstTraceFunctionEntry0( CUSBDEVICE_LOADFALLBACKCLASSCONTROLLERSL_ENTRY );
+	LOG_FUNC
  	SetDeviceDescriptorL();
 	CreateClassControllersL(iSupportedClassUids);
- 	OstTraceFunctionExit0( CUSBDEVICE_LOADFALLBACKCLASSCONTROLLERSL_EXIT );
  	}
  	
+void CUsbDevice::ResourceFileNameL(TFileName& aFileName)
+/**
+ * Gets resource file name
+ *
+ * @param aFileName Descriptor to populate with resource file name
+ */
+ 	{
+	LOG_FUNC
+
+	RFs fs;
+	LEAVEIFERRORL(fs.Connect());
+	CleanupClosePushL(fs);
+
+#ifdef __WINS__
+	// If we are running in the emulator then read the resource file from system drive.
+	// This makes testing with different resource files easier.
+	_LIT(KPrivatePath, ":\\Private\\101fe1db\\");
+	aFileName.Append(RFs::GetSystemDriveChar()); //get the name of system drive
+	aFileName.Append(KPrivatePath);
+#else
+ 	const TDriveNumber KResourceDrive = EDriveZ;
+
+	TDriveUnit driveUnit(KResourceDrive);
+	TDriveName drive=driveUnit.Name();
+	aFileName.Insert(0, drive);
+	// append private path
+	TPath privatePath;
+	fs.PrivatePath(privatePath);
+	aFileName.Append(privatePath);		
+#endif //WINS
+
+	// Find the nearest match of resource file for the chosen locale
+	aFileName.Append(_L("usbman.rsc"));
+	BaflUtils::NearestLanguageFile(fs, aFileName); // if a match is not found, usbman.rsc will be used
+
+	CleanupStack::PopAndDestroy(&fs);	// fs no longer needed
+ 	}
+
 RDevUsbcClient& CUsbDevice::MuepoDoDevUsbcClient()
 /**
  * Inherited from MUsbmanExtensionPluginObserver - Function used by plugins to
@@ -1376,6 +1550,6 @@ void CUsbDevice::MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver)
  * @param aObserver New Observer of the device
  */
 	{
-	OstTrace1( TRACE_NORMAL, CUSBDEVICE_MUEPODOREGISTERSTATEOBSERVERL, "CUsbDevice::MuepoDoRegisterStateObserverL;aObserver = 0x%08x", &aObserver );
+	LOGTEXT2(_L8("CUsbDevice::MuepoDoRegisterStateObserverL aObserver = 0x%08x"),&aObserver);
 	RegisterObserverL(aObserver);
 	}

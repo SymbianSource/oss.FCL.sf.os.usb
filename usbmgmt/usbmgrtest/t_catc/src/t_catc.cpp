@@ -37,10 +37,12 @@ TCommConfig TheConfigBuf;
 TCommConfigV01& TheConfig = TheConfigBuf();
 
 const TInt KReceiveBufferLength = 65536/*16384*/; // TODO: speed enhancement!
+//const TInt KMaxBufferSize = 8192; // TODO: speed enhancement!
 const TUint KChunkSize = 65536;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//_LIT(KUsbCsyName, "ECACM");
 _LIT(KUsbPortName, "ACM::0");
 _LIT(KUsbLddName, "EUSBC");
 
@@ -135,6 +137,7 @@ void Bulk_OUT_TestL()
 	TRequestStatus status;
 	RComm port;
 
+//	static TBuf8<1024> OUT_Buf; // TODO: speed enhancement!
 	static TBuf8<KChunkSize> OUT_Buf;
 
 	_printf(_L("\n"));
@@ -159,6 +162,7 @@ void Bulk_OUT_TestL()
 	console->Read(consoleStatus);
 	
 	TInt uReadCount = 0 ;
+	//TInt uThermoBar = 0 ; // TODO: speed enhancement! (remove ThermoBar fnality)
 
 	_printf(_L("\tWatch :  "));
 
@@ -212,6 +216,25 @@ void Bulk_OUT_TestL()
 				}
 
 			uReadCount += OUT_Buf.Length() ;
+
+/*			if( uReadCount >= 1024 )
+				{
+				// uThermoBar runs from 0..63
+
+				uThermoBar = ( uThermoBar + 1 ) & 0x3F ;
+
+				if( uThermoBar < 32 )
+					{
+					_printf(_L("*"));
+					}
+				else
+					{
+					_printf(_L("\b \b"));
+					}
+
+				uReadCount -= 1024 ;
+				}
+				*/
 			}
 		else
 			{
@@ -247,6 +270,7 @@ void Bulk_IN_TestL()
 	TRequestStatus status;
 	RComm port;
 
+//#define uInBufSize 4096 // TODO: speed enhancement! reduce number of IPC calls
 #define uInBufSize 65536
 
 	static TBuf8<uInBufSize> IN_Buf;
@@ -313,6 +337,7 @@ void Bulk_IN_TestL()
 	TInt bNeedZLP = bUseZLP && ((IN_Buf.Length()%64)==0);
 
 	TInt uWriteCount = 0 ;
+//	TInt uThermoBar = 0 ; // TODO: speed enhancement!
 
 	_printf(_L("\tWatch :  "));
 
@@ -353,6 +378,24 @@ void Bulk_IN_TestL()
 
 			// reassure watcher that there is something happening...
 
+/*			while( uWriteCount >= 1024 )
+				{
+				// uThermoBar runs from 0..63
+
+				uThermoBar = ( uThermoBar + 1 ) & 0x3F ;
+
+				if( uThermoBar < 32 )
+					{
+					_printf(_L("*"));
+					}
+				else
+					{
+					_printf(_L("\b \b"));
+					}
+  
+				uWriteCount -= 1024 ;
+				}
+				*/
 			}
 		else
 			{
@@ -455,7 +498,49 @@ void RestartUsbL()
 	_printf(_L("Restarted USB.\n"));
 	}
 
+////////////////////////////////////////////////////////////////////////////////
 
+/*void ThermoBar()
+	{
+	TUint uCol = 0 ;
+
+	TTime		now;
+
+	TDateTime	WasDT;
+	TDateTime	NowDT;
+
+	now.HomeTime(); 
+	WasDT = now.DateTime();
+
+	for( TUint line = 0 ; line < 30 ; )
+		{
+		for( TUint dotO = 0 ; dotO < 1000 ; dotO++ )
+			{
+			for( TUint dotI = 0 ; dotI < 1000 ; dotI++ )
+				{
+				;
+				}
+			}
+
+		_printf(_L("*"));
+
+		now.HomeTime(); 
+		NowDT = now.DateTime();
+
+		if( ( ++uCol >= 79 ) || ( WasDT.Second() != NowDT.Second() ) )
+			{
+			_printf(_L("\n"));
+
+			uCol = 0 ;
+
+			line++ ;
+
+			WasDT = now.DateTime() ;
+			}
+		}
+	}
+*/
+////////////////////////////////////////////////////////////////////////////////
 
 void ToggleTermL()
 	{
@@ -574,6 +659,7 @@ void mainL()
 		_printf(_L("2. Bulk IN  test    \n"));
 		_printf(_L("3. Set handshaking  \n"));
 		_printf(_L("4. Restart USB      \n"));
+//		_printf(_L("5. Run ThermoBar    \n"));
 		_printf(_L("6. Swap Read Method \n"));
 		_printf(_L("7. Swap ZLP Method  \n"));
 		_printf(_L("8. Swap Term Method \n"));
@@ -589,6 +675,7 @@ void mainL()
 		case '2': Bulk_IN_TestL();							break;
 		case '3': SetHandshakingL();						break;
 		case '4': RestartUsbL();							break;
+//		case '5': ThermoBar();								break;
 		case '6': bReadCall = ( bReadCall == EFalse ) ;		break;
 		case '7': bUseZLP   = ( bUseZLP == EFalse ) ;		break;
 		case '8': ToggleTermL() ;							break;

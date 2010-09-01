@@ -15,7 +15,6 @@
 *
 */
 
-#include "../usb_shai_api/group/bld.inf"
 
 PRJ_PLATFORMS
 DEFAULT

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -24,44 +24,36 @@
 #include "msmmserver.h"
 #include "msmmengine.h"
 #include "eventqueue.h"
-#include "msmmnodebase.h"
 #include <usb/hostms/srverr.h>
 #include <usb/hostms/msmmpolicypluginbase.h>
-
+#include "msmmnodebase.h"
 #include <usb/usblogger.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "msmmsessionTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "UsbHostMsmmServer");
 #endif
-
-
 
 CMsmmSession::~CMsmmSession()
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_CMSMMSESSION_DES_ENTRY );
-    
+    LOG_FUNC
     delete iErrData;
     iServer.RemoveSession();
-    OstTraceFunctionExit0( CMSMMSESSION_CMSMMSESSION_DES_EXIT );
     }
 
 CMsmmSession* CMsmmSession::NewL(CMsmmServer& aServer, 
         CDeviceEventQueue& anEventQueue)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_NEWL_ENTRY );
-    
+    LOG_STATIC_FUNC_ENTRY
     CMsmmSession* self = new(ELeave) CMsmmSession(aServer, anEventQueue);
     CleanupStack::PushL(self);
     self->ConstructL();
     CleanupStack::Pop(self);
-    OstTraceFunctionExit0( CMSMMSESSION_NEWL_EXIT );
     return self;
     }
 
 void CMsmmSession::ServiceL(const RMessage2& aMessage)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_SERVICEL_ENTRY );
-    
+    LOG_STATIC_FUNC_ENTRY
     TInt ret(KErrNone);
 
 #ifdef _DEBUG
@@ -100,10 +92,7 @@ void CMsmmSession::ServiceL(const RMessage2& aMessage)
         delete heapObj;
 #endif // _DEBUG
         break;
-        
-    case EHostMsmmServerEjectUsbDrives:
-        iServer.DismountUsbDrivesL(iDevicePkg());
-        break;
+
     default:
         // Unsupported function number - panic the client
         PanicClient(aMessage, EBadRequest);
@@ -111,13 +100,11 @@ void CMsmmSession::ServiceL(const RMessage2& aMessage)
         
     // Complete the request
     aMessage.Complete(ret);
-    OstTraceFunctionExit0( CMSMMSESSION_SERVICEL_EXIT );
     }
 
 void CMsmmSession::ServiceError(const RMessage2 &aMessage, TInt aError)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_SERVICEERROR_ENTRY );
-    
+    LOG_FUNC
     CMsmmPolicyPluginBase* plugin = iServer.PolicyPlugin();    
     TUSBMSDeviceDescription& device = iDevicePkg();
        
@@ -141,15 +128,9 @@ void CMsmmSession::ServiceError(const RMessage2 &aMessage, TInt aError)
     iErrData->iProductString = device.iProductString;
     iErrData->iDriveName = 0x0;
    
-    OstTrace1( TRACE_DUMP, CMSMMSESSION_SERVICEERROR, "iErrData->iE32Error = %d", aError );
-    OstTraceExt1( TRACE_DUMP, CMSMMSESSION_SERVICEERROR_DUP1, "iErrData->iManufacturerString=\"%S\"", device.iManufacturerString );
-    OstTraceExt1( TRACE_DUMP, CMSMMSESSION_SERVICEERROR_DUP2, "iErrData->iProductString=\"%S\"", device.iProductString );
-
-        
     TInt err(KErrNone);
     TRAP(err, plugin->SendErrorNotificationL(*iErrData));
     aMessage.Complete(aError);
-    OstTraceFunctionExit0( CMSMMSESSION_SERVICEERROR_EXIT );
     }
 
 CMsmmSession::CMsmmSession(CMsmmServer& aServer, 
@@ -158,24 +139,19 @@ iServer(aServer),
 iEngine(aServer.Engine()),
 iEventQueue(anEventQueue)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_CMSMMSESSION_CONS_ENTRY );
-    
+    LOG_FUNC
     aServer.AddSession();
-    OstTraceFunctionExit0( CMSMMSESSION_CMSMMSESSION_CONS_EXIT );
     }
 
 void CMsmmSession::ConstructL()
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_CONSTRUCTL_ENTRY );
-    
+    LOG_FUNC
     iErrData = new (ELeave) THostMsErrData;
-    OstTraceFunctionExit0( CMSMMSESSION_CONSTRUCTL_EXIT );
     }
 
 void CMsmmSession::AddUsbMsInterfaceL(const RMessage2& aMessage)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_ADDUSBMSINTERFACEL_ENTRY );
-    
+    LOG_FUNC
     aMessage.Read(0, iDevicePkg);
     iInterfaceNumber = aMessage.Int1();
     iInterfaceToken = static_cast<TInt32>(aMessage.Int2());
@@ -189,19 +165,16 @@ void CMsmmSession::AddUsbMsInterfaceL(const RMessage2& aMessage)
     TDeviceEvent event(EDeviceEventAddFunction, 
             device.iDeviceId, iInterfaceNumber, iInterfaceToken);
     iEventQueue.PushL(event);
-    OstTraceFunctionExit0( CMSMMSESSION_ADDUSBMSINTERFACEL_EXIT );
     }
 
 void CMsmmSession::RemoveUsbMsDeviceL(const RMessage2& aMessage)
     {
-    OstTraceFunctionEntry0( CMSMMSESSION_REMOVEUSBMSDEVICEL_ENTRY );
-    
+    LOG_FUNC
     iDeviceID = aMessage.Int0();
        
     // Put device event into queue
     TDeviceEvent event(EDeviceEventRemoveDevice, iDeviceID, 0, 0);
     iEventQueue.PushL(event);
-    OstTraceFunctionExit0( CMSMMSESSION_REMOVEUSBMSDEVICEL_EXIT );
     }
 
 // End of file

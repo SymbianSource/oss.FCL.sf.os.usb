@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -34,7 +34,6 @@ SOURCE			CUsbObexClassImpCollection.cpp
 SOURCE			CUsbObexClassController.cpp
 
 USERINCLUDE         ../inc
-USERINCLUDE 		../traces
 
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
@@ -45,3 +44,5 @@ END
 
 LIBRARY			euser.lib 
 LIBRARY			usbclasscontroller.lib
+
+#include <usb/usblogger.mmh>

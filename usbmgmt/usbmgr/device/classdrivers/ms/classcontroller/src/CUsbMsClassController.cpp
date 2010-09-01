@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2004-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2004-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -28,13 +28,14 @@
 #include <cusbclasscontrollerplugin.h>
 #include <usbms.rsg>
 #include "CUsbMsClassController.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "CUsbMsClassControllerTraces.h"
+#include <usb/usblogger.h>
+ 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "MSCC");
 #endif
 
-#ifdef _DEBUG
 // Panic category 
+#ifdef _DEBUG
 _LIT( KMsCcPanicCategory, "UsbMsCc" );
 #endif
 
@@ -57,12 +58,12 @@ enum TMsCcPanic
 CUsbMsClassController* CUsbMsClassController::NewL(
 	MUsbClassControllerNotify& aOwner)
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
+
 	CUsbMsClassController* r = new (ELeave) CUsbMsClassController(aOwner);
 	CleanupStack::PushL(r);
 	r->ConstructL();
 	CleanupStack::Pop();
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_NEWL_EXIT );
 	return r;
 	}
 
@@ -71,9 +72,7 @@ CUsbMsClassController* CUsbMsClassController::NewL(
  */
 CUsbMsClassController::~CUsbMsClassController()
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_CUSBMSCLASSCONTROLLER_DES_ENTRY );
 	Cancel();
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_CUSBMSCLASSCONTROLLER_DES_EXIT );
 	}
 
 /**
@@ -85,9 +84,7 @@ CUsbMsClassController::CUsbMsClassController(
 	MUsbClassControllerNotify& aOwner)
 	: CUsbClassControllerPlugIn(aOwner, KMsStartupPriority)	
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_CUSBMSCLASSCONTROLLER_CONS_ENTRY );
 	// Intentionally left blank
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_CUSBMSCLASSCONTROLLER_CONS_EXIT );
 	}
 
 /**
@@ -95,9 +92,9 @@ CUsbMsClassController::CUsbMsClassController(
  */
 void CUsbMsClassController::ConstructL()
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_CONSTRUCT_ENTRY );
+	LOG_FUNC
+
 	ReadMassStorageConfigL();
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_CONSTRUCT_EXIT );
 	}
 
 /**
@@ -107,16 +104,11 @@ void CUsbMsClassController::ConstructL()
  */
 void CUsbMsClassController::Start(TRequestStatus& aStatus)
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_START_ENTRY );
+	LOG_FUNC
 	
 	// The service state should always be idle when this function is called 
 	// (guaranteed by CUsbSession).
-	
-	if (iState != EUsbServiceIdle)
-		{
-		OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_START, "CUsbMsClassController::Star;iState=%d", (TInt)iState );
-		__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EBadApiCall) );
-		}
+	__ASSERT_DEBUG( iState == EUsbServiceIdle, _USB_PANIC(KMsCcPanicCategory, EBadApiCall) );
 
 	TRequestStatus* reportStatus = &aStatus;
 
@@ -129,9 +121,7 @@ void CUsbMsClassController::Start(TRequestStatus& aStatus)
 		{
 		iState = EUsbServiceIdle;
 		User::RequestComplete(reportStatus, err);
-		OstTrace0( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_START_DUP1, 
-				"CUsbMsClassController::Start;Failed to connect to mass storage file server" );
-		OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_START_EXIT );
+		LOGTEXT(_L8("Failed to connect to mass storage file server"));
 		return;
 		}
 
@@ -141,19 +131,19 @@ void CUsbMsClassController::Start(TRequestStatus& aStatus)
 	if (err != KErrNone)
 		{
 		iState = EUsbServiceIdle;
+		
 		// Connection was created successfully in last step
 		// Get it closed since failed to start device.
 		iUsbMs.Close();
+		
 		User::RequestComplete(reportStatus, err);
-		OstTrace0( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_START_DUP2, 
-						"CUsbMsClassController::Start;Failed to start mass storage device" );
-		OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_START_EXIT_DUP1 );
+		LOGTEXT(_L8("Failed to start mass storage device"));
 		return;
 		}
 
 	iState = EUsbServiceStarted;
+
 	User::RequestComplete(reportStatus, KErrNone);
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_START_EXIT_DUP2 );
 	}
 
 /**
@@ -163,32 +153,27 @@ void CUsbMsClassController::Start(TRequestStatus& aStatus)
  */
 void CUsbMsClassController::Stop(TRequestStatus& aStatus)
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_STOP_ENTRY );
+	LOG_FUNC
 	
 	// The service state should always be started when this function is called
 	// (guaranteed by CUsbSession)
-	if (iState != EUsbServiceStarted)
-		{
-		OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_STOP, "CUsbMsClassController::Stop;iState=%d", (TInt)iState );
-		__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EBadApiCall) );
-		}
+	__ASSERT_DEBUG( iState == EUsbServiceStarted, _USB_PANIC(KMsCcPanicCategory, EBadApiCall) );
 
 	TRequestStatus* reportStatus = &aStatus;
+	
 	TInt err = iUsbMs.Stop();
 	
 	if (err != KErrNone)
 		{
 		iState = EUsbServiceStarted;
 		User::RequestComplete(reportStatus, err);
-		OstTrace0( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_STOP_DUP1, 
-						"CUsbMsClassController::Start;Failed to stop mass storage device" );
-		OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_STOP_EXIT );
+		LOGTEXT(_L8("Failed to stop mass storage device"));
 		return;
 		}	
 
 	iUsbMs.Close();
+
 	User::RequestComplete(reportStatus, KErrNone);
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_START_STOP_DUP1 );
 	}
 
 /**
@@ -199,11 +184,7 @@ void CUsbMsClassController::Stop(TRequestStatus& aStatus)
  */
 void CUsbMsClassController::GetDescriptorInfo(TUsbDescriptor& /*aDescriptorInfo*/) const
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_GETDESCRIPTORINFO_ENTRY );
-	OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_GETDESCRIPTORINFO, 
-			"CUsbMsClassController::GetDescriptorInfo;panic line=%d", (TInt)__LINE__ );
-	__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EUnusedFunction) );
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_GETDESCRIPTORINFO_EXIT );
+	__ASSERT_DEBUG( EFalse, _USB_PANIC(KMsCcPanicCategory, EUnusedFunction));
 	}
 
 /**
@@ -212,11 +193,7 @@ void CUsbMsClassController::GetDescriptorInfo(TUsbDescriptor& /*aDescriptorInfo*
  */
 void CUsbMsClassController::RunL()
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_RUNL_ENTRY );
-	OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_RUNL, 
-			"CUsbMsClassController::RunL;panic line=%d", (TInt)__LINE__ );
-	__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EUnusedFunction) );
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_RUNL_EXIT );
+	__ASSERT_DEBUG( EFalse, _USB_PANIC(KMsCcPanicCategory, EUnusedFunction) );
 	}
 
 /**
@@ -225,11 +202,7 @@ void CUsbMsClassController::RunL()
  */
 void CUsbMsClassController::DoCancel()
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_DOCANCEL_ENTRY );
-	OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_DOCANCEL, 
-			"CUsbMsClassController::DoCancel;panic line=%d", (TInt)__LINE__ );
-	__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EUnusedFunction) );
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_DOCANCEL_EXIT );
+	__ASSERT_DEBUG( EFalse, _USB_PANIC(KMsCcPanicCategory, EUnusedFunction) );
 	}
 
 /**
@@ -241,11 +214,7 @@ void CUsbMsClassController::DoCancel()
  */
 TInt CUsbMsClassController::RunError(TInt /*aError*/)
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_RUNERROR_ENTRY );
-	OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_RUNERROR, 
-			"CUsbMsClassController::RunError;panic line=%d", (TInt)__LINE__ );
-	__ASSERT_DEBUG( EFalse, User::Panic(KMsCcPanicCategory, EUnusedFunction) );
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_RUNERROR_EXIT );
+	__ASSERT_DEBUG( EFalse, _USB_PANIC(KMsCcPanicCategory, EUnusedFunction) );
 	return KErrNone;
 	}
 
@@ -254,31 +223,21 @@ TInt CUsbMsClassController::RunError(TInt /*aError*/)
  */
 void CUsbMsClassController::ReadMassStorageConfigL()
 	{
-	OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_ENTRY );
+	LOG_FUNC
 
 	// Try to connect to file server
-	RFs		fs;
-	TInt	fserr = fs.Connect();
-	
-	if (fserr < 0)
-		{
-		OstTrace1( TRACE_FATAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL, 
-				"CUsbMsClassController::ReadMassStorageConfigL;leave err = %d", fserr );
-		User::Leave(fserr);
-		}
+	RFs fs;
+	LEAVEIFERRORL(fs.Connect());
 	CleanupClosePushL(fs);
 
 	RResourceFile resource;
 	TRAPD(err, resource.OpenL(fs, KUsbMsResource));
-	OstTrace1( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP1, 
-				"CUsbMsClassController::ReadMassStorageConfigL;Opened resource file with error %d", err );
+	LOGTEXT2(_L8("Opened resource file with error %d"), err);
 
 	if (err != KErrNone)
 		{
-		OstTrace0( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP2, 
-					"CUsbMsClassController::ReadMassStorageConfigL;Unable to open resource file" );
+		LOGTEXT(_L8("Unable to open resource file"));
 		CleanupStack::PopAndDestroy(&fs);
-		OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_EXIT );
 		return;
 		}
 
@@ -290,10 +249,8 @@ void CUsbMsClassController::ReadMassStorageConfigL()
 	TRAPD(ret, msConfigBuf = resource.AllocReadL(USBMS_CONFIG));
 	if (ret != KErrNone)
 		{
-		OstTrace0( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP3, 
-					"CUsbMsClassController::ReadMassStorageConfigL;Failed to open mass storage configuration file" );
+		LOGTEXT(_L8("Failed to open mass storage configuration file"));
 		CleanupStack::PopAndDestroy(2, &fs); 
-		OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_EXIT_DUP1 );
 		return;
 		}
 	CleanupStack::PushL(msConfigBuf);
@@ -325,17 +282,11 @@ void CUsbMsClassController::ReadMassStorageConfigL()
 	ConfigItem(productRev, iMsConfig.iProductRev, 4);
 	
 	// Debugging
-	OstTraceExt1( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP4, 
-					"CUsbMsClassController::ReadMassStorageConfigL;vendorId = %S\n", vendorId );
-
-	OstTraceExt1( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP5, 
-					"CUsbMsClassController::ReadMassStorageConfigL;productId = %S\n", productId );
-
-	OstTraceExt1( TRACE_NORMAL, CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_DUP6, 
-					"CUsbMsClassController::ReadMassStorageConfigL;productRev = %S\n", productRev );
+	LOGTEXT2(_L8("vendorId = %S\n"), 	&vendorId);
+	LOGTEXT2(_L8("productId = %S\n"), 	&productId);
+	LOGTEXT2(_L8("productRev = %S\n"), 	&productRev);
 		
 	CleanupStack::PopAndDestroy(3, &fs); // msConfigBuf, resource, fs		
-	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_READMASSSTORAGECONFIGL_EXIT_DUP2 );
 	}
 	
 /**
@@ -344,13 +295,11 @@ void CUsbMsClassController::ReadMassStorageConfigL()
  */
  void CUsbMsClassController::ConfigItem(const TPtrC& source, TDes& target, TInt maxLength)
  	{
-	 OstTraceFunctionEntry0( CUSBMSCLASSCONTROLLER_CONFIGITEM_ENTRY );
  	if (source.Length() < maxLength)
  		{
  		maxLength = source.Length();
  		}
  		
- 	target.Copy(source.Ptr(), maxLength);
- 	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_CONFIGITEM_EXIT );
+ 	target.Copy(source.Ptr(), maxLength);	 	
  	}
 

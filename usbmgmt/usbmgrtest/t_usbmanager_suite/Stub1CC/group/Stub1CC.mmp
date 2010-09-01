@@ -34,8 +34,7 @@ SOURCE			Stub1CCImpCollection.cpp
 SOURCE			Stub1CC.cpp
 
 USERINCLUDE		../inc
-USERINCLUDE		../../../../usbmgr/usbman/server/public 
-USERINCLUDE     ../traces
+USERINCLUDE		../../../../usbmgr/usbman/server/public
 
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
@@ -48,3 +47,4 @@ LIBRARY			euser.lib
 LIBRARY			usbclasscontroller.lib
 LIBRARY 		esock.lib
 
+#include <usb/usblogger.mmh>

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2003-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2003-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -17,18 +17,16 @@
 
 #include <e32base.h>
 #include <usb/usbshared.h>
-#include <usb/usblogger.h>
 #include "CUsbScheduler.h"
 #include "CUsbServer.h"
+#include <usb/usblogger.h>
 #include "rusb.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "UsbSvrTraces.h"
-#endif
-
 
 static void RunServerL();
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "USBSVR");
+#endif
 
 
 GLDEF_C TInt E32Main()
@@ -62,13 +60,7 @@ static void RunServerL()
 //
 	{
 	// naming the server thread after the server helps to debug panics
-    TInt err = User::RenameThread(KUsbServerName);
-    if(err < 0)
-        {
-        OstTrace1( TRACE_NORMAL, USBSVR_RUNSERVERL, "::RunServerL; User::RenameThread(KUsbServerName) error, leave reason=%d", err );
-        User::Leave(err);
-        }
-
+	LEAVEIFERRORL(User::RenameThread(KUsbServerName));
 	//
 	// create and install the active scheduler we need
 	CUsbScheduler* scheduler = CUsbScheduler::NewL();

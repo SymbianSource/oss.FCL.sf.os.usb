@@ -48,13 +48,7 @@ COtgStateWatcher::COtgStateWatcher(MOtgPropertiesObserver* aObserver)
 
 void COtgStateWatcher::ConstructL()
 	{
-#ifdef __CHARGING_PLUGIN_TEST_CODE__
-    const TInt8 KPropertyOffsetForChargingTest = 100;
-    User::LeaveIfError(iOtgStateProp.Attach(KUidUsbManCategory, KUsbOtgStateProperty + KPropertyOffsetForChargingTest));
-#else
-    User::LeaveIfError(iOtgStateProp.Attach(KUidUsbManCategory, KUsbOtgStateProperty));
-#endif
-
+	User::LeaveIfError(iOtgStateProp.Attach(KUidUsbManCategory, KUsbOtgStateProperty));
 	iOtgStateProp.Subscribe(iStatus);
 	SetActive();
 

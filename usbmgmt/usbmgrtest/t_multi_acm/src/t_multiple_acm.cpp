@@ -33,6 +33,7 @@ TCommConfigV01& TheConfig = TheConfigBuf();
 
 const TInt KReceiveBufferLength = 4096;
 const TInt KMaxAcmPortNameLength = 8;
+//_LIT(KUsbCsyName, "ECACM");
 _LIT(KUsbPortName, "ACM::0");
 _LIT(KUsbPortNameAcm1, "ACM::1");
 

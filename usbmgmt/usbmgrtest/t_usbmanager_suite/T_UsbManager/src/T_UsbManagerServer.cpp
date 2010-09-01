@@ -53,6 +53,7 @@ CUsbManagerServer* CUsbManagerServer::NewL()
 	// Server Logging.
 
 	server->StartL(KServerName); 
+	//server-> ConstructL(KServerName);
 	CleanupStack::Pop(server);
 	return server;
 	}

@@ -28,6 +28,6 @@ UID 0x1000008d 0x0F15665A
 
 #include "msmmclient_base.mmp"
 
-CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl TrustedUI
+CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl
 
 MACRO	__OVER_DUMMYCOMPONENT__

@@ -1,0 +1,30 @@
+/*
+* Copyright (c) 2009 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+*
+*/
+
+LOAD_SERVER TestServerSymbianExcludeUsb
+
+START_TESTCASE USB-ROMCONFIG-004
+//! @SYMTestCaseID USB-ROMCONFIG-004
+//! @SYMTestCaseDesc RDevUsbcClient::Open should fail on a SYMBIAN_EXCLUDE_USB ROM
+//! @SYMREQ 5414
+//! @SYMTestType CIT
+//! @SYMTestPriority 1
+//! @SYMTestStatus Implemented
+//! @SYMTestActions Call RDevUsbcClient::Open(0)
+//! @SYMTestExpectedResults Returns KErrNotFound, as USB not on ROM
+RUN_TEST_STEP 10 TestServerSymbianExcludeUsb USB_ROMCONFIG_004 c:\testdata\usbromconfig\UsbRomConfig.ini UsbExcluded
+END_TESTCASE USB-ROMCONFIG-004

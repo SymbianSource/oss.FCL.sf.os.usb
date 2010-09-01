@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,17 +15,17 @@
 *
 */
 
-#include <usb/acmserver.h>
 #include "RegistrationPort.h"
 #include "AcmConstants.h"
 #include "AcmUtils.h"
+#include <usb/acmserver.h>
 #include "acmcontroller.h"
+#include <usb/usblogger.h>
 #include "acmserverconsts.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "RegistrationPortTraces.h"
-#endif
 
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "ECACM");
+#endif
 
 CRegistrationPort* CRegistrationPort::NewL(MAcmController& aAcmController, 
 										   TUint aUnit)
@@ -37,12 +37,12 @@ CRegistrationPort* CRegistrationPort::NewL(MAcmController& aAcmController,
  * @return Ownership of a newly created CRegistrationPort object
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NEWL_ENTRY );
+	LOG_STATIC_FUNC_ENTRY
+
 	CRegistrationPort* self = new(ELeave) CRegistrationPort(aAcmController);
 	CleanupClosePushL(*self);
 	self->ConstructL(aUnit);
 	CleanupStack::Pop();
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NEWL_EXIT );
 	return self;
 	}
 
@@ -53,16 +53,11 @@ void CRegistrationPort::ConstructL(TUint aUnit)
  * @param aUnit The port number.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_CONSTRUCTL_ENTRY );
+	LOG_FUNC
+
 	TName name;
 	name.Num(aUnit);
-	TInt err = SetName(&name);
-	if (err < 0)
-		{
-		OstTrace1( TRACE_NORMAL, CREGISTRATIONPORT_CONSTRUCTL, "CRegistrationPort::ConstructL;err=%d", err );
-		User::Leave(err);
-		}
-	OstTraceFunctionExit0( CREGISTRATIONPORT_CONSTRUCTL_EXIT );
+	LEAVEIFERRORL(SetName(&name));
 	}
 
 CRegistrationPort::CRegistrationPort(MAcmController& aAcmController) 
@@ -73,8 +68,6 @@ CRegistrationPort::CRegistrationPort(MAcmController& aAcmController)
  */
  :	iAcmController(aAcmController)
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_CREGISTRATIONPORT_CONS_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_CREGISTRATIONPORT_CONS_EXIT );
 	}
 
 void CRegistrationPort::StartRead(const TAny* /*aClientBuffer*/, 
@@ -86,9 +79,9 @@ void CRegistrationPort::StartRead(const TAny* /*aClientBuffer*/,
  * @param aLength number of bytes to read
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_STARTREAD_ENTRY );
+	LOG_FUNC
+
 	ReadCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_STARTREAD_EXIT );
 	}
 
 void CRegistrationPort::ReadCancel()
@@ -96,9 +89,9 @@ void CRegistrationPort::ReadCancel()
  * Cancel a read
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_READCANCEL_ENTRY );
+	LOG_FUNC
+
 	ReadCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_READCANCEL_EXIT );
 	}
 
 
@@ -110,8 +103,8 @@ TInt CRegistrationPort::QueryReceiveBuffer(TInt& /*aLength*/) const
  * @return KErrNotSupported always.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_QUERYRECEIVEBUFFER_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_QUERYRECEIVEBUFFER_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -121,8 +114,7 @@ void CRegistrationPort::ResetBuffers(TUint)
  * Not supported.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_RESETBUFFERS_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_RESETBUFFERS_EXIT );
+	LOG_FUNC
 	}
 
 void CRegistrationPort::StartWrite(const TAny* /*aClientBuffer*/, 
@@ -134,9 +126,9 @@ void CRegistrationPort::StartWrite(const TAny* /*aClientBuffer*/,
  * @param aLength number of bytes to write
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_STARTWRITE_ENTRY );
+	LOG_FUNC
+
 	WriteCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_STARTWRITE_EXIT );
 	}
 
 void CRegistrationPort::WriteCancel()
@@ -144,9 +136,9 @@ void CRegistrationPort::WriteCancel()
  * Cancel a pending write
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_WRITECANCEL_ENTRY );
+	LOG_FUNC
+
 	WriteCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_WRITECANCEL_EXIT );
 	}
 
 void CRegistrationPort::Break(TInt /*aTime*/)
@@ -156,9 +148,9 @@ void CRegistrationPort::Break(TInt /*aTime*/)
  * @param aTime Length of break in microseconds
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_BREAK_ENTRY );
+	LOG_FUNC
+
 	BreakCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_BREAK_EXIT );
 	}
 
 void CRegistrationPort::BreakCancel()
@@ -166,8 +158,7 @@ void CRegistrationPort::BreakCancel()
  * Cancel a pending break.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_BREAKCANCEL_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_BREAKCANCEL_EXIT );
+	LOG_FUNC
 	}
 
 TInt CRegistrationPort::GetConfig(TDes8& /*aDes*/) const
@@ -178,8 +169,8 @@ TInt CRegistrationPort::GetConfig(TDes8& /*aDes*/) const
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETCONFIG_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETCONFIG_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -191,8 +182,8 @@ TInt CRegistrationPort::SetConfig(const TDesC8& /*aDes*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETCONFIG_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETCONFIG_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -204,8 +195,8 @@ TInt CRegistrationPort::SetServerConfig(const TDesC8& /*aDes*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETSERVERCONFIG_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETSERVERCONFIG_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -217,8 +208,8 @@ TInt CRegistrationPort::GetServerConfig(TDes8& /*aDes*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETSERVERCONFIG_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETSERVERCONFIG_EXIT );
+	LOG_FUNC
+	
 	return KErrNotSupported;
 	}
 
@@ -230,8 +221,8 @@ TInt CRegistrationPort::GetCaps(TDes8& /*aDes*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETCAPS_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETCAPS_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -243,8 +234,8 @@ TInt CRegistrationPort::GetSignals(TUint& /*aSignals*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETSIGNALS_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETSIGNALS_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -260,8 +251,7 @@ TInt CRegistrationPort::SetSignalsToMark(TUint aAcmField)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETSIGNALSTOMARK_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREGISTRATIONPORT_SETSIGNALSTOMARK, "CRegistrationPort::SetSignalsToMark;aAcmField = 0x%x", aAcmField );
+	LOGTEXT2(_L8(">>CRegistrationPort::SetSignalsToMark aAcmField = 0x%x"), aAcmField);
 
 	// Extract number of interfaces and protocol number
 	//	low 2 bytes represent the number of ACMs
@@ -275,8 +265,8 @@ TInt CRegistrationPort::SetSignalsToMark(TUint aAcmField)
 	protocolNumber = protocolNumber ? protocolNumber : KDefaultAcmProtocolNum;
 
 	TInt ret = iAcmController.CreateFunctions(interfaces, protocolNumber, KControlIfcName, KDataIfcName);
-	OstTrace1( TRACE_NORMAL, CREGISTRATIONPORT_SETSIGNALSTOMARK_DUP1, "CRegistrationPort::SetSignalsToMark;ret=%d", ret );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETSIGNALSTOMARK_EXIT );
+
+	LOGTEXT2(_L8("<<CRegistrationPort::SetSignalsToMark ret = %d"), ret);
 	return ret;
 	}
 
@@ -291,11 +281,11 @@ TInt CRegistrationPort::SetSignalsToSpace(TUint aNoAcms)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETSIGNALSTOSPACE_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREGISTRATIONPORT_SETSIGNALSTOSPACE, "CRegistrationPort::SetSignalsToSpace;aNoAcms=%d", (TInt)aNoAcms );
+	LOGTEXT2(_L8(">>CRegistrationPort::SetSignalsToSpace aNoAcms = %d"), aNoAcms);
+
 	iAcmController.DestroyFunctions(aNoAcms);
-	OstTrace0( TRACE_NORMAL, CREGISTRATIONPORT_SETSIGNALSTOSPACE_DUP1, "CRegistrationPort::SetSignalsToSpace;ret = KErrNone" );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETSIGNALSTOSPACE_EXIT );
+
+	LOGTEXT(_L8("<<CRegistrationPort::SetSignalsToSpace ret = KErrNone"));
 	return KErrNone;
 	}
 
@@ -307,8 +297,8 @@ TInt CRegistrationPort::GetReceiveBufferLength(TInt& /*aLength*/) const
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETRECEIVEBUFFERLENGTH_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETRECEIVEBUFFERLENGTH_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -320,8 +310,8 @@ TInt CRegistrationPort::SetReceiveBufferLength(TInt /*aLength*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETRECEIVEBUFFERLENGTH_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETRECEIVEBUFFERLENGTH_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -330,9 +320,9 @@ void CRegistrationPort::Destruct()
  * Destruct - we must (eventually) call delete this
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_DESTRUCT_ENTRY );
+	LOG_FUNC
+
 	delete this;
-	OstTraceFunctionExit0( CREGISTRATIONPORT_DESTRUCT_EXIT );
 	}
 
 void CRegistrationPort::FreeMemory()
@@ -340,8 +330,7 @@ void CRegistrationPort::FreeMemory()
  * Attempt to reduce our memory foot print.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_FREEMEMORY_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_FREEMEMORY_EXIT );
+	LOG_FUNC
 	}
 
 void CRegistrationPort::NotifyDataAvailable()
@@ -349,9 +338,9 @@ void CRegistrationPort::NotifyDataAvailable()
  * Notify client when data is available
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYDATAAVAILABLE_ENTRY );
+	LOG_FUNC
+
 	NotifyDataAvailableCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYDATAAVAILABLE_EXIT );
 	}
 
 void CRegistrationPort::NotifyDataAvailableCancel()
@@ -359,9 +348,9 @@ void CRegistrationPort::NotifyDataAvailableCancel()
  * Cancel an outstanding data availalbe notification
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYDATAAVAILABLECANCEL_ENTRY );
+	LOG_FUNC
+
 	NotifyDataAvailableCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYDATAAVAILABLECANCEL_EXIT );
 	}
 
 TInt CRegistrationPort::GetFlowControlStatus(TFlowControl& /*aFlowControl*/)
@@ -372,8 +361,8 @@ TInt CRegistrationPort::GetFlowControlStatus(TFlowControl& /*aFlowControl*/)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETFLOWCONTROLSTATUS_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETFLOWCONTROLSTATUS_EXIT );
+	LOG_FUNC
+
 	return KErrNotSupported;
 	}
 
@@ -382,9 +371,9 @@ void CRegistrationPort::NotifyOutputEmpty()
  * Notify the client when the output buffer is empty.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYOUTPUTEMPTY_ENTRY );
+	LOG_FUNC
+	
 	NotifyOutputEmptyCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYOUTPUTEMPTY_EXIT );
 	}
 
 void CRegistrationPort::NotifyOutputEmptyCancel()
@@ -392,9 +381,9 @@ void CRegistrationPort::NotifyOutputEmptyCancel()
  * Cancel a pending request to be notified when the output buffer is empty.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYOUTPUTEMPTYCANCEL_ENTRY );
+	LOG_FUNC
+
 	NotifyOutputEmptyCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYOUTPUTEMPTYCANCEL_EXIT );
 	}
 
 void CRegistrationPort::NotifyBreak()
@@ -402,9 +391,9 @@ void CRegistrationPort::NotifyBreak()
  * Notify a client of a break on the serial line.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYBREAK_ENTRY );
+	LOG_FUNC
+
 	BreakNotifyCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYBREAK_EXIT );
 	}
 
 void CRegistrationPort::NotifyBreakCancel()
@@ -412,9 +401,9 @@ void CRegistrationPort::NotifyBreakCancel()
  * Cancel a pending notification of a serial line break.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYBREAKCANCEL_ENTRY );
+	LOG_FUNC
+
 	BreakNotifyCompleted(KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYBREAKCANCEL_EXIT );
 	}
 
 void CRegistrationPort::NotifyFlowControlChange()
@@ -422,9 +411,9 @@ void CRegistrationPort::NotifyFlowControlChange()
  * Notify a client of a change in the flow control state.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYFLOWCONTROLCHANGE_ENTRY );
+	LOG_FUNC
+	
 	FlowControlChangeCompleted(EFlowControlOn,KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYFLOWCONTROLCHANGE_EXIT );
 	}
 
 void CRegistrationPort::NotifyFlowControlChangeCancel()
@@ -432,9 +421,9 @@ void CRegistrationPort::NotifyFlowControlChangeCancel()
  * Cancel a pending request to be notified when the flow control state changes.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYFLOWCONTROLCHANGECANCEL_ENTRY );
+	LOG_FUNC
+
 	FlowControlChangeCompleted(EFlowControlOn,KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYFLOWCONTROLCHANGECANCEL_EXIT );
 	}
 
 void CRegistrationPort::NotifyConfigChange()
@@ -442,9 +431,9 @@ void CRegistrationPort::NotifyConfigChange()
  * Notify a client of a change to the serial port configuration.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYCONFIGCHANGE_ENTRY );
+	LOG_FUNC
+
 	ConfigChangeCompleted(KNullDesC8, KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYCONFIGCHANGE_EXIT );
 	}
 
 void CRegistrationPort::NotifyConfigChangeCancel()
@@ -453,9 +442,9 @@ void CRegistrationPort::NotifyConfigChangeCancel()
  * configuration.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYCONFIGCHANGECANCEL_ENTRY );
+	LOG_FUNC
+
 	ConfigChangeCompleted(KNullDesC8, KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYCONFIGCHANGECANCEL_EXIT );
 	}
 
 void CRegistrationPort::NotifySignalChange(TUint /*aSignalMask*/)
@@ -463,9 +452,9 @@ void CRegistrationPort::NotifySignalChange(TUint /*aSignalMask*/)
  * Notify a client of a change to the signal lines.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYSIGNALCHANGE_ENTRY );
+	LOG_FUNC
+
 	SignalChangeCompleted(0, KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYSIGNALCHANGE_EXIT );
 	}
 
 void CRegistrationPort::NotifySignalChangeCancel()
@@ -474,9 +463,9 @@ void CRegistrationPort::NotifySignalChangeCancel()
  * lines.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_NOTIFYSIGNALCHANGECANCEL_ENTRY );
+	LOG_FUNC
+
 	SignalChangeCompleted(0, KErrNotSupported);
-	OstTraceFunctionExit0( CREGISTRATIONPORT_NOTIFYSIGNALCHANGECANCEL_EXIT );
 	}
 
 TInt CRegistrationPort::GetRole(TCommRole& aRole)
@@ -487,10 +476,9 @@ TInt CRegistrationPort::GetRole(TCommRole& aRole)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_GETROLE_ENTRY );
+	LOG_FUNC
 	aRole = iRole;
-	OstTrace1( TRACE_NORMAL, CREGISTRATIONPORT_GETROLE, "CRegistrationPort::GetRole;aRole=%d", (TInt)aRole );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_GETROLE_EXIT );
+	LOGTEXT2(_L8("\trole=%d"), aRole);
 	return KErrNone;
 	}
 
@@ -502,14 +490,14 @@ TInt CRegistrationPort::SetRole(TCommRole aRole)
  * @return Error
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_SETROLE_ENTRY );
+	LOG_FUNC
+
 	// This is required to keep C32 happy while opening the port.
 	// All we do is store the role and return it if asked.
 	// Note that this is needed for multiple ACM ports because C32 doesn't 
 	// check the return value for multiple ports so opening registration port 
 	// more than once will fail.
 	iRole = aRole;
-	OstTraceFunctionExit0( CREGISTRATIONPORT_SETROLE_EXIT );
 	return KErrNone; 
 	}
 
@@ -518,8 +506,7 @@ CRegistrationPort::~CRegistrationPort()
  * Destructor.
  */
 	{
-	OstTraceFunctionEntry0( CREGISTRATIONPORT_CREGISTRATIONPORT_DES_ENTRY );
-	OstTraceFunctionExit0( CREGISTRATIONPORT_CREGISTRATIONPORT_DES_EXIT );
+	LOG_FUNC
 	}
 
 //

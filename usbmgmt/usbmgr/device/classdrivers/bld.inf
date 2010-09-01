@@ -19,5 +19,4 @@
 #include "ms/bld.inf"
 #include "obex/bld.inf"
 #include "whcm/bld.inf"
-#include "ncm/group/bld.inf"
 

@@ -403,6 +403,7 @@ TVerdict CUsbSwitchPersonalityNormal::doTestStepL()
 			INFO_PRINTF1(_L("Can't get class id from config file"));
 			SetTestStepResult(EFail);
 		}
+//		TUid temp = uidArray[k]; 
 		TEST(uidArray[k] ==TUid::Uid(classID));
 	}
 	

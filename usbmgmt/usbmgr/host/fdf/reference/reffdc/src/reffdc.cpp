@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -23,29 +23,27 @@
 #include "reffdc.h"
 #include <usb/usblogger.h>
 #include <usbhost/internal/fdcpluginobserver.h>
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "reffdcTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "reffdc   ");
 #endif
-
-
 
 CRefFdc* CRefFdc::NewL(MFdcPluginObserver& aObserver)
 	{
-	OstTraceFunctionEntry0( CREFFDC_NEWL_ENTRY );
-	
+	LOG_LINE
+	LOG_STATIC_FUNC_ENTRY
+
 	CRefFdc* self = new(ELeave) CRefFdc(aObserver);
 	CleanupStack::PushL(self);
 	self->ConstructL();
 	CleanupStack::Pop(self);
-	OstTraceFunctionExit0( CREFFDC_NEWL_EXIT );
 	return self;
 	}
 
 CRefFdc::~CRefFdc()
 	{
-	OstTraceFunctionEntry0( CREFFDC_CREFFDC_DES_ENTRY );
-	OstTraceFunctionExit0( CREFFDC_CREFFDC_DES_EXIT );
+	LOG_LINE
+	LOG_FUNC
 	}
 
 CRefFdc::CRefFdc(MFdcPluginObserver& aObserver)
@@ -55,10 +53,7 @@ CRefFdc::CRefFdc(MFdcPluginObserver& aObserver)
 
 void CRefFdc::ConstructL()
 	{
-    OstTraceFunctionEntry0( CREFFDC_CONSTRUCTL_ENTRY );
-    
-	
-	OstTraceFunctionExit0( CREFFDC_CONSTRUCTL_EXIT );
+	LOG_FUNC
 	}
 
 TInt CRefFdc::Mfi1NewFunction(TUint aDeviceId,
@@ -66,20 +61,16 @@ TInt CRefFdc::Mfi1NewFunction(TUint aDeviceId,
 		const TUsbDeviceDescriptor& aDeviceDescriptor,
 		const TUsbConfigurationDescriptor& aConfigurationDescriptor)
 	{
-	OstTraceFunctionEntry0( CREFFDC_MFI1NEWFUNCTION_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREFFDC_MFI1NEWFUNCTION, 
-	        "***** Ref FD offered chance to claim one function from device with ID %d", 
-	        aDeviceId );
-	
+	LOG_LINE
+	LOG_FUNC
+	LOGTEXT2(_L8("\t***** Ref FD offered chance to claim one function from device with ID %d"), aDeviceId);
 	(void)aDeviceId;
 
 	TRAPD(err, NewFunctionL(aDeviceId, aInterfaces, aDeviceDescriptor, aConfigurationDescriptor));
 
 	// If any error is returned, RUsbInterface (etc) handles opened from this 
 	// call must be closed.
-	OstTrace1( TRACE_NORMAL, CREFFDC_MFI1NEWFUNCTION_DUP1, 
-	            "err = %d", err );
-	OstTraceFunctionExit0( CREFFDC_MFI1NEWFUNCTION_EXIT );
+	LOGTEXT2(_L8("\terr = %d"), err);
 	return err;
 	}
 
@@ -88,8 +79,9 @@ void CRefFdc::NewFunctionL(TUint aDeviceId,
 		const TUsbDeviceDescriptor& /*aDeviceDescriptor*/,
 		const TUsbConfigurationDescriptor& /*aConfigurationDescriptor*/)
 	{
-	OstTraceFunctionEntry0( CREFFDC_NEWFUNCTIONL_ENTRY );
-	
+	LOG_LINE
+	LOG_FUNC
+
 	// We are obliged to claim the first interface because it has 
 	// interface class/subclass(/protocol) settings matching our default_data 
 	// field.
@@ -109,70 +101,58 @@ void CRefFdc::NewFunctionL(TUint aDeviceId,
 	// subsystem-specific purposes.
 	const RArray<TUint>& langIds = Observer().GetSupportedLanguagesL(aDeviceId);
 	const TUint langCount = langIds.Count();
-	OstTrace1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL, 
-	        "device supports %d language(s):", langCount );
-	
+	LOGTEXT2(_L8("\tdevice supports %d language(s):"), langCount);
 	for ( TUint ii = 0 ; ii < langCount ; ++ii )
 		{
-        OstTrace1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP1, 
-	            "lang code: 0x%04x", langIds[ii] );
-	   
-        TName string;
+		LOGTEXT2(_L8("\t\tlang code: 0x%04x"), langIds[ii]);
+		TName string;
 		TInt err = Observer().GetManufacturerStringDescriptor(aDeviceId, langIds[ii], string);
 		if ( !err )
 			{
-            OstTraceExt1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP2, 
-		                "manufacturer string descriptor = \"%S\"", string );
-		    err = Observer().GetProductStringDescriptor(aDeviceId, langIds[ii], string);
+			LOGTEXT2(_L("\t\t\tmanufacturer string descriptor = \"%S\""), &string);
+			err = Observer().GetProductStringDescriptor(aDeviceId, langIds[ii], string);
 			if ( !err )
 				{
-                OstTraceExt1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP3, 
-			                        "product string descriptor = \"%S\"", string );
+				LOGTEXT2(_L("\t\t\tproduct string descriptor = \"%S\""), &string);
 				err = Observer().GetSerialNumberStringDescriptor(aDeviceId, langIds[ii], string);
 				if ( !err )
 					{
-                    OstTraceExt1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP4, 
-				                   "serial number string descriptor = \"%S\"", string );
+					LOGTEXT2(_L("\t\t\tserial number string descriptor = \"%S\""), &string);
 					}
 				else
 					{
-                    OstTrace1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP5, 
-				               "GetSerialNumberStringDescriptor returned %d", err );
+					LOGTEXT2(_L("\t\t\tGetSerialNumberStringDescriptor returned %d"), err);
 					}
 				}
 			else
 				{
-                OstTrace1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP6, 
-			                "GetProductStringDescriptor returned %d", err );
-			    }
+				LOGTEXT2(_L("\t\t\tGetProductStringDescriptor returned %d"), err);
+				}
 			}
 		else
 			{
-            OstTrace1( TRACE_NORMAL, CREFFDC_NEWFUNCTIONL_DUP7, 
-		                            "GetManufacturerStringDescriptor returned %d", err );
+			LOGTEXT2(_L("\t\t\tGetManufacturerStringDescriptor returned %d"), err);
 			}
 		}
-	OstTraceFunctionExit0( CREFFDC_NEWFUNCTIONL_EXIT );
 	}
 
 void CRefFdc::Mfi1DeviceDetached(TUint aDeviceId)
 	{
-	OstTraceFunctionEntry0( CREFFDC_MFI1DEVICEDETACHED_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREFFDC_MFI1DEVICEDETACHED, 
-	        "***** Ref FD notified of detachment of device with ID %d", aDeviceId );
+	LOG_LINE
+	LOG_FUNC
+	LOGTEXT2(_L8("\t***** Ref FD notified of detachment of device with ID %d"), aDeviceId);
 	(void)aDeviceId;
 
 	// Any RUsbInterface (etc) handles opened as a result of any calls to 
 	// MfiNewFunction with this device ID should be closed.
-	OstTraceFunctionExit0( CREFFDC_MFI1DEVICEDETACHED_EXIT );
 	}
 
 TAny* CRefFdc::GetInterface(TUid aUid)
 	{
-	OstTraceFunctionEntry0( CREFFDC_GETINTERFACE_ENTRY );
-	OstTrace1( TRACE_NORMAL, CREFFDC_GETINTERFACE, 
-	        "aUid = 0x%08x", aUid.iUid );
-	
+	LOG_LINE
+	LOG_FUNC;
+	LOGTEXT2(_L8("\taUid = 0x%08x"), aUid);
+
 	TAny* ret = NULL;
 	if ( aUid == TUid::Uid(KFdcInterfaceV1) )
 		{
@@ -181,9 +161,6 @@ TAny* CRefFdc::GetInterface(TUid aUid)
 			);
 		}
 
-	OstTrace1( TRACE_NORMAL, CREFFDC_GETINTERFACE_DUP1, 
-	            "ret = [0x%08x]", ret );
-	    
-	OstTraceFunctionExit0( CREFFDC_GETINTERFACE_EXIT );
+	LOGTEXT2(_L8("\tret = [0x%08x]"), ret);
 	return ret;
 	}

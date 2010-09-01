@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -28,37 +28,36 @@
 #include "fdfapi.h"
 #include "fdf.h"
 #include "event.h"
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "fdfsessionTraces.h"
+
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdf      ");
 #endif
 
 #ifdef _DEBUG
-_LIT(KPanicCategory, "fdfsession");
+PANICCATEGORY("fdfsession");
 #endif
 
 CFdfSession::CFdfSession(CFdf& aFdf, CFdfServer& aServer)
  :	iFdf(aFdf),
 	iServer(aServer)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_CFDFSESSION_CONS_ENTRY );
-	
-	OstTraceFunctionExit0( CFDFSESSION_CFDFSESSION_CONS_EXIT );
+	LOG_FUNC
 	}
 
 CFdfSession::~CFdfSession()
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_CFDFSESSION_DES_ENTRY );
-	
+	LOG_LINE
+	LOG_FUNC;
+
 	iServer.SessionClosed();
-	OstTraceFunctionExit0( CFDFSESSION_CFDFSESSION_DES_EXIT );
 	}
 
 void CFdfSession::ServiceL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_SERVICEL_ENTRY );
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_SERVICEL, "aMessage.Function() = %d", aMessage.Function() );
-	
+	LOG_LINE
+	LOG_FUNC;
+	LOGTEXT2(_L8("\taMessage.Function() = %d"), aMessage.Function());
+
 	// Switch on the IPC number and call a 'message handler'. Message handlers
 	// complete aMessage (either with Complete or Panic), or make a note of
 	// the message for later asynchronous completion.
@@ -72,22 +71,12 @@ void CFdfSession::ServiceL(const RMessage2& aMessage)
 		// This is a sync API- check that the message has been completed.
 		// (NB We don't check the converse for async APIs because the message
 		// may have been panicked synchronously.)
-		if(!(aMessage.Handle() == 0))
-		    {
-            OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP1, 
-                        "Empty aMessage.Handle" );
-            __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvDisableDriverLoading:
 		DisableDriverLoading(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP2, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvNotifyDeviceEvent:
@@ -96,12 +85,7 @@ void CFdfSession::ServiceL(const RMessage2& aMessage)
 
 	case EUsbFdfSrvNotifyDeviceEventCancel:
 		NotifyDeviceEventCancel(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP3, 
-                        "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvNotifyDevmonEvent:
@@ -110,71 +94,39 @@ void CFdfSession::ServiceL(const RMessage2& aMessage)
 
 	case EUsbFdfSrvNotifyDevmonEventCancel:
 		NotifyDevmonEventCancel(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP4, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvGetSingleSupportedLanguageOrNumberOfSupportedLanguages:
 		GetSingleSupportedLanguageOrNumberOfSupportedLanguages(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP5, 
-		               "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvGetSupportedLanguages:
 		GetSupportedLanguages(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP6, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvGetManufacturerStringDescriptor:
 		GetManufacturerStringDescriptor(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP7, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }		
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	case EUsbFdfSrvGetProductStringDescriptor:
 		GetProductStringDescriptor(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP8, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 		
 	case EUsbFdfSrvGetOtgDescriptor:
 		GetOtgDeviceDescriptor(aMessage);
-		if(!(aMessage.Handle() == 0))
-		    {
-		    OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP9, 
-		              "Empty aMessage.Handle" );
-		    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-		    }
+		ASSERT_DEBUG(aMessage.Handle() == 0);
 		break;
 
 	// Heap failure testing APIs.
 	case EUsbFdfSrvDbgFailNext:
 #ifdef _DEBUG
 		{
-		OstTrace1( TRACE_NORMAL, CFDFSESSION_SERVICEL_DUP10, 
-		                        "fail next (simulating failure after %d allocation(s))", 
-		                        aMessage.Int0() );
+		LOGTEXT2(_L8("\tfail next (simulating failure after %d allocation(s))"), aMessage.Int0());
 		if ( aMessage.Int0() == 0 )
 			{
 			__UHEAP_RESET;
@@ -184,7 +136,7 @@ void CFdfSession::ServiceL(const RMessage2& aMessage)
 			__UHEAP_FAILNEXT(aMessage.Int0());
 			}
 		}
-#endif
+#endif // _DEBUG
 		CompleteClient(aMessage, KErrNone);
 		break;
 
@@ -192,70 +144,60 @@ void CFdfSession::ServiceL(const RMessage2& aMessage)
 		{
 		TInt err = KErrNone;
 #ifdef _DEBUG
-		OstTrace0( TRACE_NORMAL, CFDFSESSION_SERVICEL_DUP11, "allocate on the heap" );
+		LOGTEXT(_L8("\tallocate on the heap"));
 		TInt* x = NULL;
 		TRAP(err, x = new(ELeave) TInt);
 		delete x;
-#endif
+
+#endif // _DEBUG
 		CompleteClient(aMessage, err);
 		}
 		break;
 
 	default:
-		OstTrace0( TRACE_FATAL, CFDFSESSION_SERVICEL_DUP12, 
-		           "Invalid message function" );
-		aMessage.Panic(KUsbFdfServerName,EBadIpc);
-        
+		PANIC_MSG(aMessage, KUsbFdfServerName, EBadIpc);
 		break;
 		}
-	OstTraceFunctionExit0( CFDFSESSION_SERVICEL_EXIT );
 	}
 
 void CFdfSession::CompleteClient(const RMessage2& aMessage, TInt aError)
 	{
-    OstTrace1( TRACE_NORMAL, CFDFSESSION_COMPLETECLIENT, "completing client message with %d", aError );
- 	aMessage.Complete(aError);
+	LOGTEXT2(_L8("\tcompleting client message with %d"), aError);
+	aMessage.Complete(aError);
 	}
 
 void CFdfSession::EnableDriverLoading(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_ENABLEDRIVERLOADING_ENTRY );
+	LOG_FUNC
 
 	iFdf.EnableDriverLoading();
 
 	CompleteClient(aMessage, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_ENABLEDRIVERLOADING_EXIT );
 	}
 
 void CFdfSession::DisableDriverLoading(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_DISABLEDRIVERLOADING_ENTRY );
-	
+	LOG_FUNC
+
 	iFdf.DisableDriverLoading();
 
 	CompleteClient(aMessage, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_DISABLEDRIVERLOADING_EXIT );
 	}
 
 TBool CFdfSession::NotifyDeviceEventOutstanding() const
 	{
 	const TBool ret = ( iNotifyDeviceEventMsg.Handle() != 0 );
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_NOTIFYDEVICEEVENTOUTSTANDING, 
-	        "CFdfSession::NotifyDeviceEventOutstanding returning %d", ret );
-	
+	LOGTEXT2(_L("CFdfSession::NotifyDeviceEventOutstanding returning %d"), ret);
 	return ret;
 	}
 
 void CFdfSession::NotifyDeviceEvent(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_NOTIFYDEVICEEVENT_ENTRY );
-	
+	LOG_FUNC
+
 	if ( iNotifyDeviceEventMsg.Handle() )
 		{
-        OstTrace0( TRACE_FATAL, CFDFSESSION_NOTIFYDEVICEEVENT, 
-                "Empty iNotifyDeviceEventMsg" );
-		iNotifyDeviceEventMsg.Panic( KUsbFdfServerName, 
-		        ENotifyDeviceEventAlreadyOutstanding);
+		PANIC_MSG(iNotifyDeviceEventMsg, KUsbFdfServerName, ENotifyDeviceEventAlreadyOutstanding);
 		}
 	else
 		{
@@ -266,90 +208,68 @@ void CFdfSession::NotifyDeviceEvent(const RMessage2& aMessage)
 			CompleteDeviceEventNotification(event);
 			}
 		}
-	OstTraceFunctionExit0( CFDFSESSION_NOTIFYDEVICEEVENT_EXIT );
 	}
 
 void CFdfSession::NotifyDeviceEventCancel(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_NOTIFYDEVICEEVENTCANCEL_ENTRY );
+	LOG_FUNC
 
 	if ( iNotifyDeviceEventMsg.Handle() )
 		{
 		CompleteClient(iNotifyDeviceEventMsg, KErrCancel);
 		}
 	CompleteClient(aMessage, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_NOTIFYDEVICEEVENTCANCEL_EXIT );
 	}
 
 void CFdfSession::DeviceEvent(const TDeviceEvent& aEvent)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_DEVICEEVENT_ENTRY );
+	LOG_FUNC
 
 	// This function should only be called if there is a request outstanding.
-	if(!iNotifyDeviceEventMsg.Handle())
-	    {
-	    OstTrace0( TRACE_FATAL, CFDFSESSION_DEVICEEVENT, 
-	                "iNotifyDeviceEventMsg.Handle" );
-	    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
+	ASSERT_DEBUG(iNotifyDeviceEventMsg.Handle());
+
 	CompleteDeviceEventNotification(aEvent);
-	OstTraceFunctionExit0( CFDFSESSION_DEVICEEVENT_EXIT );
 	}
 
 void CFdfSession::CompleteDeviceEventNotification(const TDeviceEvent& aEvent)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATION_ENTRY );
-	
+	LOG_FUNC
 
 	TRAPD(err, CompleteDeviceEventNotificationL(aEvent));
 	if ( err )
 		{
-        OstTrace0( TRACE_FATAL, CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATION, 
-                "CompleteDeviceEventNotificationL error" );
-		iNotifyDeviceEventMsg.Panic( KUsbFdfServerName, 
-		        EBadNotifyDeviceEventData);
+		PANIC_MSG(iNotifyDeviceEventMsg, KUsbFdfServerName, EBadNotifyDeviceEventData);
 		}
-	OstTraceFunctionExit0( CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATION_EXIT );
 	}
 
 void CFdfSession::CompleteDeviceEventNotificationL(const TDeviceEvent& aEvent)
 	{
-    OstTraceFunctionEntry0( CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATIONL_ENTRY );
-	
+	LOG_FUNC
+
 	// iNotifyDeviceEventMsg has one IPC arg: a TDeviceEventInformation
-	if(!iNotifyDeviceEventMsg.Handle())
-	    {
-	    OstTrace0( TRACE_FATAL, CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATIONL, 
-            "Empty iNotifyDeviceEventMsg.Handle" );
-	    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
+
+	ASSERT_DEBUG(iNotifyDeviceEventMsg.Handle());
 
 	TPckg<TDeviceEventInformation> info(aEvent.iInfo);
 	iNotifyDeviceEventMsg.WriteL(0, info);
 
 	CompleteClient(iNotifyDeviceEventMsg, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_COMPLETEDEVICEEVENTNOTIFICATIONL_EXIT );
 	}
 
 TBool CFdfSession::NotifyDevmonEventOutstanding() const
 	{
 	const TBool ret = ( iNotifyDevmonEventMsg.Handle() != 0 );
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_NOTIFYDEVMONEVENTOUTSTANDING, 
-	        "CFdfSession::NotifyDevmonEventOutstanding returning %d", ret );
+	LOGTEXT2(_L("CFdfSession::NotifyDevmonEventOutstanding returning %d"), ret);
 	return ret;
 	}
 
 void CFdfSession::NotifyDevmonEvent(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_NOTIFYDEVMONEVENT_ENTRY );
-	
+	LOG_FUNC
+
 	if ( iNotifyDevmonEventMsg.Handle() )
 		{
-        OstTrace0( TRACE_FATAL, CFDFSESSION_NOTIFYDEVMONEVENT, 
-	              "iNotifyDevmonEventMsg.Handle should empty" );
-		iNotifyDevmonEventMsg.Panic( KUsbFdfServerName, 
-		        ENotifyDevmonEventAlreadyOutstanding);
-		        
+		PANIC_MSG(iNotifyDevmonEventMsg, KUsbFdfServerName, ENotifyDevmonEventAlreadyOutstanding);
 		}
 	else
 		{
@@ -360,80 +280,59 @@ void CFdfSession::NotifyDevmonEvent(const RMessage2& aMessage)
 			CompleteDevmonEventNotification(event);
 			}
 		}
-	OstTraceFunctionExit0( CFDFSESSION_NOTIFYDEVMONEVENT_EXIT );
 	}
 
 void CFdfSession::NotifyDevmonEventCancel(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_NOTIFYDEVMONEVENTCANCEL_ENTRY );
-	
+	LOG_FUNC
 
 	if ( iNotifyDevmonEventMsg.Handle() )
 		{
 		CompleteClient(iNotifyDevmonEventMsg, KErrCancel);
 		}
 	CompleteClient(aMessage, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_NOTIFYDEVMONEVENTCANCEL_EXIT );
 	}
 
 void CFdfSession::DevmonEvent(TInt aError)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_DEVMONEVENT_ENTRY );
-	
+	LOG_FUNC
+
 	// This function should only be called if there is a request outstanding.
-	
-	
-	if(!iNotifyDevmonEventMsg.Handle())
-	    {
-	    OstTrace0( TRACE_FATAL, CFDFSESSION_DEVMONEVENT, 
-	                "Empty iNotifyDevmonEventMsg.Handle()" );
-	    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
+	ASSERT_DEBUG(iNotifyDevmonEventMsg.Handle());
 
 	CompleteDevmonEventNotification(aError);
-	OstTraceFunctionExit0( CFDFSESSION_DEVMONEVENT_EXIT );
 	}
 
 void CFdfSession::CompleteDevmonEventNotification(TInt aError)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATION_ENTRY );
-	
+	LOG_FUNC
 
 	TRAPD(err, CompleteDevmonEventNotificationL(aError));
 	if ( err )
 		{
-        OstTrace0( TRACE_FATAL, CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATION, 
-	              "Bad Notify Devmon Event Data" );
-		iNotifyDevmonEventMsg.Panic(KUsbFdfServerName, 
-		        EBadNotifyDevmonEventData);
+		PANIC_MSG(iNotifyDevmonEventMsg, KUsbFdfServerName, EBadNotifyDevmonEventData);
 		}
-	OstTraceFunctionExit0( CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATION_EXIT );
 	}
 
 void CFdfSession::CompleteDevmonEventNotificationL(TInt aEvent)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATIONL_ENTRY );
-	
+	LOG_FUNC
+
 	// iNotifyDevmonEventMsg has the following IPC args:
 	// 0- TInt& aError
-	if(!iNotifyDevmonEventMsg.Handle())
-	    {
-	    OstTrace0( TRACE_FATAL, CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATIONL, 
-	              "Empty iNotifyDevmonEventMsg.Handle" );
-	    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
+
+	ASSERT_DEBUG(iNotifyDevmonEventMsg.Handle());
 
 	TPckg<TInt> event(aEvent);
 	iNotifyDevmonEventMsg.WriteL(0, event);
 
 	CompleteClient(iNotifyDevmonEventMsg, KErrNone);
-	OstTraceFunctionExit0( CFDFSESSION_COMPLETEDEVMONEVENTNOTIFICATIONL_EXIT );
 	}
 
 void CFdfSession::GetSingleSupportedLanguageOrNumberOfSupportedLanguages(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGES_ENTRY );
-	
+	LOG_FUNC
+
 	// To save IPC operations between client and server, we make use of the
 	// fact that the majority of devices only support a single language.
 	// The client is expected to have a buffer big enough to hold a single
@@ -449,37 +348,30 @@ void CFdfSession::GetSingleSupportedLanguageOrNumberOfSupportedLanguages(const R
 	// them all.
 	TRAPD(err, GetSingleSupportedLanguageOrNumberOfSupportedLanguagesL(aMessage));
 	CompleteClient(aMessage, err);
-	OstTraceFunctionExit0( CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGES_EXIT );
 	}
 
 void CFdfSession::GetSingleSupportedLanguageOrNumberOfSupportedLanguagesL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_ENTRY );
-	
+	LOG_FUNC
+
 	const TUint deviceId = aMessage.Int0();
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL, 
-	        "deviceId = %d", deviceId );
+	LOGTEXT2(_L8("\tdeviceId = %d"), deviceId);
 	const RArray<TUint>& langIds = iFdf.GetSupportedLanguagesL(deviceId);
 	const TUint count = langIds.Count();
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_DUP1, 
-	        "count = %d", count );
+	LOGTEXT2(_L8("\tcount = %d"), count);
 	switch ( count )
 		{
 	case 0:
 		// Nothing to write to the client's address space, complete with
-	    OstTrace0( TRACE_NORMAL, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_DUP2, 
-                "Nothing to write to the client's address space" );
-		User::Leave(KErrNotFound);
-	    break;
+		LEAVEL(KErrNotFound);
+		break;
 
 	case 1:
 		{
 		// Write the single supported language to the client, complete with
 		// KErrNone (or error of course, if their buffer isn't big enough).
 		TPckg<TUint> buf(langIds[0]);
-		TInt err=aMessage.Write(1, buf);
-		LEAVEIFERRORL(err,OstTrace1( TRACE_ERROR, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_DUP3, 
-                "aMessage.Write with err: %d", err ););
+		LEAVEIFERRORL(aMessage.Write(1, buf));
 		}
 		break;
 
@@ -490,40 +382,31 @@ void CFdfSession::GetSingleSupportedLanguageOrNumberOfSupportedLanguagesL(const 
 		// This is the point at which this mechanism depends on
 		// RMessagePtr2::WriteL itself not leaving with KErrTooBig!
 		TPckg<TUint> buf(count);
-		TInt error=aMessage.Write(1, buf);
-		
-		LEAVEIFERRORL(error, OstTrace1( TRACE_ERROR, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_DUP4, 
-                "aMessage.Write with err: %d", error ););
-		OstTrace0( TRACE_ERROR, CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_DUP5, 
-                "message error too big" );
-		User::Leave(KErrTooBig);
+		LEAVEIFERRORL(aMessage.Write(1, buf));
+		LEAVEL(KErrTooBig);
 		}
 		break;
 		}
-	OstTraceFunctionExit0( CFDFSESSION_GETSINGLESUPPORTEDLANGUAGEORNUMBEROFSUPPORTEDLANGUAGESL_EXIT );
 	}
 
 void CFdfSession::GetSupportedLanguages(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSUPPORTEDLANGUAGES_ENTRY );
-	
+	LOG_FUNC
+
 	TRAPD(err, GetSupportedLanguagesL(aMessage));
 	CompleteClient(aMessage, err);
-	OstTraceFunctionExit0( CFDFSESSION_GETSUPPORTEDLANGUAGES_EXIT );
 	}
 
 void CFdfSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSUPPORTEDLANGUAGESL_ENTRY );
-	
+	LOG_FUNC
+
 	const TUint deviceId = aMessage.Int0();
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_GETSUPPORTEDLANGUAGESL, 
-	        "deviceId = %d", deviceId );
+	LOGTEXT2(_L8("\tdeviceId = %d"), deviceId);
 	const RArray<TUint>& langIds = iFdf.GetSupportedLanguagesL(deviceId);
 
 	const TUint count = langIds.Count();
-	OstTrace1( TRACE_NORMAL, CFDFSESSION_GETSUPPORTEDLANGUAGESL_DUP1, 
-	        "count = %d", count );
+	LOGTEXT2(_L8("\tcount = %d"), count);
 	RBuf8 buf;
 	buf.CreateL(count * sizeof(TUint));
 	CleanupClosePushL(buf);
@@ -533,50 +416,38 @@ void CFdfSession::GetSupportedLanguagesL(const RMessage2& aMessage)
 		}
 
 	// Write back to the client.
-	TInt err=aMessage.Write(1, buf);
-	LEAVEIFERRORL(err,OstTrace1( TRACE_ERROR, CFDFSESSION_GETSUPPORTEDLANGUAGESL_DUP2, 
-            "aMessage.Write with error: %d", err ););
+	LEAVEIFERRORL(aMessage.Write(1, buf));
 	CleanupStack::PopAndDestroy(&buf);
-	OstTraceFunctionExit0( CFDFSESSION_GETSUPPORTEDLANGUAGESL_EXIT );
 	}
 
 void CFdfSession::GetManufacturerStringDescriptor(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETMANUFACTURERSTRINGDESCRIPTOR_ENTRY );
-	
+	LOG_FUNC
 
 	GetStringDescriptor(aMessage, EManufacturer);
-	OstTraceFunctionExit0( CFDFSESSION_GETMANUFACTURERSTRINGDESCRIPTOR_EXIT );
 	}
 
 void CFdfSession::GetProductStringDescriptor(const RMessage2& aMessage)
 	{
-    OstTraceFunctionEntry0( CFDFSESSION_GETPRODUCTSTRINGDESCRIPTOR_ENTRY );
-    
+	LOG_FUNC
 
 	GetStringDescriptor(aMessage, EProduct);
-	OstTraceFunctionExit0( CFDFSESSION_GETPRODUCTSTRINGDESCRIPTOR_EXIT );
 	}
 
 void CFdfSession::GetStringDescriptor(const RMessage2& aMessage, TStringType aStringType)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSTRINGDESCRIPTOR_ENTRY );
-	
+	LOG_FUNC
+
 	TRAPD(err, GetStringDescriptorL(aMessage, aStringType));
 	CompleteClient(aMessage, err);
-	OstTraceFunctionExit0( CFDFSESSION_GETSTRINGDESCRIPTOR_EXIT );
 	}
 
 void CFdfSession::GetStringDescriptorL(const RMessage2& aMessage, TStringType aStringType)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETSTRINGDESCRIPTORL_ENTRY );
-	
-	if(!(aStringType == EManufacturer || aStringType == EProduct))
-	    {
-	    OstTrace0( TRACE_FATAL, CFDFSESSION_GETSTRINGDESCRIPTORL, 
-	                    "String Type error" );
-	    __ASSERT_DEBUG(EFalse,User::Panic(KPanicCategory,__LINE__));
-	    }
+	LOG_FUNC
+
+	ASSERT_DEBUG(aStringType == EManufacturer || aStringType == EProduct);
+
 	TName string;
 	const TUint deviceId = aMessage.Int0();
 	const TUint langId = aMessage.Int1();
@@ -588,18 +459,13 @@ void CFdfSession::GetStringDescriptorL(const RMessage2& aMessage, TStringType aS
 		{
 		iFdf.GetProductStringDescriptorL(deviceId, langId, string);
 		}
-	OstTraceExt1( TRACE_NORMAL, CFDFSESSION_GETSTRINGDESCRIPTORL_DUP1, 
-	        "string = \"%S\"", string );
-
-	TInt err=aMessage.Write(2, string);
-	LEAVEIFERRORL(err,OstTrace1( TRACE_ERROR, CFDFSESSION_GETSTRINGDESCRIPTORL_DUP2, 
-	        "Message write with err: %d", err ););
-	OstTraceFunctionExit0( CFDFSESSION_GETSTRINGDESCRIPTORL_EXIT );
+	LOGTEXT2(_L("\tstring = \"%S\""), &string);
+	LEAVEIFERRORL(aMessage.Write(2, string));
 	}
 
 void CFdfSession::GetOtgDeviceDescriptor(const RMessage2& aMessage)
 	{
-	OstTraceFunctionEntry0( CFDFSESSION_GETOTGDEVICEDESCRIPTOR_ENTRY );
+	LOG_FUNC
 	
 	TOtgDescriptor otgDesc;
 	const TUint deviceId = aMessage.Int0();
@@ -610,5 +476,4 @@ void CFdfSession::GetOtgDeviceDescriptor(const RMessage2& aMessage)
 		err = aMessage.Write(1, buf);
 		}
 	CompleteClient(aMessage, err);
-	OstTraceFunctionExit0( CFDFSESSION_GETOTGDEVICEDESCRIPTOR_EXIT );
 	}

@@ -120,6 +120,7 @@ private:
 
 	RTest iTest;
 	RTimer iTimer;
+	//CRepository* iRepository;
 
 	TPtr8 iPtr; // data file
 	TPtr8 iLine; // current line

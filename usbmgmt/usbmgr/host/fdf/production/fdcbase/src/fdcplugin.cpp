@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -24,32 +24,30 @@
 #include <ecom/ecom.h>
 #include <usbhost/internal/fdcplugin.h>
 #include <usbhost/internal/fdcpluginobserver.h>
+#include <usb/usblogger.h>
 
-#include "OstTraceDefinitions.h"
-#ifdef OST_TRACE_COMPILER_IN_USE
-#include "fdcpluginTraces.h"
+#ifdef __FLOG_ACTIVE
+_LIT8(KLogComponent, "fdcplugin");
 #endif
-
 
 EXPORT_C CFdcPlugin::~CFdcPlugin()
 	{
-    OstTraceFunctionEntry0( CFDCPLUGIN_CFDCPLUGIN_DES_ENTRY );
-    
+	LOG_FUNC
+
 	REComSession::DestroyedImplementation(iInstanceId);
 	}
 
 EXPORT_C CFdcPlugin::CFdcPlugin(MFdcPluginObserver& aObserver)
 :	iObserver(aObserver)
 	{
-    OstTraceFunctionEntry0( CFDCPLUGIN_CFDCPLUGIN_CONS_ENTRY );
-    
+	LOG_FUNC
 	}
 
 EXPORT_C CFdcPlugin* CFdcPlugin::NewL(TUid aImplementationUid, MFdcPluginObserver& aObserver)
 	{
-    OstTraceFunctionEntry0( CFDCPLUGIN_NEWL_ENTRY );
-    
-    OstTrace1( TRACE_NORMAL, CFDCPLUGIN_NEWL, "\t\tFDC implementation UID: 0x%08x", aImplementationUid.iUid);
+	LOG_STATIC_FUNC_ENTRY
+
+	LOGTEXT2(_L8("\t\tFDC implementation UID: 0x%08x"), aImplementationUid);
 
 	CFdcPlugin* plugin = reinterpret_cast<CFdcPlugin*>(
 		REComSession::CreateImplementationL(
@@ -59,8 +57,7 @@ EXPORT_C CFdcPlugin* CFdcPlugin::NewL(TUid aImplementationUid, MFdcPluginObserve
 			)
 		);
 
-	OstTrace1( TRACE_NORMAL, CFDCPLUGIN_NEWL_DUP1, "\tplugin = 0x%08x", plugin);
-
+	LOGTEXT2(_L8("\tplugin = 0x%08x"), plugin);
 	return plugin;
 	}
 

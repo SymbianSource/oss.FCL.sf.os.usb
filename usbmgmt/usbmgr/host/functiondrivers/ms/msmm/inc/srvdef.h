@@ -48,12 +48,6 @@ const TUint32 KFDFWSecureId = 0x10285c46; // SID for unit test project
 const TUint32 KFDFWSecureId = 0x10282B48;
 #endif
 
-#ifdef __OVER_DUMMYCOMPONENT__
-const TUint32 KSidHbDeviceDialogAppServer = 0x20022FC4; // SID for unit test project
-#else
-const TUint32 KSidHbDeviceDialogAppServer = 0x20022FC5; //SID for indicator UI that will call eject usb drives
-#endif
-
 /** The Msmm Version numbers */
 const TUint KMsmmServMajorVersionNumber = 1;
 const TUint KMsmmServMinorVersionNumber = 0;
@@ -66,7 +60,6 @@ enum TServMessage
     EHostMsmmServerRemoveDevice = 2, // Remove device request
     EHostMsmmServerDbgFailNext = 3,
     EHostMsmmServerDbgAlloc = 4,
-    EHostMsmmServerEjectUsbDrives = 5, // Dismount USB drives request
     EHostMsmmServerEndMarker // Request end mark
     };
 
@@ -74,6 +67,6 @@ enum TServMessage
 const TUint KDefaultMessageSlots = 1;
 
 // Max connection number
-const TInt KMaxClientCount = 2;
+const TInt KMaxClientCount = 1;
 
 #endif // #ifndef SRVDEF_H

@@ -28,10 +28,10 @@ REM change to usbmanProto.iby for prototype builds
 REM *** Now for things which should only be included if the device
 REM *** supports USB, to save ROM space...
 
-#if !defined(__USB) || !defined(EUSBC)
+#if defined(SYMBIAN_EXCLUDE_USB) || !defined(EUSBC)
 REM Feature USB is not included in this ROM (usb.iby)
-#else // defined(__USB) && defined(EUSBC)
+#else
 REM USB component can be added here.
-#endif // !defined(__USB) || !defined(EUSBC)
+#endif // SYMBIAN_EXCLUDE_USB
 
 #endif
