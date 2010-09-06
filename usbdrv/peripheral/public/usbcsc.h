@@ -322,9 +322,11 @@ private:
     TInt SetupEp0();
     void CancelNotifyEndpointStatus();
     void CancelNotifyOtgFeatures();
+    void CancelNotifyChargerType();
     static void StatusChangeCallback(TAny* aDLddUsbcChannel);
     static void EndpointStatusChangeCallback(TAny* aDLddUsbcChannel);
     static void OtgFeatureChangeCallback(TAny* aDLddUsbcChannel);
+    static void ChargerTypeChangeCallback(TAny* aDLddUsbcChannel);	
     static void EmergencyCompleteDfc(TAny* aDLddUsbcChannel);
     void DeConfigure(TInt aErrorCode);
     TInt SelectAlternateSetting(TUint aAlternateSetting);
@@ -354,6 +356,8 @@ private:
     TUsbcEndpointStatusCallback iEndpointStatusCallbackInfo;
     TAny* iOtgFeatureChangePtr;
     TUsbcOtgFeatureCallback iOtgFeatureCallbackInfo;
+    TAny* iChargerTypeChangePtr;
+    TUsbcChargerTypeCallback iChargerTypeCallbackInfo;
     TUint8* iBufferBaseEp0;
     TInt iBufferSizeEp0;
     TInt iNumberOfEndpoints;

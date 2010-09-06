@@ -16,7 +16,11 @@
 */
 
 #include <e32base.h>
+#ifndef __OVER_DUMMYUSBLDD__
 #include <d32usbc.h>
+#else
+#include <dummyusblddapi.h>
+#endif
 #include "AcmPanic.h"
 #include "linkstatenotifier.h"
 #include "OstTraceDefinitions.h"

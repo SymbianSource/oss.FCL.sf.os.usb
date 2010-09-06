@@ -19,6 +19,7 @@
 
 PRJ_PLATFORMS
 ARMV5
+ARMV5SMP
 
 PRJ_EXPORTS
 
@@ -30,3 +31,5 @@ PRJ_EXPORTS
 ../inc/usb_peripheral_shai.inl          SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
 ../inc/usb_peripheral_shai_shared.h      SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
 ../inc/usb_charger_detection_shai.h      SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../inc/usb_charger_detection_shai_shared.h      SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+

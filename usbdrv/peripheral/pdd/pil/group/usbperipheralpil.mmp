@@ -21,7 +21,7 @@ target          usbperipheralpil.dll
 targettype      kext
 linkas          usbperipheralpil.dll
 deffile         ../~/usbperipheralpil.def
-VENDORID        0x70000001
+vendorid        0x70000001
 uid             0x00000000  0x2002E6DB
 capability      all
 epocallowdlldata

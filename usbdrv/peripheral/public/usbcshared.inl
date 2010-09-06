@@ -186,6 +186,23 @@ TBool DUsbClientController::IsInTheOtgFeatureList(const TUsbcOtgFeatureCallback&
 	return EFalse;
 	}
 
+TBool DUsbClientController::IsInTheChargerTypeList(const TUsbcChargerTypeCallback& aCallback)
+    {
+    const TInt irq = __SPIN_LOCK_IRQSAVE(iUsbLock);
+    TSglQueIter<TUsbcChargerTypeCallback> iter(iChargerTypeCallbacks);
+    TUsbcChargerTypeCallback* p;
+    while ((p = iter++) != NULL)
+        {
+        if (p == &aCallback)
+            {
+            __SPIN_UNLOCK_IRQRESTORE(iUsbLock, irq);
+            return ETrue;
+            }
+        }
+    __SPIN_UNLOCK_IRQRESTORE(iUsbLock, irq);
+    return EFalse;    
+    }
+
 //
 // --- Misc classes ---
 //
@@ -543,6 +560,91 @@ void TUsbcOtgFeatureCallback::Cancel()
 	{
 	iDfc.Cancel();
 	}
+
+
+// --- TUsbcChargerTypeCallback
+
+/** Constructor.
+ */
+TUsbcChargerTypeCallback::TUsbcChargerTypeCallback(DBase* aOwner, TDfcFn aCallback,
+                                                 TInt aPriority)
+    : iOwner(aOwner),
+      iDfc(aCallback, aOwner, aPriority),
+      iChargerType(UsbShai::EPortTypeNone),
+      iPendingNotify(EFalse)
+    {}
+
+/** Set charger type which is to be notified to client.
+    @param Charger type to be set
+*/
+void TUsbcChargerTypeCallback::SetChargerType(TUint aType)
+    {
+    iChargerType = aType;    
+    }
+
+
+/** Returns a pointer to the owner of this request.
+    @return A pointer to the owner of this request.
+*/
+DBase* TUsbcChargerTypeCallback::Owner() const
+    {
+    return iOwner;
+    }
+
+
+/** Charger type which is to be notified to client.
+    @return Value of Charger Type
+*/
+TUint TUsbcChargerTypeCallback::ChargerType() const
+    {
+    return iChargerType;
+    }
+
+
+/** Set whether there is an pending charger type which is to be notified to client.
+    @param whether there is an pending charger type
+*/
+void TUsbcChargerTypeCallback::SetPendingNotify(TBool aPendingNotify) 
+    {
+    iPendingNotify = aPendingNotify;
+    }
+
+/** return whether there is an pending charger type which is to be notified to client.
+    @return whether there is an pending charger type
+*/
+TBool TUsbcChargerTypeCallback::PendingNotify() const
+    {
+    return iPendingNotify;
+    }
+
+/** Executes the callback function set by the owner of this request.
+    @return KErrNone.
+*/
+TInt TUsbcChargerTypeCallback::DoCallback()
+    {
+    if (NKern::CurrentContext() == NKern::EThread)
+        iDfc.Enque();
+    else
+        iDfc.Add();
+    return KErrNone;
+    }
+
+
+/** Cancels the callback function set by the owner of this request.
+ */
+void TUsbcChargerTypeCallback::Cancel()
+    {
+    iDfc.Cancel();
+    }
+
+
+/** Set DFC queue.
+    @param aDfcQ  DFC queue to be set
+*/
+void TUsbcChargerTypeCallback::SetDfcQ(TDfcQue* aDfcQ)
+    {
+    iDfc.SetDfcQ(aDfcQ);
+    }
 
 
 /** Returns a pointer to the currently selected (active) setting of this interface.

@@ -37,9 +37,8 @@ source			CUsbOtg.cpp
 source			cusbotgwatcher.cpp
 source			cusbhost.cpp
 source			cusbhostwatcher.cpp
-//source			CUsbDummyClassController.cpp
-//source			INIFILE.CPP
 
+library			dummyotgdi.lib
 library			usbhoststack_over_dummyusbdi.lib
 
 UNPAGED

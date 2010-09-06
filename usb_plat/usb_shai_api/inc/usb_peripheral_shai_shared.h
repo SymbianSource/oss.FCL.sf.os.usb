@@ -19,6 +19,8 @@
 
     @brief USB Peripheral SHAI header shared part.
 
+    @version 0.4.0
+
     Some Non-kernel USB code will also use structure defined in this
     header.  Since usb_peripheral_shai.h always need to include
     <kern_priv.h> which is not visible to non-kernel layers, a
@@ -27,6 +29,10 @@
     This header is the one that defined all common structures used by
     kernel & non-kernel layers software.
     
+    The file is versioned for the sake of the human reader and follows
+    the version of the USB Peripheral SHAI header
+    usb_peripheral_shai.h.
+
     Peripheral SHAI header always include this header automatically.
     
     @publishedDeviceAbstraction

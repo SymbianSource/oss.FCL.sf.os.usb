@@ -25,3 +25,6 @@ PRJ_MMPFILES
 #if !(defined(WINS) || defined(WINSCW))	
 WHCMClassController.mmp	// WHCM Class Controller plugin
 #endif
+
+PRJ_TESTMMPFILES
+t_WHCMClassController.mmp	// Mass Storage Class Controller plugin

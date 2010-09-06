@@ -101,6 +101,8 @@ static UsbShai::MChargerDetectorIf* gChargerDetector = NULL;
 // Charger observer is the guy who want to monitor the chager type event.
 static UsbShai::MChargerDetectorObserverIf* gChargerObsever = NULL;
 
+static UsbShai::TChargerDetectorProperties gChargerDetectorProperties;
+
 
 // Those const variables are used to construct the default 
 // Usb descriptors, Upper layer can change them later.
@@ -352,6 +354,9 @@ EXPORT_C void DUsbClientController::DeviceCaps(const DBase* aClientId, TDes8& aC
     __KTRACE_OPT(KUSB, Kern::Printf("> DUsbClientController::DeviceCaps()"));
     TUsbDeviceCaps caps;
     caps().iTotalEndpoints = iDeviceUsableEndpoints;        // not DeviceTotalEndpoints()!
+
+    // In the SHAI API, all PSLs are required to support soft connection
+    caps().iConnect = ETrue;
     
     caps().iSelfPowered = iSelfPowered;
     caps().iRemoteWakeup = iRemoteWakeup;
@@ -402,6 +407,14 @@ EXPORT_C TInt DUsbClientController::SetInterface(const DBase* aClientId, DThread
     return SetInterface(aClientId, aThread, aInterfaceNum, aClass, aString, aTotalEndpointsUsed,
                         endpointData, (TInt*) aRealEpNumbers, aFeatureWord);
     }
+
+
+
+EXPORT_C void DUsbClientController::ChargerDetectorCaps(UsbShai::TChargerDetectorProperties& aProperties)
+    {
+    aProperties = gChargerDetectorProperties;
+    }
+
 
 
 /** Creates a new USB interface (one setting), complete with endpoints, descriptors, etc.,
@@ -923,6 +936,7 @@ EXPORT_C TInt DUsbClientController::DeRegisterClient(const DBase* aClientId)
     DeRegisterForEndpointStatusChange(aClientId);
     DeRegisterForOtgFeatureChange(aClientId);
     DeRegisterClientCallback(aClientId);
+    DeRegisterChargingPortTypeNotify(aClientId);
     // Delete the interface including all its alternate settings which might exist.
     // (If we release the default setting (0), all alternate settings are deleted as well.)
     const TInt r = ReleaseInterface(aClientId, 0);
@@ -2619,6 +2633,68 @@ EXPORT_C TInt DUsbClientController::SignalRemoteWakeup()
     {
     return iController.SignalRemoteWakeup();
     }
+/** Registers client request for USB charger type notification. Client is notified when USB device is
+    attached to or detached from any USB charger, and the charger type is sent to client.
+    
+    @param aCallback A reference to a properly filled in charger type callback structure.
+
+    @return KErrNone if callback successfully registered, KErrGeneral if this callback is already registered
+    (it won't be registered twice).
+*/
+EXPORT_C TInt DUsbClientController::RegisterChargingPortTypeNotify(TUsbcChargerTypeCallback& aCallback)
+    {
+    __KTRACE_OPT(KUSB, Kern::Printf("DUsbClientController::RegisterChargingPortTypeNotify()"));
+    if (iChargerTypeCallbacks.Elements() == KUsbcMaxListLength)
+        {
+        __KTRACE_OPT(KPANIC, Kern::Printf("  Error: In charger type list, the maximum list length reached: %d",
+                                          KUsbcMaxListLength));
+        return KErrGeneral;
+        }
+    if (IsInTheChargerTypeList(aCallback))
+        {
+        __KTRACE_OPT(KUSB, Kern::Printf("  Error: UsbcChargerTypeCallback @ 0x%x already registered", &aCallback));
+        return KErrGeneral;
+        }
+    const TInt irq = __SPIN_LOCK_IRQSAVE(iUsbLock);
+    iChargerTypeCallbacks.AddLast(aCallback);
+    __SPIN_UNLOCK_IRQRESTORE(iUsbLock, irq);    
+    
+    if(iCurrentChargerType !=  UsbShai::EPortTypeNone)
+        {
+        aCallback.SetChargerType(iCurrentChargerType);
+        aCallback.SetPendingNotify(ETrue);
+        }
+    return KErrNone;
+    }
+
+/** De-registers (removes from the list of pending requests) a notification callback for
+    USB charger type change.
+
+    @param aClientId A pointer to the LDD owning the charger type callback.
+
+    @return KErrNone if callback successfully unregistered, KErrNotFound if the callback couldn't be found.
+*/
+EXPORT_C TInt DUsbClientController::DeRegisterChargingPortTypeNotify(const DBase* aClientId)
+    {
+    __KTRACE_OPT(KUSB, Kern::Printf("DUsbClientController::DeRegisterChargingPortTypeNotify()"));
+    __ASSERT_DEBUG((aClientId != NULL), Kern::Fault(KUsbPILPanicCat, __LINE__));
+    const TInt irq = __SPIN_LOCK_IRQSAVE(iUsbLock);
+    TSglQueIter<TUsbcChargerTypeCallback> iter(iChargerTypeCallbacks);
+    TUsbcChargerTypeCallback* p;
+    while ((p = iter++) != NULL)
+        {
+        if (p->Owner() == aClientId)
+            {
+            __KTRACE_OPT(KUSB, Kern::Printf("  removing UsbcChargerTypeCallback @ 0x%x", p));
+            iChargerTypeCallbacks.Remove(*p);
+            __SPIN_UNLOCK_IRQRESTORE(iUsbLock, irq);
+            return KErrNone;
+            }
+        }
+    __KTRACE_OPT(KUSB, Kern::Printf("  client not found"));
+    __SPIN_UNLOCK_IRQRESTORE(iUsbLock, irq);
+    return KErrNotFound;
+    }
     
 EXPORT_C TBool DUsbClientController::CurrentlyUsingHighSpeed()
     {
@@ -2913,10 +2989,19 @@ DUsbClientController::DUsbClientController(UsbShai::MPeripheralControllerIf&    
       iUsbResetDeferred(EFalse),
       iEnablePullUpOnDPlus(NULL),
       iDisablePullUpOnDPlus(NULL),
-      iOtgContext(NULL)
+      iOtgContext(NULL),
+	  iChargerTypeCallbacks(_FOFF(TUsbcChargerTypeCallback, iLink)),
+	  iCurrentChargerType(UsbShai::EPortTypeNone)
     {
     __KTRACE_OPT(KUSB, Kern::Printf("DUsbClientController::DUsbClientController()"));
     
+    // Note that we take a direct copy of the controller properties in
+    // the initialization list for now. If fields are later added to
+    // the properties class in the SHAI, we need to start copying
+    // field-by-field and check the PSL reported capabilities before
+    // accessing a field that may not be present in an older PSL
+    // binary.
+
     iLastError = KErrNone;
     
 #ifndef SEPARATE_USB_DFC_QUEUE
@@ -4687,7 +4772,18 @@ void DUsbClientController::ProcessDeviceEventNotification(UsbShai::TUsbPeriphera
 // Functions from UsbShai::MChargerDetectorObserverIf
 void DUsbClientController::NotifyPortType(UsbShai::TPortType aPortType)
     {
-    // FIXME: Not yet implemented!
+    __KTRACE_OPT(KUSB, Kern::Printf("DUsbClientController::NotifyPortType(), aPortType = %d", aPortType));
+
+    TSglQueIter<TUsbcChargerTypeCallback> iter(iChargerTypeCallbacks);
+    TUsbcChargerTypeCallback* p;
+    
+    iCurrentChargerType = aPortType;
+    
+    while ((p = iter++) != NULL)
+        {
+        p->SetChargerType(aPortType);
+        p->DoCallback();
+        }    
     }
 
 void DUsbClientController::Buffer2Setup(const TAny* aBuf, TUsbcSetup& aSetup) const
@@ -4818,8 +4914,14 @@ EXPORT_C void UsbShai::UsbChargerDetectionPil::RegisterChargerDetector(UsbShai::
         {
         return ;
         }
-        
+
+    // We take a direct copy of the charger detector properties for
+    // now. If fields are later added to the properties classes in the
+    // SHAI, we need to start copying field-by-field and check the PSL
+    // reported capabilities before accessing a field that may not be
+    // present in an older PSL binary.
     gChargerDetector = &aChargerDetector;
+    gChargerDetectorProperties = aProperties;
     
     if(gChargerObsever != NULL)
         {

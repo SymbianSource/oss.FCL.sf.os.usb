@@ -696,6 +696,22 @@ inline void RDevUsbcClient::OtgFeaturesNotifyCancel()
 	DoCancel(ERequestOtgFeaturesNotifyCancel);
 	}
 
+inline void RDevUsbcClient::ChargingPortTypeNotify(TRequestStatus& aStatus, TUint& aValue)
+    {
+    DoRequest(ERequestChargingPortTypeNotify, aStatus, &aValue);
+    }
+
+inline void RDevUsbcClient::ChargingPortTypeNotifyCancel()
+    {
+    DoCancel(ERequestChargingPortTypeNotifyCancel);
+    }
+
+inline TInt RDevUsbcClient::ChargerDetectorCaps(TUsbcChargerDetectorProperties& aProperties)
+	{
+	return DoControl(EControlGetChargerDetectorCaps, &aProperties);
+	}
+
+
 
 #endif // #ifndef __KERNEL_MODE__
 

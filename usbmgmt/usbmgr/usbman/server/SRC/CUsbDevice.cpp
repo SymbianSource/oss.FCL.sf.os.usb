@@ -23,7 +23,6 @@
 #include <cusbclasscontrolleriterator.h>
 #include <cusbclasscontrollerbase.h>
 #include <cusbclasscontrollerplugin.h>
-#include <cusbmanextensionplugin.h>
 #include <bafl/sysutil.h>
 #include <usb/usblogger.h>
 #include <e32svr.h>
@@ -33,6 +32,11 @@
 #include <barsc.h>
 #include <barsread.h>
 #include <bautils.h>
+#ifndef __DUMMY_LDD__
+#include <cusbmanextensionplugin.h>
+#else
+#include <cusbmanextensionplugindummy.h>
+#endif
 #include <e32property.h> //Publish & Subscribe header
 #ifdef USE_DUMMY_CLASS_CONTROLLER
 #include "CUsbDummyClassController.h"
@@ -182,9 +186,11 @@ void CUsbDevice::ConstructL()
 #ifndef __OVER_DUMMYUSBDI__	
 #ifndef __WINS__
 	OstTrace0( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL, "CUsbDevice::ConstructL; About to load LDD" );
-	
+#ifndef __DUMMY_LDD__	
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
-
+#else
+	TInt err = KErrNone;
+#endif
 	if (err != KErrNone && err != KErrAlreadyExists)
 		{
         OstTrace1( TRACE_NORMAL, CUSBDEVICE_CONSTRUCTL_DUP10, "CUsbDevice::ConstructL;err=%d", err );
@@ -291,10 +297,12 @@ void CUsbDevice::InstantiateExtensionPluginsL()
 
 	for (TInt i=0; i<implementations.Count(); i++)
 		{
+#ifndef __DUMMY_LDD__
 		CUsbmanExtensionPlugin* plugin = CUsbmanExtensionPlugin::NewL(implementations[i]->ImplementationUid(), *this);
 		CleanupStack::PushL(plugin);
 		iExtensionPlugins.AppendL(plugin); // transfer ownership to iExtensionPlugins
 		CleanupStack::Pop(plugin);
+#endif
 		OstTrace1( TRACE_NORMAL, CUSBDEVICE_INSTANTIATEEXTENSIONPLUGINSL_DUP1, 
 		        "CUsbDevice::InstantiateExtensionPluginsL;Added extension plugin with UID 0x%08x", 
 		        implementations[i]->ImplementationUid().iUid );

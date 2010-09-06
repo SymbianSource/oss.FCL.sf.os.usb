@@ -20,3 +20,7 @@ PRJ_MMPFILES
 #if !(defined(WINS) || defined(WINSCW))	
 msclasscontroller.mmp	// Mass Storage Class Controller plugin
 #endif
+
+
+PRJ_TESTMMPFILES
+t_msclasscontroller.mmp	// Mass Storage Class Controller plugin

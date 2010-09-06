@@ -16,7 +16,6 @@
 */
 
 #include <e32std.h>
-#include <d32usbc.h>
 #include "ActiveDataAvailableNotifier.h"
 #include "AcmConstants.h"
 #include "AcmPanic.h"

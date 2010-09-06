@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -17,18 +17,49 @@
 * is used for GT171 automated tests.
 *
 */
-
 target t_usbman_dummycc.exe
+CAPABILITY CommDD NetworkControl NetworkServices LocalServices ProtServ
 
-#include "usbsvrbase.mmp"
+targettype exe
 
-userinclude		../../../inifile/inc
+uid 0x0 0x101fe1db
+VENDORID 0x70000001
+
+
+userinclude     ../INC
+userinclude		../public
+userinclude		../../../host/fdf/production/client/public 
+userinclude		../../../inifile/inc 
+userinclude     ../traces_t_Usbman_dummyCC 
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
 sourcepath		../SRC
+source			UsbSvr.cpp
+source			CUsbServer.cpp
+source			CUsbSession.cpp
+source			CUsbScheduler.cpp
+source			CUsbDevice.cpp
+source			CUsbDeviceStateWatcher.cpp
+source			UsbUtils.cpp
+source			CPersonality.cpp
+source          usbmancenrepmanager.cpp
 source			CUsbDummyClassController.cpp
 
 sourcepath		../../../inifile/src
 source			inifile.cpp
+
+library			euser.lib
+library			usbclasscontroller.lib
+library			ecom.lib
+library			efsrv.lib
+library			bafl.lib
+library			usbmanextensionplugin.lib
+library			sysutil.lib
+library         centralrepository.lib 
+
+#ifdef SYMBIAN_FEATURE_MANAGER
+library         featdiscovery.lib
+#endif
 
 // This is the crucial difference between this and usbsvr.mmp.
 MACRO USE_DUMMY_CLASS_CONTROLLER

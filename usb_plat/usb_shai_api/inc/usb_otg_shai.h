@@ -17,7 +17,7 @@
 
 /** @file
     @brief USB OTG SHAI header
-    @version 0.2.0
+    @version 0.3.0
 
     This header specifies the USB OTG SHAI.
 
@@ -40,7 +40,7 @@
  * environment with old USB SHAI version that is missing some new
  * definitions.
  */
-#define USB_OTG_SHAI_VERSION 0x020
+#define USB_OTG_SHAI_VERSION 0x030
 
 // The namespace is documented in file usb_common_shai.h, so it is not
 // repeated here
@@ -74,10 +74,8 @@ namespace UsbShai
      * Reporting an ACA state via the ID pin notification mechanism is
      * not a substitute for reporting port type detection via the USB
      * Charger Detection SHAI that is documented separately in
-     * usb_charger_detection_shai.h. When ACA is supported, it is
-     * required that the Charger Detector PSL guarantees that the OTG
-     * Observer gets notified of the ID pin state before reporting the
-     * port type to the Charger Detector Observer.
+     * usb_charger_detection_shai.h. See documentation of
+     * MOtgObserverIf::NotifyIdPinAndVbusState() for more details.
      *
      * @see usb_charger_detection_shai.h
      */
@@ -242,6 +240,14 @@ namespace UsbShai
          * current VBUS and ID states to the observer to get the
          * status of the OTG stack up to date.
          *
+         * If the OTG Controller PSL has detected that we are attached
+         * to a bad device already before the OTG Observer was set by
+         * this function, the PSL needs to immediately report ID
+         * floating and VBUS low, and report the bad device by calling
+         * MOtgObserverIf::NotifyBadDeviceAttached(). See the
+         * documentation of MOtgObserverIf::NotifyBadDeviceAttached()
+         * for more information on the detection of bad devices.
+         *
          * @param aObserver Pointer to the observer interface to use,
          *   or NULL when the OTG stack is being unloaded.
          */
@@ -353,12 +359,13 @@ namespace UsbShai
         {
         public:
         /**
-         * Notify the current ID-pin state to the OTG stack. This
-         * needs to be called by the OTG Controller PSL everytime
-         * there is a change in the ID pin level. Redundant
-         * notifications that don't change the previously reported
-         * state are silently ignored, so the function is safe to call
-         * without worrying about extra calls.
+         * Notify the current ID-pin and VBUS state to the OTG
+         * stack. This needs to be called by the OTG Controller PSL
+         * everytime there is a change in the ID pin or VBUS
+         * level. Redundant notifications that don't change the
+         * previously reported state are silently ignored, so the
+         * function is safe to call without worrying about extra
+         * calls.
          *
          * When USB Battery Charging is supported on the OTG-capable
          * port, there is a dependency between normal USB
@@ -369,52 +376,38 @@ namespace UsbShai
          * communicate with the Charger Detector PSL (which it may
          * implement itself) with respect to VBUS and ID pin events.
          *
-         * For ID pin events that indicate connection to an Accessory
-         * Charger Adapter, it is required that the port type is first
-         * notified to the Charger Detector PSL Observer, followed by
-         * notifying the ID pin state to the OTG Observer (via this
-         * function).
-         *
-         * @param aIdPinState The current ID-pin state
-         */
-        virtual void NotifyIdPinState( TIdPinState aIdPinState ) = 0;
-
-        /**
-         * Notify the current VBUS state to the OTG stack. This needs
-         * to be called by the OTG Controller PSL everytime there is a
-         * change in the VBUS level. Redundant notifications that
-         * don't change the previously reported state are silently
-         * ignored, so the function is safe to call without worrying
-         * about extra calls.
-         *
-         * When USB Battery Charging is supported on the OTG-capable
-         * port, there is a dependency between normal USB
-         * functionality and USB Battery Charging (see
-         * usb_charger_detection_shai.h and specifically the
-         * description of class MChargerDetectorIf). In this case it
-         * is the responsibility of the OTG Controller PSL to
-         * communicate with the Charger Detector PSL (which it may
-         * implement itself) with respect to VBUS and ID pin events.
+         * Due to Accessory Charger Adapter specified in Battery
+         * Charging 1.1, the ID pin state is relevant for both
+         * charging and OTG. The USB OTG SHAI and the USB Charger
+         * Detection SHAI receive the ID pin notifications from the
+         * PSL independently. For ID and VBUS events that indicate
+         * connection to an Accessory Charger Adapter, it is required
+         * that a BC 1.1 capable PSL reports the state to both the
+         * Charger Detector PSL Observer (via
+         * MChargerDetectorObserverIf::NotifyPortType), and the OTG
+         * Observer (via this function). The reporting order is not
+         * significant and can be freely chosen by the PSL.
          *
          * When VBUS rises on the OTG-capable port that is currently
          * the B-device and fully supports Battery Charging
          * Specification Revision 1.1, the Charger Detector PSL and
          * the OTG Controller PSL need to together guarantee that Data
          * Contact Detect is completed and the port type detected
-         * before reporting VBUS rising. When the port type is known,
-         * the port type needs to be notified to the Charger Detector
-         * PSL Observer, followed by notifying the VBUS state to the
-         * OTG Observer (via this function).
+         * before reporting the ID and VBUS state. When the port type
+         * is known, the port type needs to be notified to the Charger
+         * Detector PSL Observer, followed by notifying the ID and
+         * VBUS state to the OTG Observer (via this function).
          *
-         * Where Data Contact Detect is not supported, the VBUS rise
-         * event needs to be notified to the OTG Observer (via this
-         * function) immediately and charger detection needs to
-         * proceed in parallel with the upper layers preparing the USB
-         * personality. This is necessary in order to ensure that we
-         * can fulfill the requirement to connect to the bus within a
-         * second, while still making as long as possible charger
-         * detection cycle to minimize the changes of false detections
-         * due to datalines not making contact yet.
+         * Where Data Contact Detect is not supported, the initial
+         * B-device VBUS rise event needs to be notified to the OTG
+         * Observer (via this function) immediately and charger
+         * detection needs to proceed in parallel with the upper
+         * layers preparing the USB personality. This is necessary in
+         * order to ensure that we can fulfill the requirement to
+         * connect to the bus within a second, while still making as
+         * long as possible charger detection cycle to minimize the
+         * chances of false detections due to datalines not making
+         * contact yet.
          *
          * The OTG Controller PSL, the Peripheral Controller PSL and
          * the Charger Detector PSL need to together guarantee that
@@ -425,9 +418,11 @@ namespace UsbShai
          * MPeripheralControllerIf::PeripheralConnect(), the
          * Peripheral Controller PSL must connect to the bus.
          *
+         * @param aIdPinState The current ID-pin state
          * @param aVbusState The current VBUS state
          */
-        virtual void NotifyVbusState( TVbusState aVbusState ) = 0;
+        virtual void NotifyIdPinAndVbusState( TIdPinState aIdPinState,
+                                              TVbusState  aVbusState ) = 0;
 
         /**
          * When operating as the A-device with VBUS low, notify the
@@ -581,33 +576,38 @@ namespace UsbShai
          * function (or an equivalent code that runs during bootup).
          *
          * @param aOtgControllerIf Reference to the OTG Controller
-         *   interface implemented by the registering PSL.
+         *   interface implemented by the registering PSL. The PIL
+         *   layer requires that the supplied reference remains valid
+         *   indefinitely, as the OTG Controller cannot unregister.
          *
          * @param aOtgProperties Reference to an object describing the
-         *   static properties of the OTG Controller. The PIL layer
-         *   requires that the supplied reference remains valid
-         *   indefinitely, as an OTG Controller cannot unregister.
+         *   static properties of the OTG Controller. The PIL takes a
+         *   copy and the PSL is free to release the properties object
+         *   upon return.
          *
          * @param aPeripheralControllerIf Reference to the Peripheral
          *   Controller interface implemented by the PSL controlling the
          *   Peripheral Controller associated with the registering OTG
-         *   port.
+         *   port. The PIL layer requires that the supplied reference
+         *   remains valid indefinitely, as the OTG Controller cannot
+         *   unregister.
          *
          * @param aPeripheralProperties Reference to an object
          *   describing the static properties of the Peripheral
-         *   Controller. The PIL layer requires that the supplied
-         *   reference remains valid indefinitely, as the registering
-         *   OTG Controller cannot unregister.
+         *   Controller. The PIL takes a copy and the PSL is free to
+         *   release the properties object upon return.
          *
          * @param aHostControllerIf Reference to the Host Controller
          *   interface implemented by the PSL controlling the Host
-         *   Controller associated with the registering OTG port.
+         *   Controller associated with the registering OTG port. The
+         *   PIL layer requires that the supplied reference remains
+         *   valid indefinitely, as the OTG Controller cannot
+         *   unregister.
          *
          * @param aHostProperties Reference to an object describing the
-         *   static properties of the Host Controller. The PIL layer
-         *   requires that the supplied reference remains valid
-         *   indefinitely, as the registering OTG Controller cannot
-         *   unregister.
+         *   static properties of the Host Controller. The PIL takes a
+         *   copy and the PSL is free to release the properties object
+         *   upon return.
          *
          * @lib usbotghostpil.lib
          */

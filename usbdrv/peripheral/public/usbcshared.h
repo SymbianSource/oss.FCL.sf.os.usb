@@ -351,6 +351,29 @@ private:
     TDfc iDfc;
     TUint8 iValue;
     };
+/** USB Charger Type change callback.
+*/
+class TUsbcChargerTypeCallback
+    {
+public:
+    inline TUsbcChargerTypeCallback (DBase* aOwner, TDfcFn aCallback, TInt aPriority);
+    inline void SetChargerType(TUint aType);
+    inline TUint ChargerType () const;
+	inline void SetPendingNotify(TBool aPendingNotify);
+	inline TBool PendingNotify () const;
+    inline DBase* Owner() const;
+    inline TInt DoCallback();
+    inline void Cancel();
+    inline void SetDfcQ(TDfcQue* aDfcQ);
+public:
+    /** Used by the PIL to queue callback objects into a TSglQue. */
+    TSglQueLink iLink;
+private:
+    DBase* iOwner;
+    TDfc iDfc;
+    TUint iChargerType;
+	TBool iPendingNotify;
+    };
 
 //
 //########################### Physical Device Driver (PIL + PSL) ######################
@@ -686,6 +709,9 @@ public:
     IMPORT_C TBool QueryEndpointResource(const DBase* aClientId, TInt aEndpointNum,
                                          TUsbcEndpointResource aResource);
     IMPORT_C TInt EndpointPacketSize(const DBase* aClientId, TInt aEndpointNum);
+    IMPORT_C TInt RegisterChargingPortTypeNotify(TUsbcChargerTypeCallback& aCallback);
+    IMPORT_C TInt DeRegisterChargingPortTypeNotify(const DBase* aClientId);
+	IMPORT_C void ChargerDetectorCaps(UsbShai::TChargerDetectorProperties& aProperties);
     
     // Called by LDD
     IMPORT_C TDfcQue*  DfcQ(TInt aIndex);
@@ -873,6 +899,7 @@ private:
     inline TBool IsInTheEpStatusList(const TUsbcEndpointStatusCallback& aCallback);
     inline TBool IsInTheOtgFeatureList(const TUsbcOtgFeatureCallback& aCallback);
     inline TBool IsInTheRequestList(const TUsbcRequestCallback& aCallback);
+    inline TBool IsInTheChargerTypeList(const TUsbcChargerTypeCallback& aCallback);
     static void ReconnectTimerCallback(TAny* aPtr);
     static void CableStatusTimerCallback(TAny* aPtr);
     static void PowerUpDfc(TAny* aPtr);
@@ -934,7 +961,7 @@ private:
     NFastMutex iMutex;                                          // To pretect interface set with NFastMutex
     UsbShai::MPeripheralControllerIf& iController;              // PSL code
     
-    const UsbShai::TPeripheralControllerProperties& iControllerProperties;   // Static configuration from PSL
+    const UsbShai::TPeripheralControllerProperties iControllerProperties;   // Static configuration from PSL
     TBool iIsOtgPort;                                               // Is this instance a driver for otg port,
                                                                     // Set at construction time.
 
@@ -974,6 +1001,9 @@ public:
     TInt (*iEnablePullUpOnDPlus)(TAny* aOtgContext);
     TInt (*iDisablePullUpOnDPlus)(TAny* aOtgContext);
     TAny* iOtgContext;
+private:	
+    TSglQue<TUsbcChargerTypeCallback> iChargerTypeCallbacks;  // list of USB charger type notification requests
+    TUint iCurrentChargerType;
     };
     
 /** Simple queue of status changes to be recorded.

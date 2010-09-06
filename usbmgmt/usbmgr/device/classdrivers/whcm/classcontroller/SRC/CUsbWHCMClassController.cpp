@@ -86,6 +86,7 @@ CUsbWHCMClassController::CUsbWHCMClassController(
 void CUsbWHCMClassController::ConstructL()
 	{
 	OstTraceFunctionEntry0( CUSBWHCMCLASSCONTROLLER_CONSTRUCTL_ENTRY );
+#ifndef __OVER_DUMMYUSBLDD__
 	// Load the device driver
 	TInt err = User::LoadLogicalDevice(KUsbLDDName);
 	if (err != KErrNone && err != KErrAlreadyExists) 
@@ -94,8 +95,9 @@ void CUsbWHCMClassController::ConstructL()
 					"CUsbWHCMClassController::ConstructL;err=%d", err );   
 		User::Leave(err);
 		} 
-
-	
+#else
+	TInt err = KErrNone;
+#endif
 	err = iLdd.Open(0);
 	if (err < 0)
 		{

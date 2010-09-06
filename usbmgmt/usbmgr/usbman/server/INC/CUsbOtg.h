@@ -26,7 +26,12 @@
 #ifndef __CUSBOTG_H__
 #define __CUSBOTG_H__
 
+#ifndef __OVER_DUMMYUSBDI__
 #include <d32otgdi.h>
+#else
+#include <usbhost/dummyotgdi/d32otgdi.h>
+#endif
+
 #include <d32otgdi_errors.h>
 #include <e32std.h>
 #include <usb/usblogger.h>

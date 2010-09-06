@@ -32,3 +32,6 @@ ECACM.MMP
 
 PRJ_TESTEXPORTS
 ../public/acmserverconsts.h 	SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/acmserverconsts.h)
+
+PRJ_TESTMMPFILES
+ecacm_overdummyusbldd.mmp

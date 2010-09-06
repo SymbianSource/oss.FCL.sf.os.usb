@@ -62,6 +62,8 @@ PRJ_TESTMMPFILES
 // Special USBSVR with no class controllers except 3 instances of the dummy 
 // class controller, for GT171 tests.
 t_Usbman_dummyCC.mmp
+usbsvr_dummyldd.mmp
+UsbDummyClassControllerLdd.mmp
 
 #if defined(SYMBIAN_ENABLE_USB_OTG_HOST)
 

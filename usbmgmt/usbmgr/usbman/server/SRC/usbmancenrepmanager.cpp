@@ -19,7 +19,11 @@
 #include <usb/usblogger.h>
 #ifdef SYMBIAN_FEATURE_MANAGER
     #include <featureuids.h>
-    #include <featdiscovery.h>
+    #ifndef __DUMMY_LDD__
+        #include <featdiscovery.h>
+    #else
+        #include "featurediscovery.h"
+    #endif
 #endif
 #include "usbmanprivatecrkeys.h"
 #include "UsbSettings.h"

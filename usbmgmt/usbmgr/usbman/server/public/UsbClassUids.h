@@ -41,4 +41,5 @@ UID of the Mass Storage plugin
 const TUid KUSBMSUid={0x10204bbc};
 
 
+const TUid KUSBDUMMYid={0x20031D70}
 #endif // USBCLASSUIDS_H

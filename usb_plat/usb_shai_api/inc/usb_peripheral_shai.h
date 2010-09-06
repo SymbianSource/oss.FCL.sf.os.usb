@@ -19,7 +19,7 @@
     
     @brief USB Peripheral SHAI header
     
-    @version 0.3.0
+    @version 0.4.0
  
     Abstract interface for USB Peripheral Controller.
  
@@ -43,7 +43,7 @@
  * older environment with old USB SHAI version that is missing some
  * new definitions.
  */
-#define USB_PERIPHERAL_SHAI_VERSION 0x030
+#define USB_PERIPHERAL_SHAI_VERSION 0x040
 
 // The namespace is documented in file usb_common_shai.h, so it is not
 // repeated here
@@ -765,7 +765,7 @@ namespace UsbShai
          *         the system-wide error codes.
          */
         virtual TInt ConfigureEndpoint(TInt aRealEndpoint, 
-                                     const TUsbPeripheralEndpointInfo& aEndpointInfo) = 0;
+                                       const TUsbPeripheralEndpointInfo& aEndpointInfo) = 0;
         
         /** 
          * De-configures (disables) an endpoint (incl. Ep0).
@@ -968,7 +968,7 @@ namespace UsbShai
          *     - enabling the peripheral controller's clock
          *     - binding & enabling the peripheral controller (primary) interrupt
          *     - write meaningful values to some general controller registers
-         *     - enabling the USB Reset interrupt
+         *     - enabling the USB Reset, Suspend, and Resume interrupts
          *     - enabling the peripheral controller proper (for instance by 
          *       setting an Enable bit).
          *
@@ -1155,16 +1155,20 @@ namespace UsbShai
          *
          * @param aPeripheralControllerIf Reference to the Peripheral
          *   Controller interface implemented by the registering PSL.
+         *   The PIL layer requires that the supplied reference
+         *   remains valid indefinitely, as the Peripheral Controller
+         *   cannot unregister.
          *
          * @param aProperties Reference to an object describing the
-         *   static properties of the Peripheral Controller. PIL
-         *   layer requires that the supplied reference remains valid
-         *   indefinitely, as a Peripheral Controller cannot unregister.
+         *   static properties of the Peripheral Controller. The PIL
+         *   takes a copy and the PSL is free to release the properties
+         *   object upon return.
          *
          * @lib usbperipheralpil.lib
          */
-        IMPORT_C static void RegisterPeripheralController(MPeripheralControllerIf& aPeripheralControllerIf, 
-                                                      const TPeripheralControllerProperties& aProperties );
+        IMPORT_C static void RegisterPeripheralController(
+            MPeripheralControllerIf& aPeripheralControllerIf, 
+            const TPeripheralControllerProperties& aProperties );
     
         private:
         /**

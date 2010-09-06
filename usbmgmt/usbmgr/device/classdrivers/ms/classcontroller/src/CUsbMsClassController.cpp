@@ -122,9 +122,12 @@ void CUsbMsClassController::Start(TRequestStatus& aStatus)
 
 	iState = EUsbServiceStarting;
 
+#ifndef __OVER_DUMMYUSBLDD__
 	// Connect to USB Mass Storage server
 	TInt err = iUsbMs.Connect();
-
+#else
+	TInt err = KErrNone;
+#endif
 	if (err != KErrNone)
 		{
 		iState = EUsbServiceIdle;
@@ -135,8 +138,12 @@ void CUsbMsClassController::Start(TRequestStatus& aStatus)
 		return;
 		}
 
+#ifndef __OVER_DUMMYUSBLDD__
 	// Start mass storage device
 	err = iUsbMs.Start(iMsConfig);
+#else
+	err = KErrNone;
+#endif
 
 	if (err != KErrNone)
 		{
@@ -174,6 +181,7 @@ void CUsbMsClassController::Stop(TRequestStatus& aStatus)
 		}
 
 	TRequestStatus* reportStatus = &aStatus;
+#ifndef __OVER_DUMMYUSBLDD__
 	TInt err = iUsbMs.Stop();
 	
 	if (err != KErrNone)
@@ -187,6 +195,9 @@ void CUsbMsClassController::Stop(TRequestStatus& aStatus)
 		}	
 
 	iUsbMs.Close();
+#else
+	iState = EUsbServiceIdle;
+#endif
 	User::RequestComplete(reportStatus, KErrNone);
 	OstTraceFunctionExit0( CUSBMSCLASSCONTROLLER_START_STOP_DUP1 );
 	}

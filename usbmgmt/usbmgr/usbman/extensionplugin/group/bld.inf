@@ -19,5 +19,11 @@ PRJ_EXPORTS
 ../public/CUsbManExtensionPlugin.h				SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(cusbmanextensionplugin.h)
 ../public/MUsbManExtensionPluginObserver.h		SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(musbmanextensionpluginobserver.h)
 
+PRJ_TESTEXPORTS
+../inc/CUsbManExtensionPluginDummy.h				SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(cusbmanextensionplugindummy.h)
+../inc/MUsbManExtensionPluginObserverDummy.h		SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(musbmanextensionpluginobserverdummy.h)
+
 PRJ_MMPFILES
 UsbManExtensionPlugin.mmp
+PRJ_TESTMMPFILES
+UsbManExtensionPluginDummy.mmp

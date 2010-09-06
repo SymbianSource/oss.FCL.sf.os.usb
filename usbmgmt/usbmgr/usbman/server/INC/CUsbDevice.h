@@ -30,10 +30,18 @@
 #include <usbstates.h>
 #include <musbclasscontrollernotify.h>
 #include <ecom/ecom.h>
+#ifndef __DUMMY_LDD__
 #include <d32usbc.h>
+#else
+#include "dummyusblddapi.h"
+#endif
 #include <e32std.h>
 #include <usb/usblogger.h>
+#ifndef __DUMMY_LDD__
 #include <musbmanextensionpluginobserver.h>
+#else
+#include <musbmanextensionpluginobserverdummy.h>
+#endif
 
 
 

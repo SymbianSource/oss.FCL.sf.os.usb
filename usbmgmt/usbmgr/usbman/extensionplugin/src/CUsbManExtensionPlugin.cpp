@@ -20,9 +20,13 @@
  @file
  @internalComponent
 */
-
+#ifndef __DUMMY_LDD__
 #include "cusbmanextensionplugin.h"
 #include "musbmanextensionpluginobserver.h"
+#else
+#include <cusbmanextensionplugindummy.h>
+#include <musbmanextensionpluginobserverdummy.h>
+#endif
 #include <ecom/ecom.h>
 
 EXPORT_C CUsbmanExtensionPlugin::~CUsbmanExtensionPlugin()

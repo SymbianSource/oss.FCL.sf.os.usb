@@ -95,10 +95,8 @@ CUsbSession::~CUsbSession()
 	iUsbServer->Device().DeRegisterObserver(*this);
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-#ifndef __OVER_DUMMYUSBDI__
 	OstTrace1( TRACE_NORMAL, CUSBSESSION_CUSBSESSION_DUP1, "CUsbSession::~CUsbSession;About to Otg().DeRegisterObserver(%08x)", this );
 	iUsbServer->Otg().DeRegisterObserver(*this);
-#endif
 
 	OstTrace1( TRACE_NORMAL, CUSBSESSION_CUSBSESSION_DUP2, "CUsbSession::~CUsbSession;About to Host().DeRegisterObserver(%08x)", this );
 	iUsbServer->Host().DeregisterObserver(*this);
@@ -147,10 +145,8 @@ void CUsbSession::CreateL()
 	iUsbServer->Device().RegisterObserverL(*this);
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-#ifndef __OVER_DUMMYUSBDI__
 	OstTrace0( TRACE_NORMAL, CUSBSESSION_CREATEL_DUP1, "CUsbSession::CreateL;Registering OTG Observer" );
 	iUsbServer->Otg().RegisterObserverL(*this);
-#endif
 
 	OstTrace0( TRACE_NORMAL, CUSBSESSION_CREATEL_DUP2, "CUsbSession::CreateL;Registering HOST Observer" );
 	iUsbServer->Host().RegisterObserverL(*this);
@@ -582,7 +578,6 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 	case EUsbCancelMessageObserver:
 		ret = DeRegisterMsgObserver();
 		break;
-#ifndef __OVER_DUMMYUSBDI__
 	case EUsbBusRequest:
 		ret = BusRequest();
 		break;
@@ -595,14 +590,6 @@ void CUsbSession::DispatchMessageL(const RMessage2& aMessage)
 	case EUsbBusDrop:
 		ret = BusDrop();
 		break;
-#else
-	case EUsbBusRequest:
-	case EUsbBusRespondSrp:
-	case EUsbBusClearError:
-	case EUsbBusDrop:
-		ret = KErrNone;
-		break;
-#endif
 	case EUsbRegisterHostObserver:
 		ret = RegisterHostObserver(aMessage, complete);
 		break;

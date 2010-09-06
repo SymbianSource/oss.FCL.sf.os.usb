@@ -92,4 +92,7 @@ EXPORTS
 	_ZNK20DUsbClientController18GetInterfaceNumberEPK5DBaseRi @ 91 NONAME
 	_ZNK20DUsbClientController21GetCurrentOtgFeaturesERh @ 92 NONAME
 	_ZNK20DUsbClientController26EndpointZeroMaxPacketSizesEv @ 93 NONAME
+	_ZN20DUsbClientController19ChargerDetectorCapsERN7UsbShai26TChargerDetectorPropertiesE @ 94 NONAME
+	_ZN20DUsbClientController30RegisterChargingPortTypeNotifyER24TUsbcChargerTypeCallback @ 95 NONAME
+	_ZN20DUsbClientController32DeRegisterChargingPortTypeNotifyEPK5DBase @ 96 NONAME
 

@@ -35,10 +35,14 @@ const TInt KUsbMaxSupportedClasses = 64;		// Max number of supported USB classes
 
 const TInt KUsbMaxSupportedPersonalities = 64;	// Max number of supported personalities
 
-#ifndef __OVER_DUMMYUSBDI__
-_LIT(KUsbServerName, "!usbman");
-#else
+#ifdef __OVER_DUMMYUSBDI__ 
 _LIT(KUsbServerName, "!usbman_over_dummyusbdi");
+#else
+#ifdef  __DUMMY_LDD__
+_LIT(KUsbServerName, "!usbman_over_dummyldd");
+#else
+_LIT(KUsbServerName, "!usbman");
+#endif
 #endif
 
 enum TUsbMessages
@@ -109,11 +113,16 @@ _LIT(KUsbmanImg, "usbsvr");
 
 #else
 
-#ifndef __OVER_DUMMYUSBDI__
-_LIT(KUsbmanImg, "z:\\system\\programs\\usbsvr.exe");
-#else
+#ifdef __OVER_DUMMYUSBDI__ 
 _LIT(KUsbmanImg, "z:\\system\\programs\\usbsvr_over_dummyusbdi.exe");
+#else
+#ifdef  __DUMMY_LDD__
+_LIT(KUsbmanImg, "z:\\system\\programs\\usbsvr_over_dummyldd.exe");
+#else
+_LIT(KUsbmanImg, "z:\\system\\programs\\usbsvr.exe");
 #endif
+#endif
+
 
 #endif //__USBMAN_NO_PROCESSES__
 

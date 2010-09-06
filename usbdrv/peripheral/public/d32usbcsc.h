@@ -294,6 +294,7 @@ public:
         ERequestReEnumerate = 4,
         ERequestEndpointStatusNotify = 5,
          ERequestOtgFeaturesNotify = 6,
+ 		ERequestChargingPortTypeNotify = 7,
         ERequestMaxRequests, // 7
 
         ERequestCancel = 0x40000000,
@@ -303,7 +304,8 @@ public:
         ERequestAlternateDeviceStatusNotifyCancel     = ERequestAlternateDeviceStatusNotify | ERequestCancel,
         ERequestReEnumerateCancel                     = ERequestReEnumerate                 | ERequestCancel,
         ERequestEndpointStatusNotifyCancel             = ERequestEndpointStatusNotify        | ERequestCancel,
-        ERequestOtgFeaturesNotifyCancel             = ERequestOtgFeaturesNotify           | ERequestCancel
+        ERequestOtgFeaturesNotifyCancel             = ERequestOtgFeaturesNotify           | ERequestCancel,
+        ERequestChargingPortTypeNotifyCancel             = ERequestChargingPortTypeNotify           | ERequestCancel
         };
 
     enum TControl
@@ -383,7 +385,8 @@ public:
         EControlGetOtgDescriptor,
         EControlGetOtgFeatures, 
         EControlRealizeInterface,
-        EControlStartNextInAlternateSetting    
+        EControlStartNextInAlternateSetting,
+        EControlGetChargerDetectorCaps
         };
 
 
@@ -1215,12 +1218,24 @@ public:
     /** Cancel pending OTG feature request.
     */
     inline void OtgFeaturesNotifyCancel();
+    
+    /** Register for notification on USB charger type' change. If any usb charger
+        is detected, request completes and current charger type value is filled in aValue.
 
-    /**    This function retrieves the alternate setting that the WriteData function can
-        write to.  After a host sets the alternate setting, writes to the IN endpoint
-        are not permitted by the LDD until this method has been called.
-        This function is not asynchronous nor blocking, and should not be used to
-        detect that an alternate setting has happened.
+        @param aStatus Request status object
+        @param aValue On request completion, it contains current charger type value
+    */
+    inline void ChargingPortTypeNotify(TRequestStatus& aStatus, TUint& aValue);
+
+    /** Cancel pending Charger Type request.
+    */
+    inline void ChargingPortTypeNotifyCancel();     
+    inline TInt ChargerDetectorCaps(TUsbcChargerDetectorProperties& aProperties);
+	/**	This function retrieves the alternate setting that the WriteData function can
+		write to.  After a host sets the alternate setting, writes to the IN endpoint
+		are not permitted by the LDD until this method has been called.
+		This function is not asynchronous nor blocking, and should not be used to
+		detect that an alternate setting has happened.
 
         If the BIL methods are being used (recommended), then this method should not be called directly. 
 

@@ -26,6 +26,8 @@
 #define __D32USBCSHARED_H__
 
 #include <usb/usb_peripheral_shai_shared.h>
+#include <usb/usb_charger_detection_shai_shared.h>
+
 
 // FIXME: for dummy dcd compitible, move this line to usbcshared.h
 // used by shared chunk version LDD's user app interface
@@ -121,6 +123,21 @@ class TUsbcEndpointCaps : public UsbShai::TUsbPeripheralEndpointCaps
 	TInt MinPacketSize() const;    
     };
 
+typedef UsbShai::TPortType TUsbcChargingPortType;
+typedef UsbShai::TChargerDetectorProperties TUsbcChargerDetectorProperties;
+const TUint KUsbChargingPortTypeNone = UsbShai::EPortTypeNone;
+const TUint KUsbChargingPortTypeUnsupported = UsbShai::EPortTypeUnsupported;
+const TUint KUsbChargingPortTypeChargingPort = UsbShai::EPortTypeChargingPort;
+const TUint KUsbChargingPortTypeDedicatedChargingPort = UsbShai::EPortTypeDedicatedChargingPort;
+const TUint KUsbChargingPortTypeChargingDownstreamPort = UsbShai::EPortTypeChargingDownstreamPort;
+const TUint KUsbChargingPortTypeStandardDownstreamPort = UsbShai::EPortTypeStandardDownstreamPort;
+const TUint KUsbChargingPortTypeAcaRidA = UsbShai::EPortTypeAcaRidA;
+const TUint KUsbChargingPortTypeAcaRidB = UsbShai::EPortTypeAcaRidB;
+const TUint KUsbChargingPortTypeAcaRidC = UsbShai::EPortTypeAcaRidC;
+const TUint KChargerDetectorCapChirpCurrentLimiting = UsbShai::TChargerDetectorProperties::KChargerDetectorCapChirpCurrentLimiting;
+
+
+	
 /** Endpoint resources/behaviours.
 
 	@see AllocateEndpointResource()

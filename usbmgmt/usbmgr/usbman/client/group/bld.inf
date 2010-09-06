@@ -29,4 +29,5 @@ Usbman.mmp
 */
 PRJ_TESTMMPFILES
 Usbman_over_dummyusbdi.mmp
+usbman_over_dummyldd.mmp
 

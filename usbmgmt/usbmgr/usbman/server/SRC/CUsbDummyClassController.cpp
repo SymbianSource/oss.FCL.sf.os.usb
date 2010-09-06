@@ -269,7 +269,7 @@ void CUsbDummyClassController::GetConfig()
 
 	// Always use dummy.ini. The entity setting up the test is responsible for 
 	// copying the correct file to c:\\dummy.ini. The first found 
-	// by FindByDir will be used. TODO: enforce c:\\.
+	// by FindByDir will be used.
 	TRAPD(err, DoGetConfigL());
 	if ( err != KErrNone )
 		{

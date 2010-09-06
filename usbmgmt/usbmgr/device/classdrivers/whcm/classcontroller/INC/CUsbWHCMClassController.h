@@ -28,7 +28,11 @@
 
 #include <e32std.h>
 #include <cusbclasscontrollerplugin.h>
+#ifndef __OVER_DUMMYUSBLDD__
 #include <d32usbc.h>
+#else
+#include <dummyusblddapi.h>
+#endif
 
 const TInt KWHCMPriority = 1;
 const TInt KWHCMSubClass = 0x08;

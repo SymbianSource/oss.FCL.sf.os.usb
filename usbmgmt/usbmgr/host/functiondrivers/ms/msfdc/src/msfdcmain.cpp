@@ -25,7 +25,11 @@
 
 const TImplementationProxy ImplementationTable[] =
 	{
+#ifndef __DUMMYFDF__
 	IMPLEMENTATION_PROXY_ENTRY(0x10285B0D, CMsFdc::NewL),
+#else
+	IMPLEMENTATION_PROXY_ENTRY(0x20031DF7, CMsFdc::NewL),
+#endif
 	};
 /**
   A factory method that returns the number of implementation of an interfaces

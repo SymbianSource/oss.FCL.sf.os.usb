@@ -27,7 +27,13 @@
 #define __CUSBOTGWATCHER_H__
 
 #include <e32def.h>
+
+#ifndef __OVER_DUMMYUSBDI__
 #include <d32otgdi.h>
+#else
+#include <usbhost/dummyotgdi/d32otgdi.h>
+#endif
+
 #include <e32property.h> //Publish & Subscribe header
 
 class MUsbOtgObserver;

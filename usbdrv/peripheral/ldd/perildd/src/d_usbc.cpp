@@ -127,6 +127,8 @@ DLddUsbcChannel::DLddUsbcChannel()
                                   KUsbRequestCallbackPriority),
       iOtgFeatureChangePtr(NULL),
       iOtgFeatureCallbackInfo(this, DLddUsbcChannel::OtgFeatureChangeCallback, KUsbRequestCallbackPriority),
+      iChargerTypeChangePtr(NULL),
+      iChargerTypeCallbackInfo(this, DLddUsbcChannel::ChargerTypeChangeCallback, KUsbRequestCallbackPriority),
       iNumberOfEndpoints(0),
       iDeviceState(UsbShai::EUsbPeripheralStateUndefined),
       iOwnsDeviceControl(EFalse),
@@ -157,6 +159,7 @@ DLddUsbcChannel::~DLddUsbcChannel()
         iStatusCallbackInfo.Cancel();
         iEndpointStatusCallbackInfo.Cancel();
         iOtgFeatureCallbackInfo.Cancel();
+        iChargerTypeCallbackInfo.Cancel();
         iCompleteAllCallbackInfo.Cancel();
         AbortInterface();
         DestroyAllInterfaces();
@@ -170,7 +173,7 @@ DLddUsbcChannel::~DLddUsbcChannel()
         Kern::DestroyClientRequest(iStatusChangeReq);
         Kern::DestroyClientRequest(iEndpointStatusChangeReq);
         Kern::DestroyClientRequest(iOtgFeatureChangeReq);
-
+        Kern::DestroyClientRequest(iChargerTypeChangeReq);
         Kern::DestroyVirtualPinObject(iPinObj1);
         Kern::DestroyVirtualPinObject(iPinObj2);
         Kern::DestroyVirtualPinObject(iPinObj3);
@@ -231,29 +234,36 @@ TInt DLddUsbcChannel::DoCreate(TInt /*aUnit*/, const TDesC8* /*aInfo*/, const TV
     iStatusCallbackInfo.SetDfcQ(iDfcQ);                        // use the channel's dfcq for this dfc
     iEndpointStatusCallbackInfo.SetDfcQ(iDfcQ);                // use the channel's dfcq for this dfc
     iOtgFeatureCallbackInfo.SetDfcQ(iDfcQ);
-    iMsgQ.Receive();                                        //start up the message q
-    TInt r = iController->RegisterClientCallback(iCompleteAllCallbackInfo);
+    iChargerTypeCallbackInfo.SetDfcQ(iDfcQ);
+	iMsgQ.Receive();										//start up the message q
+	TInt r = iController->RegisterClientCallback(iCompleteAllCallbackInfo);
+	if (r != KErrNone)
+		return r;
+	r = iController->RegisterForStatusChange(iStatusCallbackInfo);
+	if (r != KErrNone)
+		return r;
+	r = iController->RegisterForEndpointStatusChange(iEndpointStatusCallbackInfo);
+	if (r != KErrNone)
+		return r;
+	r = iController->RegisterForOtgFeatureChange(iOtgFeatureCallbackInfo);
+	if (r != KErrNone)
+		return r;	
+    r = iController->RegisterChargingPortTypeNotify(iChargerTypeCallbackInfo);
     if (r != KErrNone)
-        return r;
-    r = iController->RegisterForStatusChange(iStatusCallbackInfo);
+        return r;	
+	
+	r = Kern::CreateClientDataRequest(iStatusChangeReq);
+	if (r != KErrNone)
+		return r;
+	r = Kern::CreateClientDataRequest(iEndpointStatusChangeReq);
+	if (r != KErrNone)
+		return r;
+	r = Kern::CreateClientDataRequest(iOtgFeatureChangeReq);
+	if (r != KErrNone)
+		return r;
+    r = Kern::CreateClientDataRequest(iChargerTypeChangeReq);
     if (r != KErrNone)
-        return r;
-    r = iController->RegisterForEndpointStatusChange(iEndpointStatusCallbackInfo);
-    if (r != KErrNone)
-        return r;
-    r = iController->RegisterForOtgFeatureChange(iOtgFeatureCallbackInfo);
-    if (r != KErrNone)
-        return r;
-
-    r = Kern::CreateClientDataRequest(iStatusChangeReq);
-    if (r != KErrNone)
-        return r;
-    r = Kern::CreateClientDataRequest(iEndpointStatusChangeReq);
-    if (r != KErrNone)
-        return r;
-    r = Kern::CreateClientDataRequest(iOtgFeatureChangeReq);
-    if (r != KErrNone)
-        return r;
+        return r;	
     
     Kern::CreateVirtualPinObject(iPinObj1);
     Kern::CreateVirtualPinObject(iPinObj2);
@@ -344,6 +354,11 @@ TInt DLddUsbcChannel::PreSendRequest(TMessageBase * aMsg,TInt aReqNo, TRequestSt
                 iOtgFeatureChangeReq->SetStatus(aStatus);
                 iOtgFeatureChangeReq->SetDestPtr(a1);
             break;
+            case RDevUsbcClient::ERequestChargingPortTypeNotify:
+                iChargerTypeChangeReq->Reset();
+                iChargerTypeChangeReq->SetStatus(aStatus);
+                iChargerTypeChangeReq->SetDestPtr(a1);
+            break;	
             case RDevUsbcClient::ERequestAlternateDeviceStatusNotify:
                 iStatusChangeReq->Reset();
                 iStatusChangeReq->SetStatus(aStatus);
@@ -477,6 +492,10 @@ void DLddUsbcChannel::DoRequest(TInt aReqNo, TRequestStatus* aStatus, TAny* a1, 
                             iRequestStatus[aReqNo]=NULL;
                             Kern::QueueRequestComplete(iClient,iOtgFeatureChangeReq,r);
                         break;
+                        case RDevUsbcClient::ERequestChargingPortTypeNotify:
+                            iRequestStatus[aReqNo]=NULL;
+                            Kern::QueueRequestComplete(iClient,iChargerTypeChangeReq,r);
+                        break;
                         case RDevUsbcClient::ERequestAlternateDeviceStatusNotify:
                             iRequestStatus[aReqNo]=NULL;
                             Kern::QueueRequestComplete(iClient,iStatusChangeReq,r);
@@ -554,6 +573,24 @@ TInt DLddUsbcChannel::DoOtherAsyncReq(TInt aReqNo, TAny* a1, TAny* a2, TBool& aN
         if (a1 != NULL)
             {
             iOtgFeatureChangePtr = a1;
+            }
+        else
+            r = KErrArgument;
+        break;
+        }
+    case RDevUsbcClient::ERequestChargingPortTypeNotify:
+        {
+        __KTRACE_OPT(KUSB, Kern::Printf("ERequestChargingPortTypeNotify"));
+        if (a1 != NULL)
+            {
+            iChargerTypeChangePtr = a1;         
+            aNeedsCompletion = iChargerTypeCallbackInfo.PendingNotify();
+            if(aNeedsCompletion)
+                {
+                iChargerTypeChangeReq->Data()= iChargerTypeCallbackInfo.ChargerType();
+                iChargerTypeChangePtr = NULL;
+                iChargerTypeCallbackInfo.SetPendingNotify(EFalse);
+                }
             }
         else
             r = KErrArgument;
@@ -839,6 +876,16 @@ TInt DLddUsbcChannel::DoCancel(TInt aReqNo)
             Kern::QueueRequestComplete(iClient, iOtgFeatureChangeReq, KErrCancel);
             }
         }
+    else if (aReqNo == RDevUsbcClient::ERequestChargingPortTypeNotify)
+        {
+        __KTRACE_OPT(KUSB, Kern::Printf("DoCancel ERequestChargingPortTypeNotify: 0x%x", aReqNo));
+        CancelNotifyChargerType();
+        if (iChargerTypeChangeReq->IsReady())
+            {
+            iRequestStatus[aReqNo] = NULL;
+            Kern::QueueRequestComplete(iClient, iChargerTypeChangeReq, KErrCancel);
+            }
+        }
     else
         {
         __KTRACE_OPT(KUSB, Kern::Printf("DoCancel Unknown! 0x%x", aReqNo));
@@ -878,6 +925,18 @@ void DLddUsbcChannel::CancelNotifyOtgFeatures()
         iController->GetCurrentOtgFeatures(features);
      iOtgFeatureChangeReq->Data()=features;
         iOtgFeatureChangePtr = NULL;
+        }
+    }
+
+void DLddUsbcChannel::CancelNotifyChargerType()
+    {
+    if (iChargerTypeChangePtr)
+        {
+        TUint chargerType;
+        chargerType = iChargerTypeCallbackInfo.ChargerType();
+        iChargerTypeChangeReq->Data()=chargerType;
+        iChargerTypeChangePtr = NULL;
+        iChargerTypeCallbackInfo.SetPendingNotify(EFalse);
         }
     }
 
@@ -940,6 +999,7 @@ TInt DLddUsbcChannel::SendControl(TMessageBase* aMsg)
     case RDevUsbcClient::EControlSetOtgDescriptor:
     case RDevUsbcClient::EControlGetOtgDescriptor:
     case RDevUsbcClient::EControlGetOtgFeatures:
+    case RDevUsbcClient::EControlGetChargerDetectorCaps:
         r=PinMemory((TDesC8 *) a1, iPinObj1);
         if(r!=KErrNone)
             {
@@ -1070,6 +1130,7 @@ TInt DLddUsbcChannel::SendControl(TMessageBase* aMsg)
     case RDevUsbcClient::EControlSetOtgDescriptor:
     case RDevUsbcClient::EControlGetOtgDescriptor:
     case RDevUsbcClient::EControlGetOtgFeatures:
+    case RDevUsbcClient::EControlGetChargerDetectorCaps:		
         if(a1!=NULL)
             {
             Kern::UnpinVirtualMemory(iPinObj1);
@@ -1128,6 +1189,7 @@ TInt DLddUsbcChannel::DoControl(TInt aFunction, TAny* a1, TAny* a2)
     TUsbcIfcInfo ifcInfo;
     TCSDescriptorInfo desInfo;
     TUsbcEndpointResource epRes;
+	TUsbcChargerDetectorProperties chargingPro;	
     TInt bandwidthPriority;
 
     switch (aFunction)
@@ -1514,6 +1576,17 @@ TInt DLddUsbcChannel::DoControl(TInt aFunction, TAny* a1, TAny* a2)
             }
             
         break;
+		
+
+    case RDevUsbcClient::EControlGetChargerDetectorCaps:
+        __KTRACE_OPT(KUSB, Kern::Printf("EControlGetChargerDetectorCaps"));
+		iController->ChargerDetectorCaps(chargingPro);          		
+        r = Kern::ThreadRawWrite(iClient, a1, &chargingPro, sizeof(chargingPro), iClient);
+        if (r != KErrNone)
+        	{
+            PanicClientThread(r);
+            }
+        break;		
 
     case RDevUsbcClient::EControlReleaseInterface:
         __KTRACE_OPT(KUSB, Kern::Printf("EControlReleaseInterface"));
@@ -2246,6 +2319,32 @@ void DLddUsbcChannel::OtgFeatureChangeCallback(TAny* aDLddUsbcChannel)
         }
     }
 
+void DLddUsbcChannel::ChargerTypeChangeCallback(TAny* aDLddUsbcChannel)
+    {
+    __KTRACE_OPT(KUSB, Kern::Printf("ChargerTypeChangeCallback"));
+    DLddUsbcChannel* dUsbc = (DLddUsbcChannel*) aDLddUsbcChannel;
+    if (dUsbc->iChannelClosing)
+        return;   
+    const TInt reqNo = (TInt) RDevUsbcClient::ERequestChargingPortTypeNotify;
+    if (dUsbc->iRequestStatus[reqNo])
+        {
+        __KTRACE_OPT(KUSB, Kern::Printf("ChargerTypeChangeCallback Notify status"));        
+        Kern::Printf("ChargerTypeChangeCallback Notify status");        
+        TUint chargerType;
+        chargerType = dUsbc->iChargerTypeCallbackInfo.ChargerType();
+        dUsbc->iChargerTypeChangeReq->Data()=chargerType;
+        dUsbc->iRequestStatus[reqNo] = NULL;
+        Kern::QueueRequestComplete(dUsbc->iClient,dUsbc->iChargerTypeChangeReq,KErrNone);
+        dUsbc->iChargerTypeChangePtr = NULL;
+        dUsbc->iChargerTypeCallbackInfo.SetPendingNotify(EFalse);
+        }    
+    else
+        {
+        Kern::Printf("ChargerTypeChangeCallback Set pending notify");
+        __KTRACE_OPT(KUSB, Kern::Printf("ChargerTypeChangeCallback Set pending notify"));
+        dUsbc->iChargerTypeCallbackInfo.SetPendingNotify(ETrue);
+        }
+    }
 
 TInt DLddUsbcChannel::SelectAlternateSetting(TUint aAlternateSetting)
     {
@@ -2660,6 +2759,25 @@ TInt DLddUsbcChannel::DoEmergencyComplete()
                     }
 
                 }
+	        else if (i == RDevUsbcClient::ERequestChargingPortTypeNotify)
+	                {
+	                    
+	                if (iChargerTypeChangePtr)
+	                    {
+				        TUint chargerType;
+				        chargerType = iChargerTypeCallbackInfo.ChargerType();
+				        iChargerTypeChangeReq->Data()=chargerType;
+						iChargerTypeChangePtr = NULL;
+	                    }
+	                    
+	                if (iChargerTypeChangeReq->IsReady())
+	                    {
+	                    iRequestStatus[i] = NULL;
+	                    Kern::QueueRequestComplete(iClient, iChargerTypeChangeReq,
+	                            KErrDisconnected);
+	                    }
+
+	                }			
             else
                 {
                 CompleteBufferRequest(iClient, i, KErrDisconnected);
@@ -2671,8 +2789,9 @@ TInt DLddUsbcChannel::DoEmergencyComplete()
     iStatusCallbackInfo.Cancel();
     iEndpointStatusCallbackInfo.Cancel();
     iOtgFeatureCallbackInfo.Cancel();
-    return KErrNone;
-    }
+    iChargerTypeCallbackInfo.Cancel();
+	return KErrNone;
+	}
 
 
 void DLddUsbcChannel::PanicClientThread(TInt aReason)

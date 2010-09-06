@@ -16,6 +16,7 @@
 
 PRJ_PLATFORMS
 ARMV5
+ARMV5SMP
 
 PRJ_MMPFILES
 usbperipheralpil

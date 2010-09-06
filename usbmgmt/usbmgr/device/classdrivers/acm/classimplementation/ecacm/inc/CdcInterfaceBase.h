@@ -19,7 +19,11 @@
 #define __CDCINTERFACEBASE_H__
 
 #include <e32base.h>
+#ifndef __OVER_DUMMYUSBLDD__
 #include <d32usbc.h>
+#else
+#include <dummyusblddapi.h>
+#endif
 
 NONSHARABLE_CLASS(CCdcInterfaceBase) : public CBase
 /**

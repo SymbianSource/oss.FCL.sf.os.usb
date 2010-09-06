@@ -34,8 +34,10 @@
 #endif
 
 
+#ifndef __OVER_DUMMYUSBDI__
 //Name used in call to User::LoadLogicalDevice/User::FreeLogicalDevice
 _LIT(KUsbOtgLDDName,"otgdi");
+#endif
 
 
 
@@ -145,6 +147,7 @@ CUsbOtg::~CUsbOtg()
 		
 		}
 
+#ifndef __OVER_DUMMYUSBDI__
 	OstTrace0( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP13, "CUsbOtg::~CUsbOtg; Freeing logical device" );
 	
 	TInt err = User::FreeLogicalDevice(KUsbOtgLDDName);
@@ -155,6 +158,7 @@ CUsbOtg::~CUsbOtg()
 		OstTrace1( TRACE_NORMAL, CUSBOTG_CUSBOTG_DUP14, "CUsbOtg::~CUsbOtg;     User::FreeLogicalDevice returned %d", err );
 		
 		}
+#endif
 	
 	iCriticalSection.Close();
 	OstTraceFunctionExit0( CUSBOTG_CUSBOTG_DES_EXIT );
@@ -179,6 +183,7 @@ void CUsbOtg::ConstructL()
 	{
 	OstTraceFunctionEntry0( CUSBOTG_CONSTRUCTL_ENTRY );
 	
+#ifndef __OVER_DUMMYUSBDI__
 	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL, "CUsbOtg::ConstructL; About to open LDD" );
 	
 	iLastError = User::LoadLogicalDevice(KUsbOtgLDDName);
@@ -190,6 +195,8 @@ void CUsbOtg::ConstructL()
             User::Leave(iLastError);
             }
 		}
+#endif
+	
 	OstTrace0( TRACE_NORMAL, CUSBOTG_CONSTRUCTL_DUP3, "CUsbOtg::ConstructL; About to open RUsbOtgDriver" );
 	
 	iLastError = iOtgDriver.Open();

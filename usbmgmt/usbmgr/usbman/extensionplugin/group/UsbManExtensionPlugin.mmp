@@ -39,4 +39,5 @@ OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 LIBRARY 		euser.lib
 LIBRARY 		ecom.lib
 
+
 //macro __USB_LOG_TO_RDEBUG__

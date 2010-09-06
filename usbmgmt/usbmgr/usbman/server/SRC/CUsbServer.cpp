@@ -80,7 +80,6 @@ CUsbServer::~CUsbServer()
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	delete iUsbHost;
 	
-#ifndef __OVER_DUMMYUSBDI__
 	// Check that this is A-Device
 	OstTrace0( TRACE_NORMAL, CUSBSERVER_CUSBSERVER, "CUsbServer::~CUsbServer; Checking Id-Pin state..." );
 	TInt value = 0;
@@ -126,11 +125,9 @@ CUsbServer::~CUsbServer()
 		{
 		OstTraceExt2( TRACE_NORMAL, CUSBSERVER_CUSBSERVER_DUP7, "CUsbServer::~CUsbServer;No Id-Pin is found or an error occured: err = %d, value = %d", err, value );
 		}
-	
-	delete iUsbOtg;
-#endif
-#endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
+	delete iUsbOtg;
+#endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	OstTraceFunctionExit0( CUSBSERVER_CUSBSERVER_DES_EXIT );
 	}
 
@@ -162,10 +159,8 @@ void CUsbServer::ConstructL()
 	iShutdownTimer->ConstructL(); 
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-#ifndef __OVER_DUMMYUSBDI__
 	iUsbOtg = CUsbOtg::NewL();
 	iUsbOtg->StartL();
-#endif
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 
 	iUsbDevice = CUsbDevice::NewL(*this);

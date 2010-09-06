@@ -16,7 +16,11 @@
 */
 
 #include <e32std.h>
+#ifndef __OVER_DUMMYUSBLDD__
 #include <d32usbc.h>
+#else
+#include <dummyusblddapi.h>
+#endif
 #include "CdcControlInterfaceReader.h"
 #include "AcmPanic.h"
 #include "AcmUtils.h"

@@ -17,7 +17,7 @@
 
 /** @file
     @brief USB Host SHAI header
-    @version 0.2.0
+    @version 0.3.0
 
     This header specifies the USB host SHAI.
 
@@ -40,7 +40,7 @@
  * environment with old USB SHAI version that is missing some new
  * definitions.
  */
-#define USB_HOST_SHAI_VERSION 0x020
+#define USB_HOST_SHAI_VERSION 0x030
 
 // The namespace is documented in file usb_common_shai.h, so it is not
 // repeated here
@@ -56,99 +56,47 @@ namespace UsbShai
     // Data types
 
     /**
-     * An enumeration listing the host role electrical test modes
-     * supported. These correspond to the test modes specified in
-     * Section "6.4.1.1 Test Modes" of the "On-The-Go and Embedded
-     * Host Supplement to the USB Revision 2.0 Specification" Revision
-     * 2.0 (a.k.a. USB OTG 2.0).
+     * An enumeration listing the host role electrical test modes that
+     * require special support from the host controller. These
+     * correspond to the test modes specified in Section "6.4.1.1 Test
+     * Modes" of the "On-The-Go and Embedded Host Supplement to the
+     * USB Revision 2.0 Specification" Revision 2.0 (a.k.a. USB OTG
+     * 2.0).
+     *
+     * The single-step control transfer tests are performed as
+     * transfers on the control pipe, but a special transfer flag
+     * THostTransfer::KSingleStepControlDelayedDataPhase requests the
+     * Host Controller PSL to delay the DATA phase when needed.
+     *
+     * Suspend and resume tests are performed using the normal suspend
+     * and resume functionality in the USB Host SHAI, so they are not
+     * a special case for the Host Controller PSL.
      *
      * @see MHostControllerIf::EnterHostTestMode()
      */
     enum THostTestMode
         {
         /**
-         * Drive SE0 until host controller is reset. The call returns
-         * immediately after enabling the test mode.
+         * Drive SE0 until the host controller is reset.
          */
         ETestModeTestSE0NAK = 0,
 
         /**
-         * Drive high-speed J until host controller is reset. The call
-         * returns immediately after enabling the test mode.
+         * Drive high-speed J until the host controller is reset.
          */
         ETestModeTestJ,
 
         /**
-         * Drive high-speed K until host controller is reset. The call
-         * returns immediately after enabling the test mode.
+         * Drive high-speed K until the host controller is reset.
          */
         ETestModeTestK,
 
         /**
-         * Send test packets until host controller is reset. The
+         * Send test packets until the host controller is reset. The
          * format of the required test packet is specified in Section
          * "7.1.20 Test Mode Support" of the USB 2.0 specification.
-         *
-         * The call returns immediately after enabling the test
-         * mode.
          */
-        ETestModeTestPacket,
-
-        /**
-         * Suspend and resume the port with 15 second delays to allow
-         * the operator to adjust test tool settings. The Host
-         * Controller PSL must perform the following test steps:
-         *
-         * 1. Allow SOFs to continue for 15 seconds.
-         *
-         * 2. Suspend the port under test.
-         *
-         * 3. Wait for 15 seconds.
-         *
-         * 4. Resume the port under test.
-         *
-         * This test mode is synchronous, i.e. the call returns after
-         * the test has been completed.
-         */
-        ETestModeHsHostPortSuspendResume,
-
-        /**
-         * Perform a single-step GetDescriptor(Device) transfer.  This
-         * is called after the USB Host Stack has enumerated a device
-         * with VID=0x1A0A and PID=0x0107. The Host Controller PSL
-         * must perform the following test steps:
-         *
-         * 1. Allow SOFs to continue for 15 seconds.
-         *
-         * 2. Send a complete GetDescriptor(Device) transfer
-         *
-         * This test mode is synchronous, i.e. the call returns after
-         * the test has been completed.
-         */
-        ETestModeSingleStepGetDeviceDescriptor,
-
-        /**
-         * Perform a single-step GetDescriptor(Device) transfer with a
-         * delayed data phase. This is called after the USB Host Stack
-         * has enumerated a device with VID=0x1A0A and PID=0x0108. The
-         * Host Controller PSL must perform the following test steps:
-         *
-         * 1. Send the SETUP packet for GetDescriptor(Device). The
-         *    device ACKs the packet as usual.
-         *
-         * 2. Allow SOFs to continue for 15 seconds.
-         *
-         * 3. Send the IN token for the data phase of
-         *    GetDescriptor(Device). The device responds with
-         *    the data.
-         *
-         * 4. Send the acknowledgement (zero-length OUT data) in
-         *    response to the data.
-         *
-         * This test mode is synchronous, i.e. the call returns after
-         * the test has been completed.
-         */
-        ETestModeSingleStepGetDeviceDescriptorData
+        ETestModeTestPacket
         };
 
 
@@ -208,7 +156,13 @@ namespace UsbShai
      */
     NONSHARABLE_CLASS( THostPipe )
         {
-        public:
+        public: // Types and constants
+        /**
+         * A bitmask type used to indicate some boolean properties of
+         * the endpoint targeted by this pipe.
+         */
+        typedef TUint32 TEndpointFlags;
+
         // These are flag constants that specify the values that can
         // be bitwise OR'ed to the endpoint flags field iEndpointFlags
         // to indicate some boolean parameters of the endpoint
@@ -225,14 +179,14 @@ namespace UsbShai
          * KHubHasMultipleTTs specifies whether the hub has been
          * configured to use multiple transaction translators.
          */
-        static const TUint32 KHubTranslates = 0x00000001;
+        static const TEndpointFlags KHubTranslates = 0x00000001;
 
         /**
          * When the iEndpointFlags flag KHubTranslates is set, this
          * flag is set if the hub has multiple transaction
          * translators.
          */
-        static const TUint32 KHubHasMultipleTTs = 0x00000002;
+        static const TEndpointFlags KHubHasMultipleTTs = 0x00000002;
 
         public: // Data
         /**
@@ -245,7 +199,7 @@ namespace UsbShai
         TUint iMaxPacketSize;
 
         /** Flags specifying some boolean parameters of the endpoint */
-        TUint32 iEndpointFlags;
+        TEndpointFlags iEndpointFlags;
 
         /**
          * The speed (low, full, high) to use for this endpoint. This
@@ -304,48 +258,88 @@ namespace UsbShai
      */
     NONSHARABLE_CLASS( THostTransfer )
         {
-        public:
+        public: // Types and constants
+        /**
+         * A bitmask type used to indicate some boolean properties of
+         * a transfer.
+         */
+        typedef TUint32 TTransferFlags;
+
         // These are public constants that specify the values that can
         // be bitwise OR'ed to the request flags field iRequestFlags
         // to indicate some boolean parameters of the transfer
 
         /**
-         * When set, specifies that the transfer direction is IN,
-         * i.e. the host is reading from the connected device. This is
-         * needed for endpoint zero, which is bi-directional and
-         * cannot implicitly know the direction of the transfer.
+         * This flag is set or cleared by the PIL layer and is only
+         * relevant for bi-directional pipes, i.e. control pipes
+         * performing control transfers. The bit is not set for other
+         * endpoint types.
+         *
+         * For a control transfer, this bit is set to specify that the
+         * transfer direction is IN, i.e. the host is reading from the
+         * connected device. For a control transfer with the bit
+         * cleared, the transfer direction is OUT, i.e. the host is
+         * writing to the connected device.
          *
          * This bit is set or cleared by the USB Host stack before
          * issuing a new transfer.
          */
-        static const TUint32 KTransferDirIsIN = 0x00000001;
+        static const TTransferFlags KTransferDirIsIN = 0x00000001;
 
         /**
-         * For OUT endpoint transfers, indicates whether the Host
-         * Controller PSL is required to force a short packet at the
-         * end of the transfer.
+         * This flag is set or cleared by the PIL layer and is only
+         * relevant for bi-directional pipes, i.e. control pipes
+         * performing control transfers. The bit is not set for other
+         * endpoint types.
+         *
+         * For a control transfer, this bit is set to specify that the
+         * transfer is a special single-step transfer with a delayed
+         * data phase. This type of transfer is only used during the
+         * high-speed host electrical tests.
+         *
+         * When this flag is set, the Host Controller PSL should
+         * perform the transfer like it normally would, except that it
+         * must have a 15 second delay between the completion of the
+         * SETUP phase and the sending of the first IN token for the
+         * DATA phase.
+         *
+         * For description and background of the usage of this special
+         * transfer option, see the OTG 2.0 Supplement Section 6.4.1.1
+         * Test Modes, and specifically the test
+         * SINGLE_STEP_GET_DEVICE_DESCRIPTOR_DATA.
+         *
+         * This bit is set or cleared by the USB Host stack before
+         * issuing a new transfer.
+         */
+        static const TTransferFlags KSingleStepControlDelayedDataPhase = 0x00000002;
+
+        /**
+         * This flag is set or cleared by the PIL layer before issuing
+         * a new transfer and is relevant for OUT transfers on bulk,
+         * interrupt, and control pipes. It is never set for transfers
+         * on isochronous pipes.
+         *
+         * For bulk, interrupt, or control OUT endpoint transfers,
+         * indicates whether the Host Controller PSL is required to
+         * force a short packet at the end of the transfer.
          *
          * When the bit is set, the Host Controller PSL must send a
          * ZLP (Zero-Length Packet) after the last packet of the
          * transfer, if and only if the last packet was a full packet,
          * i.e. had the same size as the maximum packet size for the
          * endpoint.
-         *
-         * This bit is set or cleared by the USB Host stack before
-         * issuing a new transfer.
          */
-        static const TUint32 KOutForceShortPacket = 0x00000002;
+        static const TTransferFlags KOutForceShortPacket = 0x00000002;
 
         /**
-         * For IN endpoint transfers, indicates whether the transfer
-         * was terminated with a ZLP (Zero-Length Packet).
+         * This flag is set or cleared by the Host Controller PSL
+         * before completing the transfer and is only relevant for IN
+         * pipes.
          *
-         * This bit is set by the Host Controller PSL before
-         * completing the transfer if the transfer ended due to a
-         * ZLP. Otherwise the bit is cleared by the Host Controller
-         * PSL.
+         * For IN endpoint transfers, this flag indicates whether the
+         * transfer was terminated with a ZLP (Zero-Length Packet).
          */
-        static const TUint32 KInZlpReceived = 0x00000004;
+        static const TTransferFlags KInZlpReceived = 0x00000004;
 
         /**
          * Enumeration specifying the packet status values to be used
@@ -389,7 +383,7 @@ namespace UsbShai
          * Request flags specifying some boolean parameters for the
          * transfer.
          */
-        TUint32 iRequestFlags;
+        TTransferFlags iRequestFlags;
 
         /**
          * Memory block specifying the memory buffer used for the data
@@ -579,6 +573,16 @@ namespace UsbShai
          * the callback interface is provided in the member
          * THostTransfer::iTransferCbIf of the supplied aTransferInfo.
          *
+         * To maximize throughput, the PIL layer may call
+         * StartTransfer() directly from a previous completion call
+         * (see description in
+         * MHostTransferCallbackIf::CompleteTransfer()). To prevent
+         * recursion, the PSL should not call
+         * MHostTransferCallbackIf::CompleteTransfer() directly from
+         * within the MHostPipeIf::StartTransfer() call, but should
+         * instead queue a DFC to complete the transfer, if
+         * immediately completed.
+         *
          * The following rules shall be used by the Host Controller
          * PSL to assess the completeness of a transfer:
          *
@@ -710,13 +714,6 @@ namespace UsbShai
          * Host Stack will suspend the entire host controller by
          * calling MHostControllerIf::SuspendController().
          *
-         * When the root hub only has one port and SOFs cannot be
-         * gated on the port without suspending the whole controller,
-         * the Host Controller PSL should ignore the port-specific
-         * suspend and resume calls and instead suspend/resume the
-         * controller based on the controller-specific suspend and
-         * resume calls in MHostControllerIf.
-         *
          * @param aPort The number of the root hub port to operate
          *   on. For a root hub with N ports, the port numbers are in
          *   range [1..N].
@@ -737,12 +734,17 @@ namespace UsbShai
          * host controller by calling
          * MHostControllerIf::ResumeController().
          *
-         * When the root hub only has one port and SOFs cannot be
-         * gated on the port without suspending the whole controller,
-         * the Host Controller PSL should ignore the port-specific
-         * suspend and resume calls and instead suspend/resume the
-         * controller based on the controller-specific suspend and
-         * resume calls in MHostControllerIf.
+         * This function is synchronous and should return when the
+         * resume signalling on the port has completed.
+         *
+         * This function is also called when the Host Controller PSL
+         * has reported detection of a remote wakeup on a port of the
+         * root hub. This is to make sure the host port takes over
+         * driving the resume on the bus. The Host Controller PSL or
+         * the HW may have already started driving resume upon
+         * detecting the remote wakeup, in which case the PSL only
+         * needs to wait in this function until the resume signalling
+         * has been completed.
          *
          * @param aPort The number of the root hub port to operate
          *   on. For a root hub with N ports, the port numbers are in
@@ -887,18 +889,22 @@ namespace UsbShai
         
         /**
          * Place the host controller to the USB suspend state where it
-         * does not send SOF packets.
+         * does not send SOF packets. The Host Controller PSL may also
+         * go into a power-saving mode where it for example shuts down
+         * some clocks needed by the host controller when active. The
+         * Host Controller PSL must still ensure that the host
+         * controller or the root hub will be capable of detecting
+         * device disconnection and remote wakeup when suspended.
          */
         virtual void SuspendController() = 0;
 
         /**
-         * Resume the host controller from the USB suspend state by
-         * driving the resume signalling towards the root hub. The
-         * signalling must last at least 20 milliseconds and follow
-         * the requirements specified in USB 2.0 Specification Section
-         * 7.1.7.7 Resume Signaling. After the resume signalling has
-         * completed, the controller must allow SOFs to be sent to the
-         * connected device again.
+         * Resume the host controller from the suspend state. If the
+         * Host Controller PSL put the host controller into a
+         * power-saving state by shutting down some clocks, the PSL
+         * can re-enable them in this call. This call shall not result
+         * in resume signalling to be driven on the bus, as that
+         * should be done from MRootHubIf::ResumePort().
          */
         virtual void ResumeController() = 0;
 
@@ -910,21 +916,17 @@ namespace UsbShai
          * operating in high-speed mode and a special test device has
          * been enumerated.
          *
-         * When called, the Host Controller PSL shall synchronously
-         * run the selected test as specified for each tests in the
-         * documentation of THostTestMode.
+         * The function shall return immediately when the controller
+         * has been set to the requested test mode. The host
+         * controller is expected to remain in the test mode until it
+         * is shutdown by a call to StopHostController().
          *
          * @param aTestMode Specifies the test mode to enter
-         *
-         * @param aDefaultPipe Information of the default pipe (the
-         *   control pipe to endpoint zero) of the connected test
-         *   device.
          *
          * @return KErrNone if the specified test mode was entered
          *   successfully, otherwise a system-wide error
          */
-        virtual TInt EnterHostTestMode( THostTestMode    aTestMode,
-                                        const THostPipe& aDefaultPipe ) = 0;
+        virtual TInt EnterHostTestMode( THostTestMode    aTestMode ) = 0;
 
         /**
          * Get the size and alignment requirements for the Host
@@ -1153,6 +1155,14 @@ namespace UsbShai
          * Complete a transfer request that had been set up with
          * MHostPipeIf::StartTransfer().
          *
+         * To maximize throughput, the PIL layer may set up the next
+         * transfer by calling MHostPipeIf::StartTransfer()
+         * immediately from within this completion function. The PSL
+         * has to be prepared for this and make sure it does not upon
+         * return of the callback accidentally clean up some internal
+         * state belonging to a new transfer started during the
+         * callback.
+         *
          * @param aTransferInfo The transfer information that
          *   identifies the transfer that has completed
          */
@@ -1251,7 +1261,7 @@ namespace UsbShai
 
     /**
      * A static class implemented by the USB Host PIL layer to allow
-     * the host controller PSL to register to the PIL layer.
+     * the Host Controller PSL to register to the PIL layer.
      */
     NONSHARABLE_CLASS( UsbHostPil )
         {
@@ -1270,12 +1280,14 @@ namespace UsbShai
          * runs during bootup).
          *
          * @param aHostControllerIf Reference to the Host Controller
-         *   interface implemented by the registering PSL.
+         *   interface implemented by the registering PSL. The PIL layer
+         *   requires that the supplied reference remains valid
+         *   indefinitely, as the Host Controller cannot unregister.
          *
          * @param aProperties Reference to an object describing the
-         *   static properties of the Host Controller. The PIL layer
-         *   requires that the supplied reference remains valid
-         *   indefinitely, as a Host Controller cannot unregister.
+         *   static properties of the Host Controller. The PIL takes a
+         *   copy and the PSL is free to release the properties object
+         *   upon return.
          *
          * @lib usbotghostpil.lib
          */

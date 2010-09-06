@@ -51,7 +51,7 @@ const TInt KUsbcBuildVersion = KE32BuildVersionNumber;
 /** Must correspond to the max enum of TRequest + 1;
     currently this is ERequestOtgFeaturesNotify = 10.
 */
-const TInt KUsbcMaxRequests = 11;
+const TInt KUsbcMaxRequests = 12;
 
 //
 //########################### Logical Device Driver (LDD) #############################
@@ -297,9 +297,11 @@ private:
     void ClosePhysicalChunk(DPlatChunkHw* &aHwChunk);
     void CancelNotifyEndpointStatus();
     void CancelNotifyOtgFeatures();
+	void CancelNotifyChargerType();
     static void StatusChangeCallback(TAny* aDLddUsbcChannel);
     static void EndpointStatusChangeCallback(TAny* aDLddUsbcChannel);
     static void OtgFeatureChangeCallback(TAny* aDLddUsbcChannel);
+    static void ChargerTypeChangeCallback(TAny* aDLddUsbcChannel);
     static void EmergencyCompleteDfc(TAny* aDLddUsbcChannel);
     void DeConfigure(TInt aErrorCode);
     TInt SelectAlternateSetting(TUint aAlternateSetting);
@@ -333,6 +335,8 @@ private:
     TUsbcEndpointStatusCallback iEndpointStatusCallbackInfo;
     TAny* iOtgFeatureChangePtr;
     TUsbcOtgFeatureCallback iOtgFeatureCallbackInfo;
+    TAny* iChargerTypeChangePtr;
+    TUsbcChargerTypeCallback iChargerTypeCallbackInfo;
     TInt iNumberOfEndpoints;
     RArray<DPlatChunkHw*> iHwChunksEp0;
     RArray<DPlatChunkHw*> iHwChunks;
@@ -350,6 +354,7 @@ private:
     TClientDataRequest<TUint> *iStatusChangeReq;
     TClientDataRequest<TUint> *iEndpointStatusChangeReq;
     TClientDataRequest<TUint> *iOtgFeatureChangeReq;
+    TClientDataRequest<TUint> *iChargerTypeChangeReq;
     TEndpointTransferInfo iTfrInfo;
     };
 

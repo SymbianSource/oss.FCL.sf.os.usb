@@ -21,8 +21,11 @@
  @publishedPartner
  @released
 */
-
+#ifndef __DUMMY_LDD__
 #include "musbmanextensionpluginobserver.h"
+#else
+#include "musbmanextensionpluginobserverdummy.h"
+#endif
 
 EXPORT_C RDevUsbcClient& MUsbmanExtensionPluginObserver::DevUsbcClient()
 	{

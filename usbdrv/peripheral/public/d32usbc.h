@@ -206,6 +206,8 @@ public:
 		ERequestEndpointStatusNotifyCancel = 1<<ERequestEndpointStatusNotify,
         ERequestOtgFeaturesNotify = 10,
         ERequestOtgFeaturesNotifyCancel = 1<<ERequestOtgFeaturesNotify,
+        ERequestChargingPortTypeNotify = 11,
+        ERequestChargingPortTypeNotifyCancel = 1<<ERequestChargingPortTypeNotify
 		};
 
 	enum TControl
@@ -285,7 +287,8 @@ public:
 		EControlRemoveStringDescriptor,
         EControlSetOtgDescriptor,
         EControlGetOtgDescriptor,
-        EControlGetOtgFeatures
+        EControlGetOtgFeatures,
+        EControlGetChargerDetectorCaps
 		};
 
 public:
@@ -1152,7 +1155,18 @@ public:
     /** Cancel pending OTG feature request.
     */
     inline void OtgFeaturesNotifyCancel();
+    /** Register for notification on USB charger type' change. If any usb charger
+        is detected, request completes and current charger type value is filled in aValue.
 
+        @param aStatus Request status object
+        @param aValue On request completion, it contains current charger type value
+    */
+    inline void ChargingPortTypeNotify(TRequestStatus& aStatus, TUint& aValue);
+
+    /** Cancel pending Charger Type request.
+    */
+    inline void ChargingPortTypeNotifyCancel();   
+	inline TInt ChargerDetectorCaps(TUsbcChargerDetectorProperties& aProperties);
 #endif // #ifndef __KERNEL_MODE__
 	};
 
