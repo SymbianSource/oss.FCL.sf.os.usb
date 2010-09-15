@@ -20,10 +20,9 @@
  @file
  @internalComponent
 */
+#include <eikon.rh>
+#include <eikon.rsg>
 
-#include <techview/eikon.rh>
-#include <techview/eikon.rsg>
-#include <techview/techviewctl.rh>
 #include <eikcoctl.rsg>
 #include "refppnotifier.hrh"
 NAME REFN
