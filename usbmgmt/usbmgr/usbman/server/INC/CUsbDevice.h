@@ -30,19 +30,31 @@
 #include <usbstates.h>
 #include <musbclasscontrollernotify.h>
 #include <ecom/ecom.h>
+
 #ifndef __DUMMY_LDD__
-#include <d32usbc.h>
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <usb/d32usbc.h>	
+#include <musbchargingnotify.h>
+class CUsbChargingPortTypeWatcher;
+#else
+#include <d32usbc.h>	
+#endif
 #else
 #include "dummyusblddapi.h"
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <musbchargingnotify.h>
+class CUsbChargingPortTypeWatcher;
 #endif
+
+#endif
+
 #include <e32std.h>
-#include <usb/usblogger.h>
+
 #ifndef __DUMMY_LDD__
 #include <musbmanextensionpluginobserver.h>
 #else
 #include <musbmanextensionpluginobserverdummy.h>
 #endif
-
 
 
 class CUsbDeviceStateWatcher;
@@ -114,6 +126,13 @@ public:
 	void RegisterObserverL(MUsbDeviceNotify& aObserver);
 	void DeRegisterObserver(MUsbDeviceNotify& aObserver);
 
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	void RegisterChargingInfoObserverL(MUsbChargingNotify& aObserver);
+	void DeRegisterChargingInfoObserver(MUsbChargingNotify& aObserver);	
+	void SetChargingPortType(TUsbcChargingPortType aChargerType); 
+	void PeerDeviceMaxPower(TUint aCurrent);
+#endif
+
 	void StartL();
 	void Stop();
 
@@ -133,7 +152,7 @@ public:
 	TInt CurrentPersonalityId() const;
 	const RPointerArray<CPersonality>& Personalities() const;
 	const CPersonality* GetPersonality(TInt aPersonalityId) const;
-	void ValidatePersonalitiesL();
+	void ValidatePersonalities();
 	void ReadPersonalitiesL();
 	void SetDefaultPersonalityL();
 	void LoadFallbackClassControllersL();
@@ -151,7 +170,9 @@ public: // Inherited from MUsbClassControllerNotify
 public: // from MUsbmanExtensionPluginObserver
 	RDevUsbcClient& MuepoDoDevUsbcClient();
 	void MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver);
-
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1		
+	void MuepoDoRegisterChargingObserverL(MUsbChargingNotify& aObserver);
+#endif
 protected:
 	CUsbDevice(CUsbServer& aUsbServer);
 	void ConstructL();
@@ -180,6 +201,10 @@ private:
 	TInt iLastError;
 	RDevUsbcClient iLdd;
 	CUsbDeviceStateWatcher* iDeviceStateWatcher;
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	CUsbChargingPortTypeWatcher* iChargerTypeWatcher;
+	RPointerArray<MUsbChargingNotify> iChargingObservers;
+#endif
 	CUsbServer& iUsbServer;
 	CUsbClassControllerIterator* iUsbClassControllerIterator;
 	const CPersonality* iCurrentPersonality;

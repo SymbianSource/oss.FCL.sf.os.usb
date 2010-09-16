@@ -24,7 +24,6 @@
 */
 
 TARGET			usbbatterychargingplugin.dll
-
 #include "UsbBatteryChargingPluginBase.mmp"
 
 SOURCEPATH      ../src

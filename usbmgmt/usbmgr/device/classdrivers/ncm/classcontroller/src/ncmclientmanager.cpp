@@ -120,12 +120,16 @@ void CNcmClientManager::SetNcmInterfacesL(TUint& aDataEpBufferSize)
     // Setup NCM data interface
     SetDataInterfaceL(aDataEpBufferSize);
     
-    // Retrieve data interface number
-    TUint8 dataInterfaceNumber = 1;
-    User::LeaveIfError(DataInterfaceNumber(dataInterfaceNumber));
+    // Retrieve Control interface number(alter 0)
+    TUint8 controlInterfaceNumber = 0;
+    User::LeaveIfError(InterfaceNumber(iCommLdd,0,controlInterfaceNumber));
+    
+    // Retrieve data interface number(alter 0)
+    TUint8 dataInterfaceNumber = 0;
+    User::LeaveIfError(InterfaceNumber(iDataLdd,0,dataInterfaceNumber));
     
     // Setup NCM class descriptor with correct interface number
-    User::LeaveIfError(SetupClassSpecificDescriptor(dataInterfaceNumber));
+    User::LeaveIfError(SetupClassSpecificDescriptor(controlInterfaceNumber,dataInterfaceNumber));
     OstTraceFunctionExit1( CNCMCLIENTMANAGER_SETNCMINTERFACESL_EXIT, this );
     }
 
@@ -403,7 +407,7 @@ void CNcmClientManager::SetDataInterfaceL(TUint& aDataEpBufferSize)
  * @param aDataInterfaceNumber The interface number of the data class
  * @return Error.
  */
-TInt CNcmClientManager::SetupClassSpecificDescriptor(TUint8 aDataInterfaceNumber)
+TInt CNcmClientManager::SetupClassSpecificDescriptor(TUint8 aControlInterfaceNumber,TUint8 aDataInterfaceNumber)
     {
     OstTraceFunctionEntryExt( CNCMCLIENTMANAGER_SETUPCLASSSPECIFICDESCRIPTOR_ENTRY, this );
     
@@ -447,7 +451,7 @@ TInt CNcmClientManager::SetupClassSpecificDescriptor(TUint8 aDataInterfaceNumber
     descriptor.iUnSize = 0x05;
     descriptor.iUnType = 0x24;
     descriptor.iUnSubType = 0x06;
-    descriptor.iUnMasterInterface = 0;
+    descriptor.iUnMasterInterface = aControlInterfaceNumber;
     descriptor.iUnSlaveInterface = aDataInterfaceNumber;
 
     OstTrace0( TRACE_NORMAL, CNCMCLIENTMANAGER_SETUPCLASSSPECIFICDESCRIPTOR_PRE_SET_BLOCK, "About to call SetCSInterfaceDescriptorBlock" );
@@ -500,57 +504,64 @@ TInt CNcmClientManager::SetMacAddressString(TUint8& aStrIndex)
     }
 
 /**
- * Get NCM data interface number
- * @param aInterfaceNumber NCM data interface number
- * @return Error.
+ * Get interface number
+ * @param aLdd The logic device driver which can be used to query for.
+ * @param aSettingsNumber The alter settings for the interface
+ * @param [out] aInterfaceNumber Carry out the interface bumber back to caller.
+ * @return KErrNone If interface number is return via aInterfaceNumber.
+ *                  Other system wide error code if anything went wrong.
  */
-TInt CNcmClientManager::DataInterfaceNumber(TUint8& aInterfaceNumber)
+TInt CNcmClientManager::InterfaceNumber(RDevUsbcScClient& aLdd,TInt aSettingsNumber,TUint8& aInterfaceNumber)
     {
-    OstTraceFunctionEntryExt( CNCMCLIENTMANAGER_DATAINTERFACENUMBER_ENTRY, this );
+    OstTraceFunctionEntryExt( CNCMCLIENTMANAGER_INTERFACENUMBER_ENTRY, this );
     
+    // Get descriptor size first
     TInt interfaceSize = 0;
-
-    // 0 means the main interface in the LDD API
-    TInt res = iDataLdd.GetInterfaceDescriptorSize(0, interfaceSize);
-
+    TInt res = aLdd.GetInterfaceDescriptorSize(aSettingsNumber, interfaceSize);
     if ( KErrNone == res )
         {
-        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_DATAINTERFACENUMBER_EXIT, this, res );
+        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_INTERFACENUMBER_EXIT, this, res );
         return res;
         }
 
+    // Allocate enough buffer
     HBufC8* interfaceBuf = HBufC8::New(interfaceSize);
     if ( !interfaceBuf )
         {
-        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_DATAINTERFACENUMBER_EXIT_DUP1, this, KErrNoMemory);
+        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_INTERFACENUMBER_EXIT_DUP1, this, KErrNoMemory);
         return KErrNoMemory;
         }
 
+    // Get the buffer back
     TPtr8 interfacePtr = interfaceBuf->Des();
     interfacePtr.SetLength(0);
-    // 0 means the main interface in the LDD API
-    res = iDataLdd.GetInterfaceDescriptor(0, interfacePtr); 
-
+    res = aLdd.GetInterfaceDescriptor(aSettingsNumber, interfacePtr); 
     if ( KErrNone == res )
         {
         delete interfaceBuf;
-        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_DATAINTERFACENUMBER_EXIT_DUP2, this, res );
+        OstTraceFunctionExitExt( CNCMCLIENTMANAGER_INTERFACENUMBER_EXIT_DUP2, this, res );
         return res;
         }
 
-    OstTrace1(TRACE_NORMAL, CNCMCLIENTMANAGER_DATAINTERFACENUMBER_INTERFACE_INFO, "***Interface length =% d", interfacePtr.Length());
+    OstTrace1(TRACE_NORMAL, CNCMCLIENTMANAGER_INTERFACENUMBER_INTERFACE_INFO, "***Interface length =% d", interfacePtr.Length());
+    
+#ifdef OST_TRACE_COMPILER_IN_USE  // to depress a build warning incase no ost trace is used
     for ( TInt i = 0 ; i < interfacePtr.Length() ; i++ )
         {
-        OstTrace1(TRACE_NORMAL, CNCMCLIENTMANAGER_DATAINTERFACENUMBER_INTERFACE_INFO2, "***** %x", interfacePtr[i]);
+        OstTrace1(TRACE_NORMAL, CNCMCLIENTMANAGER_INTERFACENUMBER_INTERFACE_INFO2, "***** %x", interfacePtr[i]);
         }
-
+#endif
+    
     const TUint8* buffer = reinterpret_cast<const TUint8*>(interfacePtr.Ptr());
+    
     // 2 is where the interface number is, according to the LDD API
     aInterfaceNumber = buffer[2];
-    OstTraceExt1(TRACE_NORMAL, CNCMCLIENTMANAGER_DATAINTERFACENUMBER, "Interface number = %hhu", aInterfaceNumber);
-
+    
+    OstTraceExt1(TRACE_NORMAL, CNCMCLIENTMANAGER_INTERFACENUMBER, "Interface number = %hhu", aInterfaceNumber);
+    
+    // Now it is safe to delete the buffer we allocated.
     delete interfaceBuf;
 
-    OstTraceFunctionExitExt( CNCMCLIENTMANAGER_DATAINTERFACENUMBER_EXIT_DUP3, this, KErrNone );
+    OstTraceFunctionExitExt( CNCMCLIENTMANAGER_INTERFACENUMBER_EXIT_DUP3, this, KErrNone );
     return KErrNone;
     }

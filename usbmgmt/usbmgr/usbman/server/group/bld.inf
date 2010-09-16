@@ -27,6 +27,8 @@ PRJ_EXPORTS
 ../public/usbotgdefs.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbotgdefs.h)
 ../public/usbhostdefs.h					SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usbhostdefs.h)
 ./backup_registration.xml  				/epoc32/data/z/private/101fe1db/backup_registration.xml
+
+../public/musbchargingnotify.h			SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(musbchargingnotify.h)
 ../conf/usbmanager_101fe1db.crml 		OS_LAYER_EXPORTS_CRML(usbmanager_101fe1db.crml)
 
 PRJ_TESTEXPORTS

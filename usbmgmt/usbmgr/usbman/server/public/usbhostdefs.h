@@ -139,4 +139,37 @@ public:
 	TInt iReserved3;
 	};
 
+
+NONSHARABLE_CLASS(TConfigurationDescriptor)
+	{
+public:
+	inline TConfigurationDescriptor()
+		:	iDeviceId(0),
+		    iNumInterfaces(0),
+		    iConfigration(0),
+		    iAttributes(0),
+		    iMaxPower(0),
+		    iReserved(0)
+		{}	
+
+	// The ID of the device the configration descriptor relates to.
+	TUint iDeviceId;
+    
+	// the number of interfaces
+	TUint8 iNumInterfaces;
+	
+	// the configration value
+	TUint8 iConfigration;
+
+	// Attributes field of configration
+	TUint8 iAttributes;
+
+	// MaxPower field of configration
+	TUint8 iMaxPower;
+
+	//reserved
+	TInt iReserved;
+	};
+
+
 #endif //__USBHOSTDEFS_H__

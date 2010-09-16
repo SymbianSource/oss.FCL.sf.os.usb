@@ -77,18 +77,23 @@ private:
      * Setup NCM class specific descriptors
      * @param   aDataInterfaceNumber, NCM data interface number
      */
-    TInt SetupClassSpecificDescriptor(TUint8 aDataInterfaceNumber);
+    TInt SetupClassSpecificDescriptor(TUint8 aControlInterfaceNumber, TUint8 aDataInterfaceNumber);
     /**
      * Set NCM interface MAC address into NCM class specific descriptor
-     * @param[out]   aStrIndex, the index of string which contains NCM 
+     * @param [out]   aStrIndex, the index of string which contains NCM 
      *               interface MAC address 
      */
     TInt SetMacAddressString(TUint8& aStrIndex);
+    
     /**
-     * Get NCM data interface number
-     * @param[out]  aInterfaceNumber, NCM data interface number
+     * Get interface number
+     * @param aLdd The logic device driver which can be used to query for.
+     * @param aSettingsNumber The alter settings for the interface
+     * @param [out] aInterfaceNumber Carry out the interface bumber back to caller.
+     * @return KErrNone If interface number is return via aInterfaceNumber.
+     *                  Other system wide error code if anything went wrong.
      */
-    TInt DataInterfaceNumber(TUint8& aInterfaceNumber);
+    TInt InterfaceNumber(RDevUsbcScClient& aLdd,TInt aSettingsNumber,TUint8& aInterfaceNumber);
     
 private:
     const TNcmMacAddress&   iHostMacAddress;

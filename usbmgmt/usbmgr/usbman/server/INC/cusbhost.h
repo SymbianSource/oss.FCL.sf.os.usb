@@ -29,14 +29,16 @@
 #include "musbinternalobservers.h"
 #include "cusbhostwatcher.h"
 
+class CUsbServer;
+
 NONSHARABLE_CLASS(CUsbHost) : public CBase, public MUsbHostObserver
 	{
 public:
-	static CUsbHost* NewL();
+	static CUsbHost* NewL(CUsbServer& aServer);
 	virtual ~CUsbHost();
 
 private:
-	CUsbHost();
+	CUsbHost(CUsbServer& aServer);
 	void ConstructL();
 
 private:
@@ -61,6 +63,7 @@ public:
 private:
 
 	void UpdateNumOfObservers();
+	void ProcessHostEvent(TUint aWatcherId);
 
 private:
 	TBool iHasBeenStarted;
@@ -71,6 +74,7 @@ private:
 	RUsbHostStack iUsbHostStack;
 	RPointerArray<MUsbOtgHostNotifyObserver> iObservers;
 	TUint iNumOfObservers;
+	CUsbServer& iUsbServer;
 	};
 
 #endif //CUSBHOST_H

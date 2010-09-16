@@ -25,6 +25,7 @@
 #include <usb_std.h>
 #include <es_ini.h>
 #include <d32usbc.h>
+#include <usb/usbmaninternalconstants.h>
 #include "Stub3CC.h"
 
 #ifdef __FLOG_ACTIVE
@@ -32,7 +33,7 @@ _LIT8(KLogComponent, "STUB3CC");
 #endif
 
 
-#include "usbmaninternalconstants.h"
+
 #include "OstTraceDefinitions.h"
 #ifdef OST_TRACE_COMPILER_IN_USE
 #include "Stub3CCTraces.h"

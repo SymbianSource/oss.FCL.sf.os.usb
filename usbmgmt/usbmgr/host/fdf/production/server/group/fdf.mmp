@@ -28,4 +28,3 @@ TARGET			fdf.exe
 // UID3 = unique for FDF system
 UID 			0x1000008c 0x10282B48
 
-LIBRARY			usbdescriptors.lib

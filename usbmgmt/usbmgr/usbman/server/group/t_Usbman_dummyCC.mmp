@@ -44,7 +44,9 @@ source			UsbUtils.cpp
 source			CPersonality.cpp
 source          usbmancenrepmanager.cpp
 source			CUsbDummyClassController.cpp
-
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+source			cusbchargingporttypewatcher.cpp
+#endif
 sourcepath		../../../inifile/src
 source			inifile.cpp
 

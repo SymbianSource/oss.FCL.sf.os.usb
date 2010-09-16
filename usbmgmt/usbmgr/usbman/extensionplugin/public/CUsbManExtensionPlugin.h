@@ -26,7 +26,6 @@
 #define USBMANEXTENSIONPLUGIN_H
 
 #include <e32base.h>
-#include <d32usbc.h>
 
 class MUsbmanExtensionPluginObserver;
 class MUsbDeviceNotify;

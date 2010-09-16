@@ -37,3 +37,12 @@ EXPORT_C void MUsbmanExtensionPluginObserver::RegisterStateObserverL(MUsbDeviceN
 	MuepoDoRegisterStateObserverL(aObserver);
 	}
 
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+EXPORT_C void MUsbmanExtensionPluginObserver::RegisterChargingObserverL(MUsbChargingNotify& aObserver)
+	{
+	MuepoDoRegisterChargingObserverL(aObserver);
+	}
+#endif
+
+
+

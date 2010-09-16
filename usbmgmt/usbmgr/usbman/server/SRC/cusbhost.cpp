@@ -15,8 +15,16 @@
 *
 */
 
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <usb/d32usbdescriptors.h>
+#else
+#include <d32usbdescriptors.h>
+#endif
 #include <usb/usblogger.h>
 #include "cusbhost.h"
+#include "CUsbServer.h"
+#include "CUsbDevice.h"
+
 #include "OstTraceDefinitions.h"
 #ifdef OST_TRACE_COMPILER_IN_USE
 #include "cusbhostTraces.h"
@@ -25,11 +33,11 @@
 
 CUsbHost* CUsbHost::iInstance = 0;
 
-CUsbHost* CUsbHost::NewL()
+CUsbHost* CUsbHost::NewL(CUsbServer& aServer)
 	{
 	if(iInstance == 0)
 		{
-		iInstance = new (ELeave) CUsbHost();		
+		iInstance = new (ELeave) CUsbHost(aServer);		
 		CleanupStack::PushL(iInstance);		
 		iInstance->ConstructL();		
 		CleanupStack::Pop(iInstance);
@@ -54,7 +62,8 @@ CUsbHost::~CUsbHost()
 	OstTraceFunctionExit0( CUSBHOST_CUSBHOST_DES_EXIT );
 	}
 
-CUsbHost::CUsbHost()
+CUsbHost::CUsbHost(CUsbServer& aServer)
+	: iUsbServer(aServer)
 	{
     OstTraceFunctionEntry0( CUSBHOST_CUSBHOST_CONS_ENTRY );
 	OstTraceFunctionExit0( CUSBHOST_CUSBHOST_CONS_EXIT );
@@ -207,6 +216,9 @@ TInt CUsbHost::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& otgDescriptor)
 void CUsbHost::NotifyHostEvent(TUint aWatcherId)
 	{
     OstTraceFunctionEntry0( CUSBHOST_NOTIFYHOSTEVENT_ENTRY );
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	ProcessHostEvent(aWatcherId);
+#endif
 
 	if(aWatcherId == EHostEventMonitor)
 		{
@@ -265,3 +277,41 @@ void CUsbHost::DisableDriverLoading()
 		}
 	OstTraceFunctionExit0( CUSBHOST_DISABLEDRIVERLOADING_EXIT );
 	}
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+
+void CUsbHost::ProcessHostEvent(TUint aWatcherId)
+	{
+	OstTraceFunctionEntry0( CUSBHOST_PROCESSHOSTEVENT_ENTRY );
+	TConfigurationDescriptor configDesc;
+	const TUint KSuspend_Current = 2; //suspend current is 2mA
+
+	if(aWatcherId == EHostEventMonitor)
+		{
+		// if driver is loaded successful the device enters configed state and we get the max power from configration.
+		if (iHostEventInfo.iEventType == EDriverLoad 
+			&& iHostEventInfo.iDriverLoadStatus != EDriverLoadFailure)
+			{
+			TInt ret = iUsbHostStack.GetConfigurationDescriptor(iHostEventInfo.iDeviceId, configDesc);
+			if (ret == KErrNone)
+				{
+        		TUint currentValue = configDesc.iMaxPower <<1;
+				iUsbServer.Device().PeerDeviceMaxPower(currentValue);
+				}
+			}
+		// if driver is loaded with failure the device enters suspend state.		
+		else if (iHostEventInfo.iEventType == EDriverLoad && 
+			iHostEventInfo.iDriverLoadStatus == EDriverLoadFailure)
+			{
+			iUsbServer.Device().PeerDeviceMaxPower(KSuspend_Current);
+			}
+		// if a device is unattached .		
+		else if (iHostEventInfo.iEventType == EDeviceDetachment)
+			{
+			iUsbServer.Device().PeerDeviceMaxPower(0);
+			}
+		}
+	OstTraceFunctionExit0( CUSBHOST_PROCESSHOSTEVENT_EXIT );
+	}
+#endif
+

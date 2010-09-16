@@ -22,12 +22,6 @@
 
 #include <ecom/implementationproxy.h>
 
-#include <usb/usblogger.h>
-
-#ifdef __FLOG_ACTIVE
-_LIT8(KLogComponent, "USBCHARGE TEST");
-#endif
-
 #include <dummyldd.h>
 #define __D32USBC_H__ // ensure that d32usbc is ignored, and dummyldd used instead
 #include "CUsbBatteryChargingTestPlugin.h"
@@ -69,7 +63,6 @@ void CUsbBatteryChargingTestPlugin::GetPluginInfo(TPluginTestInfo& aInfo)
 	aInfo.iPluginState = iPluginState;
 	aInfo.iAvailableMilliAmps = iAvailableMilliAmps;
 	aInfo.iDeviceState = iDeviceState;
-	aInfo.iUserSetting = iUserSetting;
 	aInfo.iCurrentIndexRequested = iCurrentIndexRequested;
 	aInfo.iRequestedCurrentValue = iRequestedCurrentValue;
 	}
@@ -77,11 +70,15 @@ void CUsbBatteryChargingTestPlugin::GetPluginInfo(TPluginTestInfo& aInfo)
 TAny* CUsbBatteryChargingTestPlugin::GetInterface(TUid aUid)
 	{
 	TAny* ret = NULL;
+    ret = CUsbBatteryChargingPlugin::GetInterface(aUid);
+    if(!ret)
+        {
 	if (aUid == KUidUsbBatteryChargingTestPluginInterface2)
 		{
 		ret = reinterpret_cast<TAny*>(
 			static_cast<MUsbBatteryChargingTestPluginInterface2*>(this)
 			);
 		}
+        }
 	return ret;
 	}

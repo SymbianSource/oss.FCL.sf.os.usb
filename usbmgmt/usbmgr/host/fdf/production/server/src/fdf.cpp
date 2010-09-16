@@ -1270,6 +1270,15 @@ void CFdf::GetOtgDeviceDescriptorL(TInt aDeviceId, TOtgDescriptor& aDescriptor) 
 	OstTraceFunctionExit0( CFDF_GETOTGDEVICEDESCRIPTORL_EXIT );
 	}
 
+void CFdf::GetConfigurationDescriptorL(TInt aDeviceId, TUsbConfigurationDescriptor& aDescriptor) const
+	{
+	OstTraceFunctionEntry0( CFDF_GETCONFIGRATIONDESCRIPTORL_ENTRY );
+	
+	DeviceProxyL(aDeviceId)->GetConfigurationDescriptor(aDescriptor);
+	OstTraceFunctionExit0( CFDF_GETCONFIGRATIONDESCRIPTORL_EXIT );
+	}
+
+
 void CFdf::GetSerialNumberStringDescriptorL(TUint aDeviceId, TUint32 aLangId, TName& aString) const
 	{
 	OstTraceFunctionEntry0( CFDF_GETSERIALNUMBERSTRINGDESCRIPTORL_ENTRY );

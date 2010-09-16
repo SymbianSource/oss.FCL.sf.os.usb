@@ -15,4 +15,5 @@ EXPORTS
 	_ZN13RUsbHostStackC2Ev @ 14 NONAME
 	_ZNK13RUsbHostStack7VersionEv @ 15 NONAME
 	_ZN13RUsbHostStack16GetOtgDescriptorEjR14TOtgDescriptor @ 16 NONAME
+	_ZN13RUsbHostStack26GetConfigurationDescriptorEjR24TConfigurationDescriptor @ 17 NONAME
 

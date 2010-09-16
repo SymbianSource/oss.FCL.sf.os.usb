@@ -18,18 +18,15 @@
 /** @file
 @internalComponent
 */
-#include "CUsbBatteryChargingPlugin.h"
 #include <e32debug.h> 
 #include <e32def.h>
-#include <usb/usblogger.h>
 #include <e32property.h>
-#include <centralrepository.h>
 #include <usbotgdefs.h>
 #include <musbmanextensionpluginobserver.h>
+#include <centralrepository.h>
 
-
+#include "CUsbBatteryChargingPlugin.h"
 #include "chargingstates.h"
-#include "cusbbatterycharginglicenseehooks.h"
 #include "reenumerator.h"
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV          // For host OTG enabled charging plug-in 
@@ -46,6 +43,11 @@
 
 static const TInt KUsbBatteryChargingConfigurationDescriptorCurrentOffset = 8; // see bMaxPower in section 9.6.3 of USB Spec 2.0
 static const TInt KUsbBatteryChargingCurrentRequestTimeout = 3000000; // 3 seconds
+static const TUint8 KMinCurrent     = 8;    // See USB OTG specification , min current
+static const TUint8 KbmAttributes   = 7;    // see bmAttributes in section 9.6.3 of USB Spec 2.0
+static const TUint8 KSelfPowered    = 0x40; // Bitmask to bmAttributes (01000000)
+
+
 
 
 /**
@@ -71,8 +73,6 @@ CUsbBatteryChargingPlugin::~CUsbBatteryChargingPlugin()
     iCurrentValues.Close();
     delete iDeviceReEnumerator;
     delete iDeviceStateTimer;
-    delete iRepositoryNotifier;
-    delete iLicenseeHooks;
     
 // For host OTG enabled charging plug-in
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
@@ -101,21 +101,29 @@ CUsbBatteryChargingPlugin::CUsbBatteryChargingPlugin(MUsbmanExtensionPluginObser
 */
 void CUsbBatteryChargingPlugin::ConstructL()
     {
-   OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_ENTRY );
+    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_ENTRY );
    
+    iUsbSpeedType = EUsbFullSpeed;
+	iChargingInfo().iChargingPortType = EUsbChargingPortTypeStandardDownstreamPort;
+	iChargingInfo().iUsbConnStatus = EUsbConnectionStatusNone;
+	iChargingInfo().iMinAvailableVbusCurrent = 0;
+	iChargingInfo().iMaxVbusCurrent = 0;
+	iChargingInfo().iMinVbusVoltage = 0;	
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1		
+	iChargingInfo().iChargingPortType = EUsbChargingPortTypeNone;
+	iChargerDetectotCaps.iCapabilities = 0;
+#endif
+	iLastPublishedInfo = iChargingInfo();
+
     // Create state objects
     iPluginStates[EPluginStateIdle] = 
         new (ELeave) TUsbBatteryChargingPluginStateIdle(*this);
     iPluginStates[EPluginStateCurrentNegotiating] = 
         new (ELeave) TUsbBatteryChargingPluginStateCurrentNegotiating(*this);
-    iPluginStates[EPluginStateCharging] = 
-        new (ELeave) TUsbBatteryChargingPluginStateCharging(*this);
     iPluginStates[EPluginStateNoValidCurrent] = 
         new (ELeave) TUsbBatteryChargingPluginStateNoValidCurrent(*this);
     iPluginStates[EPluginStateIdleNegotiated] = 
         new (ELeave) TUsbBatteryChargingPluginStateIdleNegotiated(*this);
-    iPluginStates[EPluginStateUserDisabled] = 
-        new (ELeave) TUsbBatteryChargingPluginStateUserDisabled(*this);
     iPluginStates[EPluginStateBEndedCableNotPresent] = 
         new (ELeave) TUsbBatteryChargingPluginStateBEndedCableNotPresent(*this);
 
@@ -123,66 +131,34 @@ void CUsbBatteryChargingPlugin::ConstructL()
     SetState(EPluginStateIdle);
     
     TInt err = RProperty::Define(KPropertyUidUsbBatteryChargingCategory,
-                      KPropertyUidUsbBatteryChargingAvailableCurrent,
-                      RProperty::EInt,
-                      ECapabilityReadDeviceData,
-                      ECapabilityCommDD);
-
-    if(err == KErrNone || err == KErrAlreadyExists)
-        {
-
-        err = RProperty::Define(KPropertyUidUsbBatteryChargingCategory,
-                          KPropertyUidUsbBatteryChargingChargingCurrent,
-                          RProperty::EInt,
-                          ECapabilityReadDeviceData,
-                          ECapabilityCommDD);
-        }
-    else
-        {
-        OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL, "CUsbBatteryChargingPlugin::ConstructL;leave with error=%d", err );
-        User::Leave(err );
-        }
+                      KPropertyUidUsbBatteryChargingInfo,
+                      RProperty::EByteArray,
+                      sizeof(TPublishedUsbChargingInfo));
 
     if(err == KErrNone || err == KErrAlreadyExists)
         {
         err = RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                        KPropertyUidUsbBatteryChargingAvailableCurrent,
-                                        0);
+                      KPropertyUidUsbBatteryChargingInfo,
+                      iChargingInfo);
         }
-    else
-        {
-        static_cast<void> (RProperty::Delete (
-                KPropertyUidUsbBatteryChargingCategory,
-                KPropertyUidUsbBatteryChargingAvailableCurrent ));
-        OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_DUP1, "CUsbBatteryChargingPlugin::ConstructL;leave with error=%d", err );
+	else
+		{		
         User::Leave(err);
-        }
-    
-    err = RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                        KPropertyUidUsbBatteryChargingChargingCurrent,
-                                        0);
+		}
 
     if(err != KErrNone)
         {
         static_cast<void> (RProperty::Delete (
                 KPropertyUidUsbBatteryChargingCategory,
-                KPropertyUidUsbBatteryChargingAvailableCurrent ));
-        static_cast<void> (RProperty::Delete (
-                KPropertyUidUsbBatteryChargingCategory,
-                KPropertyUidUsbBatteryChargingChargingCurrent ));
-        OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_DUP2, "CUsbBatteryChargingPlugin::ConstructL;leave with error=%d", err );
-        User::Leave(err );
+                KPropertyUidUsbBatteryChargingInfo ));
+        User::Leave(err);
         }
         
-    iRepositoryNotifier = CUsbChargingRepositoryNotifier::NewL (*this,
-            KUsbBatteryChargingCentralRepositoryUid,
-            KUsbBatteryChargingKeyEnabledUserSetting );
     iDeviceStateTimer = CUsbChargingDeviceStateTimer::NewL(*this);
 
     iDeviceReEnumerator = CUsbChargingReEnumerator::NewL(iLdd);
 
     iPluginState = EPluginStateIdle;
-    iPluginStateToRecovery = EPluginStateIdle;
     ReadCurrentRequestValuesL();
     iVBusWatcher = CVBusWatcher::NewL(this);
     iVBusState = iVBusWatcher->VBusState();
@@ -209,14 +185,11 @@ void CUsbBatteryChargingPlugin::ConstructL()
         OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_DUP3, "CUsbBatteryChargingPlugin::ConstructL;PluginState => EPluginStateADevice(%d)", iPluginState );
         }
 
-    Observer().RegisterStateObserverL(*this);
-
-    iLicenseeHooks = CUsbBatteryChargingLicenseeHooks::NewL();
-    OstTrace0( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_DUP4, "CUsbBatteryChargingPlugin::ConstructL;Created licensee specific hooks" );
-    
-    // Set initial recovery state to idle
-    PushRecoverState(EPluginStateIdle);
-    
+    Observer().RegisterStateObserverL(*this);  
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1		
+	MUsbChargingNotify* charging = static_cast<MUsbChargingNotify*>(this);
+    Observer().RegisterChargingObserverL(*charging);  
+#endif	
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_CONSTRUCTL_EXIT );
     }
 
@@ -224,12 +197,6 @@ void CUsbBatteryChargingPlugin::ConstructL()
 TBool CUsbBatteryChargingPlugin::IsUsbChargingPossible()
     {
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-    // VBus is off, so there is no way to do charging
-    if (0 == iVBusState)
-        {
-        return EFalse;
-        }
-    
     // 'A' end cable connected. I'm the power supplier, with no way to charge myself :-) 
     if (EUsbBatteryChargingIdPinARole == iIdPinState)
         {
@@ -323,7 +290,6 @@ TAny* CUsbBatteryChargingPlugin::GetInterface(TUid aUid)
     (void)aUid;
 
     TAny* ret = NULL;
-
     OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_GETINTERFACE_DUP2, "CUsbBatteryChargingPlugin::GetInterface;ret = [0x%08x]", ret );
     return ret;
     }
@@ -340,32 +306,6 @@ void CUsbBatteryChargingPlugin::UsbServiceStateChange(TInt /*aLastError*/, TUsbS
     // not used
     }
 
-void CUsbBatteryChargingPlugin::PushRecoverState(TUsbChargingPluginState aRecoverState)
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_PUSHRECOVERSTATE_ENTRY );
-
-    if((aRecoverState == EPluginStateIdle)||
-       (aRecoverState == EPluginStateIdleNegotiated) ||
-       (aRecoverState == EPluginStateBEndedCableNotPresent) ||
-       (aRecoverState == EPluginStateNoValidCurrent))
-        {
-        iPluginStateToRecovery = aRecoverState;
-        }
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_PUSHRECOVERSTATE_EXIT );
-    }
-
-TUsbChargingPluginState CUsbBatteryChargingPlugin::PopRecoverState()
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_POPRECOVERSTATE_ENTRY );
-    
-    SetState(iPluginStateToRecovery);
-    
-    iPluginStateToRecovery = EPluginStateIdle;
-    
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_POPRECOVERSTATE_EXIT );
-    return iPluginStateToRecovery;
-    }
-
 TUsbChargingPluginState CUsbBatteryChargingPlugin::SetState(TUsbChargingPluginState aState)
     {
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_SETSTATE_ENTRY );
@@ -379,16 +319,11 @@ TUsbChargingPluginState CUsbBatteryChargingPlugin::SetState(TUsbChargingPluginSt
             }
             break;
         case EPluginStateCurrentNegotiating:
-        case EPluginStateCharging:
         case EPluginStateNoValidCurrent:
         case EPluginStateIdleNegotiated:
-        case EPluginStateUserDisabled:
         case EPluginStateBEndedCableNotPresent:
-            {
-            iPluginState = aState;
             iCurrentState = iPluginStates[aState];
-            }
-            break;
+			break;			
         default:
             // Should never happen ...
             iPluginState = EPluginStateIdle;
@@ -429,22 +364,16 @@ void CUsbBatteryChargingPlugin::UsbDeviceStateChange(TInt aLastError,
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_USBDEVICESTATECHANGE_ENTRY );
     
     iCurrentState->UsbDeviceStateChange(aLastError, aOldState, aNewState);
+	UpdateChargingInfo();
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_USBDEVICESTATECHANGE_EXIT );
-    }
-
-void CUsbBatteryChargingPlugin::HandleRepositoryValueChangedL(const TUid& aRepository, TUint aId, TInt aVal)
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_HANDLEREPOSITORYVALUECHANGEDL_ENTRY );
-
-    iCurrentState->HandleRepositoryValueChangedL(aRepository, aId, aVal);
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_HANDLEREPOSITORYVALUECHANGEDL_EXIT );
     }
 
 void CUsbBatteryChargingPlugin::DeviceStateTimeout()
     {
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_DEVICESTATETIMEOUT_ENTRY );
         
-    iCurrentState->DeviceStateTimeout();
+    iCurrentState->DeviceStateTimeout();	
+	UpdateChargingInfo();
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_DEVICESTATETIMEOUT_EXIT );
     }
 
@@ -467,16 +396,14 @@ void CUsbBatteryChargingPlugin::NegotiateNextCurrentValueL()
         iCurrentIndexRequested++;
         newCurrent = iCurrentValues[iCurrentIndexRequested];    
         }
-    else if(iRequestedCurrentValue != 0)
+    else if(iRequestedCurrentValue != 0 && iRequestedCurrentValue != KMinCurrent)
         {
-        // There isn't a 0ma round set from the Repository source -> 10208DD7.txt
-        // Just add it to make sure the device can be accepted by host    
-        newCurrent = 0;
+        newCurrent = KMinCurrent;
         }
     else
         {
-        // Warning 0001: If you go here, something wrong happend, check it.
-        __ASSERT_DEBUG(0,Panic(EUsbBatteryChargingPanicBadCharingCurrentNegotiation));
+        iPluginState = EPluginStateNoValidCurrent;
+        User::Leave(EUsbBatteryChargingPanicBadCharingCurrentNegotiation);
         }
     
     RequestCurrentL(newCurrent);
@@ -493,13 +420,13 @@ void CUsbBatteryChargingPlugin::ResetPlugin()
         {
         iDeviceStateTimer->Cancel(); // doesn't matter if not running
         iPluginState = EPluginStateIdle;
-        iPluginStateToRecovery = EPluginStateIdle;
         OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_RESETPLUGIN, "CUsbBatteryChargingPlugin::ResetPlugin;PluginState => EPluginStateIdle(%d)", iPluginState );
 
         iRequestedCurrentValue = 0;
         iCurrentIndexRequested = 0;
         iAvailableMilliAmps = 0;
-        SetNegotiatedCurrent(0);
+		iBDevMaxPower = 0;
+        UpdateChargingInfo();
         TRAP_IGNORE(SetInitialConfigurationL());
         }
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_RESETPLUGIN_EXIT );
@@ -531,6 +458,11 @@ void CUsbBatteryChargingPlugin::RequestCurrentL(TUint aMilliAmps)
             OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_REQUESTCURRENTL_DUP3, "CUsbBatteryChargingPlugin::RequestCurrentL;iLdd.GetConfigurationDescriptor(ptr) with error=%d", err );
             User::Leave(err);
             }
+
+		// compliant to charging adaptation in modem adaptation
+        TUint8 bmAttributes = ptr[KbmAttributes];
+        bmAttributes &= ~(KSelfPowered);
+        ptr[KbmAttributes] = bmAttributes;
 
         // set bMaxPower field. One unit = 2mA, so need to halve aMilliAmps.
         OstTraceExt2( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_REQUESTCURRENTL_DUP4, "CUsbBatteryChargingPlugin::RequestCurrentL;Setting bMaxPower to %u mA ( = %u x 2mA units)", aMilliAmps, aMilliAmps >> 1 );
@@ -585,71 +517,6 @@ void CUsbBatteryChargingPlugin::ReadCurrentRequestValuesL()
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_READCURRENTREQUESTVALUESL_EXIT );
     }
 
-void CUsbBatteryChargingPlugin::StartCharging(TUint aMilliAmps)
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_STARTCHARGING_ENTRY );
-    
-    OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_STARTCHARGING, "CUsbBatteryChargingPlugin::StartCharging;aMilliAmps=%u", aMilliAmps );
-    
-    // do licensee specific functionality (if any)
-    iLicenseeHooks->StartCharging(aMilliAmps);
-
-#ifdef _DEBUG
-    TInt err = RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                KPropertyUidUsbBatteryChargingChargingCurrent,
-                            aMilliAmps);
-    OstTraceExt2( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_STARTCHARGING_DUP1, "CUsbBatteryChargingPlugin::StartCharging;Set P&S current = %umA - err = %d", aMilliAmps, err );
-#else
-    (void)RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                KPropertyUidUsbBatteryChargingChargingCurrent,
-                                aMilliAmps);
-#endif
-
-    SetState(EPluginStateCharging);
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_STARTCHARGING_EXIT );
-    }
-
-void CUsbBatteryChargingPlugin::StopCharging()
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_STOPCHARGING_ENTRY );
-    
-    // do licensee specific functionality (if any)
-    iLicenseeHooks->StopCharging();
-
-#ifdef _DEBUG
-    TInt err = RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                    KPropertyUidUsbBatteryChargingChargingCurrent,
-                                    0);
-    OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_STOPCHARGING, "CUsbBatteryChargingPlugin::StopCharging;Set P&S current = 0mA - err = %d", err );
-#else
-    (void)RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                    KPropertyUidUsbBatteryChargingChargingCurrent,
-                                    0);
-#endif
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_STOPCHARGING_EXIT );
-    }
-
-void CUsbBatteryChargingPlugin::SetNegotiatedCurrent(TUint aMilliAmps)
-    {
-    OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_SETNEGOTIATEDCURRENT_ENTRY );
-    
-    OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_SETNEGOTIATEDCURRENT, "CUsbBatteryChargingPlugin::SetNegotiatedCurrent;aMilliAmps=%u", aMilliAmps );
-
-    // Ignore errors - not much we can do if it fails
-#ifdef _DEBUG
-    TInt err = RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                    KPropertyUidUsbBatteryChargingAvailableCurrent,
-                                    aMilliAmps);
-    OstTraceExt2( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_SETNEGOTIATEDCURRENT_DUP1, "CUsbBatteryChargingPlugin::SetNegotiatedCurrent;Set P&S current = %umA - err = %d", aMilliAmps, err );
-#else
-    (void)RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
-                                    KPropertyUidUsbBatteryChargingAvailableCurrent,
-                                    aMilliAmps);
-#endif
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_SETNEGOTIATEDCURRENT_EXIT );
-    }
-
-
 #ifndef _DEBUG
 void CUsbBatteryChargingPlugin::LogStateText(TUsbDeviceState /*aState*/)
     {
@@ -692,8 +559,12 @@ void CUsbBatteryChargingPlugin::LogStateText(TUsbDeviceState aState)
 void CUsbBatteryChargingPlugin::MpsoVBusStateChanged(TInt aNewState)
     {
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOVBUSSTATECHANGED_ENTRY );
-    
-    iCurrentState->MpsoVBusStateChanged(aNewState);
+    if (iChargingInfo().iChargingPortType == EUsbChargingPortTypeStandardDownstreamPort)
+    	{
+    	iCurrentState->MpsoVBusStateChanged(aNewState);
+    	}
+	iVBusState = aNewState;
+	UpdateChargingInfo();
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOVBUSSTATECHANGED_EXIT );
     }
 
@@ -705,6 +576,7 @@ void CUsbBatteryChargingPlugin::MpsoIdPinStateChanged(TInt aValue)
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOIDPINSTATECHANGED_ENTRY );
     
     iCurrentState->MpsoIdPinStateChanged(aValue);
+	UpdateChargingInfo();
     OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOIDPINSTATECHANGED_EXIT );
     }
 
@@ -713,6 +585,352 @@ void CUsbBatteryChargingPlugin::MpsoOtgStateChangedL(TUsbOtgState aNewState)
     OstTraceFunctionEntry0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOOTGSTATECHANGEDL_ENTRY );
 
     iCurrentState->MpsoOtgStateChangedL(aNewState);
-    OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOOTGSTATECHANGEDL_EXIT );
+	UpdateChargingInfo();
+	OstTraceFunctionExit0( REF_CUSBBATTERYCHARGINGPLUGIN_MPSOOTGSTATECHANGEDL_EXIT );
     }
 #endif
+
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+void CUsbBatteryChargingPlugin::UsbChargingPortType(TUint aChargingPortType)
+	{
+	OstTraceExt1( TRACE_NORMAL, CUSBBATTERYCHARGINGPLUGIN_USBCHARGINGPORTTYPE, "CUsbBatteryChargingPlugin::UsbChargingPortType;ChargingTypeToString(aChargingPortType)=%s", *ChargingTypeToString(aChargingPortType) );
+	ChargingTypeToString(aChargingPortType);
+	switch (aChargingPortType)
+		{
+		case KUsbChargingPortTypeNone:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeNone;
+			break;
+		case KUsbChargingPortTypeUnsupported:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeUnsupported;
+			break;
+		case KUsbChargingPortTypeDedicatedChargingPort:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeDedicatedChargingPort;
+			break;				
+		case KUsbChargingPortTypeChargingDownstreamPort:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeChargingDownstreamPort;
+			break;
+		case KUsbChargingPortTypeStandardDownstreamPort:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeStandardDownstreamPort;
+			break;
+		case KUsbChargingPortTypeAcaRidA:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeAcaRidA;
+			break;
+		case KUsbChargingPortTypeAcaRidB:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeAcaRidB;
+			break;
+		case KUsbChargingPortTypeAcaRidC:
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeAcaRidC;
+			break;
+		case KUsbChargingPortTypeChargingPort:	
+			iChargingInfo().iChargingPortType = EUsbChargingPortTypeChargingPort;
+			break;
+		default:
+			break;
+		}
+	iLdd.ChargerDetectorCaps(iChargerDetectotCaps);
+	iCurrentState->UsbChargingPortType(aChargingPortType);
+	UpdateChargingInfo();
+	}
+#endif
+
+_LIT8(KPortTypeNone, "PortTypeNone");
+_LIT8(KPortTypeUnsupported, "PortTypeUnsupported");
+_LIT8(KPortTypeDedicatedChargingPort, "PortTypeDedicatedChargingPort");
+_LIT8(KPortTypeStandardDownstreamPort, "PortTypeStandardDownstreamPort");
+_LIT8(KPortTypeChargingDownstreamPort, "PortTypeChargingDownstreamPort");
+_LIT8(KPortTypeAcaRidA, "PortTypeAcaRidA");
+_LIT8(KPortTypeAcaRidB, "PortTypeAcaRidB");
+_LIT8(KPortTypeAcaRidC, "PortTypeAcaRidC");
+_LIT8(KPortTypeChargingPort, "PortTypeChargingPort");
+
+
+const TDesC8* CUsbBatteryChargingPlugin::ChargingTypeToString(TUint aChargingType)
+	{
+	const TDesC8* str = NULL;
+	switch (aChargingType)
+   		{
+		case EUsbChargingPortTypeNone:
+			str = &KPortTypeNone;
+			break;
+		case EUsbChargingPortTypeUnsupported:
+			str = &KPortTypeUnsupported;
+			break;
+		case EUsbChargingPortTypeDedicatedChargingPort:
+			str = &KPortTypeDedicatedChargingPort;
+			break;				
+		case EUsbChargingPortTypeChargingDownstreamPort:
+			str = &KPortTypeChargingDownstreamPort;
+			break;
+		case EUsbChargingPortTypeStandardDownstreamPort:
+			str = &KPortTypeStandardDownstreamPort;
+			break;
+		case EUsbChargingPortTypeAcaRidA:
+			str = &KPortTypeAcaRidA;
+			break;
+		case EUsbChargingPortTypeAcaRidB:
+			str = &KPortTypeAcaRidB;
+			break;
+		case EUsbChargingPortTypeAcaRidC:
+			str = &KPortTypeAcaRidC;
+			break;
+		case EUsbChargingPortTypeChargingPort:	
+			str = &KPortTypeChargingPort;
+			break;
+		default:
+			break;
+		}
+	return str;
+	}
+
+void CUsbBatteryChargingPlugin::QueryCurrentSpeed()
+    {
+	if (iChargingInfo().iChargingPortType == EUsbChargingPortTypeChargingDownstreamPort)
+		{
+		if (iLdd.CurrentlyUsingHighSpeed())
+			{
+		    OstTrace0( TRACE_NORMAL, CUSBBATTERYCHARGINGPLUGIN_QUERYCURRENTSPEED, "CUsbBatteryChargingPlugin::QueryCurrentSpeed is high speed" );
+			iUsbSpeedType = EUsbHighSpeed;
+			}
+		else
+			{
+			OstTrace0( TRACE_NORMAL, DUP1_CUSBBATTERYCHARGINGPLUGIN_QUERYCURRENTSPEED, "CUsbBatteryChargingPlugin::QueryCurrentSpeed is full speed" );
+			iUsbSpeedType = EUsbFullSpeed;
+			}
+		}
+    }
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+void CUsbBatteryChargingPlugin::UpdateChargingInfo()
+	{
+	OstTraceFunctionEntry0( CUSBBATTERYCHARGINGPLUGIN_UPDATECHARGINGINFO_ENTRY );
+	const TUint16 KIDev_Dchg = 1800;
+	const TUint16 KIDev_Chg = 1500;	
+	const TUint16 KIDev_Hchg_Lfs = 1500;
+	const TUint16 KIDev_Hchg_Hs = 900;
+	const TUint16 KIDev_Hchg_Hs_Chirp = 560;
+	const TUint16 KIDev_Avaiable = 500;
+	const TUint16 KIDev_Suspend = 2;
+	const TUint16 KVBus_Chg = 4500;
+	const TUint16 KVBus_Dchg = 2000;
+
+		
+    QueryCurrentSpeed();
+//set iUsbConnStatus field 	
+	iChargingInfo().iUsbConnStatus = EUsbConnectionStatusNone;
+	if (EUsbChargingPortTypeStandardDownstreamPort == iChargingInfo().iChargingPortType 
+		&& IsUsbChargingPossible())
+		{
+		switch (iDeviceState)
+			{
+			case EUsbDeviceStateSuspended:
+				iChargingInfo().iUsbConnStatus = EUsbConnectionStatusSuspend;
+				break;
+			case EUsbDeviceStateConfigured:
+				iChargingInfo().iUsbConnStatus = EUsbConnectionStatusConfigured;
+				break;
+			default:
+				break;
+			}		
+		}
+//set current and voltage field	
+	switch (iChargingInfo().iChargingPortType)
+		{
+		case EUsbChargingPortTypeDedicatedChargingPort:
+			iChargingInfo().iMinAvailableVbusCurrent = KIDev_Avaiable;
+			iChargingInfo().iMaxVbusCurrent = KIDev_Dchg;
+			iChargingInfo().iMinVbusVoltage = KVBus_Dchg;						
+			break;
+		case EUsbChargingPortTypeChargingPort:
+		case EUsbChargingPortTypeChargingDownstreamPort:	
+			iChargingInfo().iMinAvailableVbusCurrent = KIDev_Avaiable;
+			iChargingInfo().iMinVbusVoltage = KVBus_Dchg;		
+			if (iChargerDetectotCaps.iCapabilities & KChargerDetectorCapChirpCurrentLimiting)
+				{			
+				if (iUsbSpeedType == EUsbFullSpeed)
+					{
+					iChargingInfo().iMaxVbusCurrent = KIDev_Hchg_Lfs;
+					}
+				else
+					{
+					iChargingInfo().iMaxVbusCurrent = KIDev_Hchg_Hs;					
+					}
+				}
+			else
+				{
+				if (iDeviceState == EUsbDeviceStateConfigured && iUsbSpeedType == EUsbFullSpeed)
+					{
+					iChargingInfo().iMaxVbusCurrent = KIDev_Hchg_Lfs;
+					}
+				else
+					{
+					iChargingInfo().iMaxVbusCurrent = KIDev_Hchg_Hs_Chirp;					
+					}
+				}
+			break;
+		case EUsbChargingPortTypeNone:
+		case EUsbChargingPortTypeUnsupported:	
+			iChargingInfo().iMinAvailableVbusCurrent = 0;
+			iChargingInfo().iMaxVbusCurrent = 0;
+			iChargingInfo().iMinVbusVoltage = 0; 					
+			break;
+		case EUsbChargingPortTypeStandardDownstreamPort:
+			if (IsUsbChargingPossible())
+				{
+				switch (iDeviceState)
+					{
+					case EUsbDeviceStateConfigured:
+						iChargingInfo().iMinAvailableVbusCurrent = iAvailableMilliAmps;
+						iChargingInfo().iMaxVbusCurrent = iAvailableMilliAmps;
+						iChargingInfo().iMinVbusVoltage = KVBus_Chg; 								
+						break;
+					case EUsbDeviceStateSuspended:
+						iChargingInfo().iMinAvailableVbusCurrent = KIDev_Suspend;
+						iChargingInfo().iMaxVbusCurrent = KIDev_Suspend;
+						iChargingInfo().iMinVbusVoltage = KVBus_Chg; 						
+						break;
+					default:
+						iChargingInfo().iMinAvailableVbusCurrent = 0;
+						iChargingInfo().iMaxVbusCurrent = 0;
+						iChargingInfo().iMinVbusVoltage = 0; 						
+						break;
+					}
+				}
+			else
+				{
+				iChargingInfo().iMinAvailableVbusCurrent = 0;
+				iChargingInfo().iMaxVbusCurrent = 0;
+				iChargingInfo().iMinVbusVoltage = 0;						
+				}
+			break;
+		case EUsbChargingPortTypeAcaRidA:
+			iChargingInfo().iMinAvailableVbusCurrent = KIDev_Avaiable - iBDevMaxPower;
+			iChargingInfo().iMaxVbusCurrent = KIDev_Chg;
+			iChargingInfo().iMinVbusVoltage = KVBus_Dchg; 					
+			break;
+		case EUsbChargingPortTypeAcaRidB:
+			iChargingInfo().iMinAvailableVbusCurrent = KIDev_Avaiable;
+			iChargingInfo().iMaxVbusCurrent = KIDev_Chg;
+			iChargingInfo().iMinVbusVoltage = KVBus_Dchg; 					
+			break;
+		case EUsbChargingPortTypeAcaRidC:
+			iChargingInfo().iMinAvailableVbusCurrent = KIDev_Avaiable;
+			iChargingInfo().iMaxVbusCurrent = KIDev_Chg;
+			iChargingInfo().iMinVbusVoltage = KVBus_Dchg; 					
+			break;
+		default:
+			break;
+		}
+	PublishChargingInfo();
+	OstTraceFunctionExit0( CUSBBATTERYCHARGINGPLUGIN_UPDATECHARGINGINFO_EXIT );
+	}
+
+#else
+void CUsbBatteryChargingPlugin::UpdateChargingInfo()
+	{
+	OstTraceFunctionEntry0( CUSBBATTERYCHARGINGPLUGIN_UPDATECHARGINGINF1_ENTRY );
+	const TUint16 KIDev_Suspend = 2;
+	const TUint16 KVBus_Chg = 4500;
+
+		
+    QueryCurrentSpeed();
+//set iUsbConnStatus field 	
+	iChargingInfo().iUsbConnStatus = EUsbConnectionStatusNone;
+	if (EUsbChargingPortTypeStandardDownstreamPort == iChargingInfo().iChargingPortType 
+		&& IsUsbChargingPossible())
+		{
+		switch (iDeviceState)
+			{
+			case EUsbDeviceStateSuspended:
+				iChargingInfo().iUsbConnStatus = EUsbConnectionStatusSuspend;
+				break;
+			case EUsbDeviceStateConfigured:
+				iChargingInfo().iUsbConnStatus = EUsbConnectionStatusConfigured;
+				break;
+			default:
+				break;
+			}		
+		}
+//set current and voltage field	
+	switch (iChargingInfo().iChargingPortType)
+		{
+		case EUsbChargingPortTypeStandardDownstreamPort:
+			if (IsUsbChargingPossible())
+				{
+				switch (iDeviceState)
+					{
+					case EUsbDeviceStateConfigured:
+						iChargingInfo().iMinAvailableVbusCurrent = iAvailableMilliAmps;
+						iChargingInfo().iMaxVbusCurrent = iAvailableMilliAmps;
+						iChargingInfo().iMinVbusVoltage = KVBus_Chg; 								
+						break;
+					case EUsbDeviceStateSuspended:
+						iChargingInfo().iMinAvailableVbusCurrent = KIDev_Suspend;
+						iChargingInfo().iMaxVbusCurrent = KIDev_Suspend;
+						iChargingInfo().iMinVbusVoltage = KVBus_Chg; 						
+						break;
+					default:
+						iChargingInfo().iMinAvailableVbusCurrent = 0;
+						iChargingInfo().iMaxVbusCurrent = 0;
+						iChargingInfo().iMinVbusVoltage = 0; 						
+						break;
+					}
+				}
+			else
+				{
+				iChargingInfo().iMinAvailableVbusCurrent = 0;
+				iChargingInfo().iMaxVbusCurrent = 0;
+				iChargingInfo().iMinVbusVoltage = 0;						
+				}
+			break;
+		default:
+			break;
+		}
+	PublishChargingInfo();
+	OstTraceFunctionExit0( CUSBBATTERYCHARGINGPLUGIN_UPDATECHARGINGINF1_EXIT );
+	}
+
+#endif
+
+
+void CUsbBatteryChargingPlugin::PublishChargingInfo()
+	{
+	OstTraceFunctionEntry0( CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_ENTRY );
+	OstTraceExt1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP1, "charging type: %s", 
+		*ChargingTypeToString(iChargingInfo().iChargingPortType) );
+	OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP2, "iUsbConnStatus %d", 
+		iChargingInfo().iUsbConnStatus );
+	OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP3, "iMinAvailableVbusCurrent %d", 
+		iChargingInfo().iMinAvailableVbusCurrent );
+	OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP4, "iMaxVbusCurrent %d", 
+		iChargingInfo().iMaxVbusCurrent );
+	OstTrace1( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP5, "iMinVbusVoltage %d", 
+		iChargingInfo().iMinVbusVoltage );
+	
+	if (iLastPublishedInfo.iChargingPortType != iChargingInfo().iChargingPortType
+		|| iLastPublishedInfo.iUsbConnStatus != iChargingInfo().iUsbConnStatus
+		|| iLastPublishedInfo.iMinAvailableVbusCurrent != iChargingInfo().iMinAvailableVbusCurrent
+		|| iLastPublishedInfo.iMaxVbusCurrent != iChargingInfo().iMaxVbusCurrent
+		|| iLastPublishedInfo.iMinVbusVoltage != iChargingInfo().iMinVbusVoltage)
+		{
+		OstTrace0( TRACE_NORMAL, REF_CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_DUP6, "info changed, publish it");
+		RProperty::Set(KPropertyUidUsbBatteryChargingCategory,
+                      KPropertyUidUsbBatteryChargingInfo,
+                      iChargingInfo);
+		}
+	iLastPublishedInfo = iChargingInfo();
+	OstTraceFunctionExit0( CUSBBATTERYCHARGINGPLUGIN_PUBLISHCHARGINGINFO_EXIT );
+	}
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+
+void CUsbBatteryChargingPlugin::PeerDeviceMaxPower(TUint aCurrent)
+	{
+	OstTraceFunctionEntry0( CUSBBATTERYCHARGINGPLUGIN_PEERDEVICEMAXPOWER_ENTRY );
+	const TUint16 KIBDev_Drawn = 500;
+	iBDevMaxPower = (aCurrent < KIBDev_Drawn)?aCurrent:KIBDev_Drawn;	
+	UpdateChargingInfo();
+	OstTraceFunctionExit0( CUSBBATTERYCHARGINGPLUGIN_PEERDEVICEMAXPOWER_EXIT );
+	}
+#endif
+

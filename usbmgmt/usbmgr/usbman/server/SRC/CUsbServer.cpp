@@ -172,7 +172,9 @@ void CUsbServer::ConstructL()
 	if (iUsbDevice->isPersonalityCfged())
 		{
 #ifndef __OVER_DUMMYUSBDI__
-		iUsbDevice->ValidatePersonalitiesL();
+#ifdef _DEBUG
+		iUsbDevice->ValidatePersonalities();
+#endif
 #endif
 		iUsbDevice->SetDefaultPersonalityL();		
 		}
@@ -187,7 +189,7 @@ void CUsbServer::ConstructL()
 #endif // USE_DUMMY_CLASS_CONTROLLER		
 
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-	iUsbHost = CUsbHost::NewL();
+	iUsbHost = CUsbHost::NewL(*this);
 	//previously this was moved to CUsbSession:StartDeviceL() and similar
 	//But it will cause the loading of personality longer.
 	//So it is moved back here.

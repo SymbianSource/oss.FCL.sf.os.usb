@@ -101,6 +101,7 @@ public: // called by CFdcProxy and CFdfSession
 	void GetProductStringDescriptorL(TUint aDeviceId, TUint32 aLangId, TName& aString) const;
 	const RArray<TUint>& GetSupportedLanguagesL(TUint aDeviceId) const;
 	void GetOtgDeviceDescriptorL(TInt aDeviceId, TOtgDescriptor& aDescriptor) const;
+	void GetConfigurationDescriptorL(TInt aDeviceId, TUsbConfigurationDescriptor& aDescriptor) const;	
 	
 private:
 	CFdf();

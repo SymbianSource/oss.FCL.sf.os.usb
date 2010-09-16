@@ -370,6 +370,26 @@ EXPORT_C TInt RUsbHostStack::GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& a
 	return ret;
 	}
 
+
+EXPORT_C TInt RUsbHostStack::GetConfigurationDescriptor(TUint aDeviceId, TConfigurationDescriptor& aDescriptor)
+	{
+    OstTraceFunctionEntry0( RUSBHOSTSTACK_GETCONFIGRATIONDESCRIPTOR_ENTRY );
+    
+
+	TPckg<TConfigurationDescriptor> configDescriptorPckg(aDescriptor);
+	
+	TIpcArgs args;
+	args.Set(0, aDeviceId);
+	args.Set(1, &configDescriptorPckg);
+
+	TInt ret = SendReceive(EUsbFdfSrvGetConfigurationDescriptor, args);
+	OstTrace1( TRACE_NORMAL, RUSBHOSTSTACK_GETCONFIGRATIONDESCRIPTOR_DUP2, "\tret = %d", ret );
+	        
+	OstTraceFunctionExit0( RUSBHOSTSTACK_GETCONFIGRATIONDESCRIPTOR_EXIT );
+	return ret;
+	}
+
+
 EXPORT_C TInt RUsbHostStack::__DbgFailNext(TInt aCount)
 	{
 #ifdef _DEBUG

@@ -293,17 +293,61 @@ void TMountLogicalUnit::DoExecuteL()
         User::Leave(KErrArgument);
         }
     
+    TUsbMsLogicalUnit* logicalUnit = iServer.Engine().AddUsbMsLogicalUnitL(
+            iEvent.iDeviceId, iEvent.iInterfaceNumber, iLuNumber, iDrive);
+    
     ret = interface->iUsbMsDevice.MountLun(iLuNumber, driveNum);
-    if ((KErrNone != ret) && (KErrAlreadyExists != ret)
-            && (KErrNotReady != ret))
+    
+    if ( KErrNone != ret && KErrAlreadyExists != ret && KErrNotReady
+            != ret && KErrAbort != ret )
         {
-        if (KErrAbort != ret)
-            User::Leave (ret);
+        if ( KErrCorrupt == ret && IsDriveMountedL(driveNum) )
+            {
+            // Current implementation of USB Mass Storage extension will mount
+            // a logical unit successfully even the logical unit is in an 
+            // unsupported format like NTFS or CDFS. So we have to record this 
+            // Logical unit down in the our data engine in order to dismount it
+            // in future when the interface which presents this logical unit is
+            // dettached.
+            THostMsErrData errData;
+            errData.iError = EHostMsErrUnknownFileSystem;
+            errData.iE32Error = KErrCorrupt;
+            errData.iManufacturerString.Copy(
+                    device->iDevice.iManufacturerString);
+            errData.iProductString.Copy(device->iDevice.iProductString);
+            errData.iDriveName = iDrive;
+            iServer.PolicyPlugin()->SendErrorNotificationL(errData);
+            }
+        else
+            {
+            iServer.Engine().RemoveUsbMsNode(logicalUnit);
+            User::Leave(ret);
+            }
         }
 
     iHandler.Start();
     iHandler.Complete();
     OstTraceFunctionExit0( TMOUNTLOGICALUNIT_DOEXECUTEL_EXIT );
+    }
+
+TBool TMountLogicalUnit::IsDriveMountedL(TInt aDriveNum)
+    {
+    OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_ISDRIVEMOUNTEDL_ENTRY );
+    // Check if the new drive mounted successfully.
+    RFs& fs = iServer.FileServerSession();
+
+    TDriveList drives;
+    User::LeaveIfError(fs.DriveList(drives));
+    
+    TBool ret = EFalse;
+    
+    if (aDriveNum >= 0 && aDriveNum < drives.MaxLength())
+        {
+        ret = drives[aDriveNum];
+        }
+    
+    OstTraceFunctionExit0( TMOUNTLOGICALUNIT_ISDRIVEMOUNTEDL_EXIT );
+    return ret;
     }
 
 void TMountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
@@ -321,30 +365,6 @@ void TMountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
     case KErrCorrupt:
         {
         aData.iError = EHostMsErrUnknownFileSystem;
-
-        // Current implementation of USB Mass Storage extension will mount
-        // a logical unit successfully even the logical unit is in an 
-        // unsupported format like NTFS or CDFS. So we have to recode this 
-        // Logical unit down in the our data engine in order to dismount it
-        // in future when the interface which presents this logical unit is
-        // dettached. Reuse DoAsyncCmdCompleteL to do this.
-
-        // Check if the new drive mounted successfully.
-        RFs& fs = iServer.FileServerSession();
-        TInt driveNum;
-        User::LeaveIfError(fs.CharToDrive(iDrive, driveNum));
-        
-        TDriveList drives;
-        User::LeaveIfError(fs.DriveList(drives));
-        
-        if (drives[driveNum])
-            {
-            // Drive name mounted
-            DoAsyncCmdCompleteL();
-            
-            // Restart the handler
-            iHandler.Start();
-            }
         }
         break;
     default:
@@ -365,9 +385,6 @@ void TMountLogicalUnit::DoAsyncCmdCompleteL()
     {
     OstTraceFunctionEntry0( TMOUNTLOGICALUNIT_DOASYNCCMDCOMPLETEL_ENTRY );
     
-    iServer.Engine().AddUsbMsLogicalUnitL(
-            iEvent.iDeviceId, iEvent.iInterfaceNumber, 
-            iLuNumber, iDrive);
     iCreator.CreateSubCmdForSaveLatestMountInfoL(iDrive, iLuNumber);
     OstTraceFunctionExit0( TMOUNTLOGICALUNIT_DOASYNCCMDCOMPLETEL_EXIT );
     }
@@ -466,59 +483,71 @@ void TSaveLatestMountInfo::DoCancelAsyncCmd()
 
 
 /**
- *  TDeregisterInterface member functions
+ *  TRemoveUsbMsDevice member functions
  */
 
-TDeregisterInterface::TDeregisterInterface(
-        THostMsSubCommandParam& aParameter, 
-        TUint8 aInterfaceNumber, TUint32 aInterfaceToken):
+TRemoveUsbMsDevice::TRemoveUsbMsDevice(
+        THostMsSubCommandParam& aParameter):
 TSubCommandBase(aParameter),
-iInterfaceNumber(aInterfaceNumber),
-iInterfaceToken(aInterfaceToken),
-iDeviceNode(NULL),
-iInterfaceNode(NULL)
+iDismountingDrive(0),
+iDeviceNode(NULL)
     {
-    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_TDEREGISTERINTERFACE_CONS_ENTRY );
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICE_TREMOVEUSBMSDEVICE_CONS_ENTRY );
     }
 
-void TDeregisterInterface::DoExecuteL()
+void TRemoveUsbMsDevice::DoExecuteL()
     {
-    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_DOEXECUTEL_ENTRY );
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICE_DOEXECUTEL_ENTRY );
     
     iDeviceNode = iServer.Engine().SearchDevice(iEvent.iDeviceId);
     if (!iDeviceNode)
         {
-        User::Leave(KErrArgument);
+        User::Leave(KErrNotFound);
         }
-
-    iInterfaceNode = iServer.Engine().SearchInterface(iDeviceNode, 
-            iInterfaceNumber);
-    if (!iInterfaceNode)
+    
+    TUsbMsInterface* interfaceNode = iDeviceNode->FirstChild();
+    while (interfaceNode)
         {
-        User::Leave(KErrArgument);
+        TUsbMsLogicalUnit* logicalUnit = interfaceNode->FirstChild();
+        while (logicalUnit)
+            {
+            DismountLogicalUnitL(*interfaceNode, *logicalUnit);
+            logicalUnit = logicalUnit->NextPeer();
+            }
+        
+        interfaceNode->iUsbMsDevice.Remove();
+        interfaceNode = interfaceNode->NextPeer();
         }
- 
-    TUSBMSDeviceDescription& device = iDeviceNode->iDevice;
-
-    iMsConfig.iInterfaceToken = iInterfaceToken;
-    iMsConfig.iVendorId = device.iVendorId;
-    iMsConfig.iProductId = device.iVendorId;
-    iMsConfig.iBcdDevice = device.iBcdDevice;
-    iMsConfig.iConfigurationNumber = device.iConfigurationNumber;
-    iMsConfig.iInterfaceNumber = iInterfaceNumber;
-    iMsConfig.iSerialNumber.Copy(device.iSerialNumber);
-    iInterfaceNode->iUsbMsDevice.Remove();
+    
+    iServer.Engine().RemoveUsbMsNode(iDeviceNode);
+    iDeviceNode = NULL;
 
     // Activate the handler.
     iHandler.Start();
     // Simulate a async request be completed.
     iHandler.Complete();
-    OstTraceFunctionExit0( TDEREGISTERINTERFACE_DOEXECUTEL_EXIT );
+    
+    OstTraceFunctionExit0( TREMOVEUSBMSDEVICE_DOEXECUTEL_EXIT );
     }
 
-void TDeregisterInterface::HandleError(THostMsErrData& aData, TInt aError)
+void TRemoveUsbMsDevice::DismountLogicalUnitL(
+        TUsbMsInterface& aInterfaceNode,
+        const TUsbMsLogicalUnit& aLogicalUnit)
     {
-    OstTraceFunctionEntry0( TDEREGISTERINTERFACE_HANDLEERROR_ENTRY );
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICE_DISMOUNTLOGICALUNITL_ENTRY );
+    RFs& fs = iServer.FileServerSession();
+    TInt driveNum;
+    fs.CharToDrive(aLogicalUnit.iDrive, driveNum);
+    
+    iDismountingDrive = aLogicalUnit.iDrive;
+    User::LeaveIfError(aInterfaceNode.iUsbMsDevice.DismountLun(driveNum));    
+    iDismountingDrive = 0;
+    OstTraceFunctionExit0( TREMOVEUSBMSDEVICE_DISMOUNTLOGICALUNITL_EXIT );
+    }
+    
+void TRemoveUsbMsDevice::HandleError(THostMsErrData& aData, TInt aError)
+    {
+    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICE_HANDLEERROR_ENTRY );
     
     switch (aError)
         {
@@ -537,127 +566,8 @@ void TDeregisterInterface::HandleError(THostMsErrData& aData, TInt aError)
         aData.iManufacturerString.Copy(iDeviceNode->iDevice.iManufacturerString);
         aData.iProductString.Copy(iDeviceNode->iDevice.iProductString);
         }
-    aData.iDriveName = 0;
-    OstTraceFunctionExit0( TDEREGISTERINTERFACE_HANDLEERROR_EXIT );
-    }
-
-/**
- *  TDismountLogicalUnit member functions
- */
-
-TDismountLogicalUnit::TDismountLogicalUnit(
-        THostMsSubCommandParam& aParameter,
-        const TUsbMsLogicalUnit& aLogicalUnit):
-TSubCommandBase(aParameter),
-iLogicalUnit(aLogicalUnit)
-    {
-    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_TDISMOUNTLOGICALUNIT_CONS_ENTRY );
-    }
-
-void TDismountLogicalUnit::DoExecuteL()
-    {
-    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_DOEXECUTEL_ENTRY );
-    
-    RFs& fs = iServer.FileServerSession();
-    TInt driveNum;
-    fs.CharToDrive(iLogicalUnit.iDrive, driveNum);
-
-    TUsbMsInterface* interface(NULL);
-    interface = iLogicalUnit.Parent();
-    if (!interface)
-        {
-        User::Leave(KErrArgument);
-        }
-    User::LeaveIfError(interface->iUsbMsDevice.DismountLun(driveNum));
-    
-    // Activate the handler.
-    iHandler.Start();
-    // Simulate a async request be completed.
-    iHandler.Complete();
-    OstTraceFunctionExit0( TDISMOUNTLOGICALUNIT_DOEXECUTEL_EXIT );
-    }
-
-void TDismountLogicalUnit::HandleError(THostMsErrData& aData, TInt aError)
-    {
-    OstTraceFunctionEntry0( TDISMOUNTLOGICALUNIT_HANDLEERROR_ENTRY );
-    
-    switch (aError)
-        {
-    case KErrNoMemory:
-        aData.iError = EHostMsErrOutOfMemory;
-        break;
-    case KErrArgument:
-        aData.iError = EHostMsErrInvalidParameter;
-        break;
-    default:
-        aData.iError = EHostMsErrGeneral;
-        }
-    aData.iE32Error = aError;
-    TUsbMsDevice* deviceNode = iServer.Engine().SearchDevice(iEvent.iDeviceId);
-    if (deviceNode)
-        {
-        aData.iManufacturerString.Copy(deviceNode->iDevice.iManufacturerString);
-        aData.iProductString.Copy(deviceNode->iDevice.iProductString);
-        }
-    aData.iDriveName = iLogicalUnit.iDrive;
-    OstTraceFunctionExit0( TDISMOUNTLOGICALUNIT_HANDLEERROR_EXIT );
-    }
-
-/**
- *  TRemoveUsbMsDeviceNode member functions
- */
-
-TRemoveUsbMsDeviceNode::TRemoveUsbMsDeviceNode(
-        THostMsSubCommandParam& aParameter,
-        TMsmmNodeBase* aNodeToBeRemoved):
-TSubCommandBase(aParameter),
-iNodeToBeRemoved(aNodeToBeRemoved)
-    {
-    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_TREMOVEUSBMSDEVICENODE_CONS_ENTRY );
-    }
-
-void TRemoveUsbMsDeviceNode::DoExecuteL()
-    {
-    OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_DOEXECUTEL_ENTRY );
-    
-    if(iNodeToBeRemoved)
-        {
-        iServer.Engine().RemoveUsbMsNode(iNodeToBeRemoved);
-        iNodeToBeRemoved = NULL;
-        }
-    else
-        {
-        User::Leave(KErrArgument);
-        }
-    
-    // Activate the handler.
-    iHandler.Start();
-    // Simulate a async request be completed.
-    iHandler.Complete();
-    OstTraceFunctionExit0( TREMOVEUSBMSDEVICENODE_DOEXECUTEL_EXIT );
-    }
-
-void TRemoveUsbMsDeviceNode::HandleError(THostMsErrData& aData, TInt aError)
-    {
-      OstTraceFunctionEntry0( TREMOVEUSBMSDEVICENODE_HANDLEERROR_ENTRY );
-      
-    switch (aError)
-        {
-    case KErrArgument:
-        aData.iError = EHostMsErrInvalidParameter;
-        break;
-    default:
-        aData.iError = EHostMsErrGeneral;
-        }
-    aData.iE32Error = aError;
-    TUsbMsDevice* deviceNode = iServer.Engine().SearchDevice(iEvent.iDeviceId);
-    if (deviceNode)
-        {
-        aData.iManufacturerString.Copy(deviceNode->iDevice.iManufacturerString);
-        aData.iProductString.Copy(deviceNode->iDevice.iProductString);
-        }
-    aData.iDriveName = 0;
-    OstTraceFunctionExit0( TREMOVEUSBMSDEVICENODE_HANDLEERROR_EXIT );
+    aData.iDriveName = iDismountingDrive;
+    OstTraceFunctionExit0( TREMOVEUSBMSDEVICE_HANDLEERROR_EXIT );
     }
 
 // End of file

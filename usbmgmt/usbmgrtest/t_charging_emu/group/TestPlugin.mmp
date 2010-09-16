@@ -33,7 +33,6 @@ CAPABILITY CommDD NetworkControl NetworkServices LocalServices ProtServ
 SOURCEPATH      ../../../usbmgr/usbman/chargingplugin/src
 SOURCE			CUsbBatteryChargingPlugin.cpp
 SOURCE          chargingstates.cpp
-SOURCE			repositorynotifier.cpp
 SOURCE			reenumerator.cpp
 SOURCE			devicestatetimer.cpp
 SOURCE			vbuswatcher.cpp
@@ -54,8 +53,6 @@ LIBRARY 		euser.lib
 LIBRARY 		usbmanextensionplugin.lib 
 LIBRARY			centralrepository.lib
 
-
-library	flogger.lib
 
 NOEXPORTLIBRARY
 

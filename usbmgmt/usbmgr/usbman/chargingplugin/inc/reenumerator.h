@@ -29,7 +29,11 @@
 #include <dummyldd.h>
 #define __D32USBC_H__ // ensure that d32usbc is ignored
 #else
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <usb/d32usbc.h>
+#else
 #include <d32usbc.h>
+#endif
 #endif
 
 class CUsbChargingReEnumerator : public CActive

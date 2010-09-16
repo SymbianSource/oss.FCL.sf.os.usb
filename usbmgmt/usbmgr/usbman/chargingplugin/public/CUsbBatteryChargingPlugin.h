@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -29,18 +29,28 @@
 #define __D32USBC_H__ // ensure that d32usbc is ignored
 #define private protected
 #else
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <usb/d32usbc.h>
+#else
 #include <d32usbc.h>
+#endif
 #endif
 
 #include <cusbmanextensionplugin.h>
-#include "usbbatterycharging.h"
 #include <musbdevicenotify.h>
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+#include <musbchargingnotify.h>
+#endif
+
+#include "usbbatterycharging.h"
 #include "devicestatetimer.h"
-#include "repositorynotifier.h"
 #include "motgobserver.h"
+#include "usbchargingpublishedinfo.h"
+
+
+
 
 class CUsbChargingReEnumerator;
-class CUsbBatteryChargingLicenseeHooks;
 
 // For host OTG enabled charging plug-in
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
@@ -52,7 +62,6 @@ class CVBusWatcher;
 
 enum TUsbBatteryChargingPanic
     {
-    EUsbBatteryChargingPanicBadUserSetting = 0,
     EUsbBatteryChargingPanicBadPluginState = 1,
     EUsbBatteryChargingPanicUnexpectedPluginState = 2,
     EUsbBatteryChargingPanicBadDeviceState = 3,
@@ -61,9 +70,17 @@ enum TUsbBatteryChargingPanic
     EUsbBatteryChargingPanicBadCharingCurrentNegotiation = 6
     };
 
+enum TUsbSpeedType
+    {
+    EUsbFullSpeed = 1,
+    EUsbHighSpeed = 2   
+    };
+
 // For host OTG enabled charging plug-in
 class MUsbBatteryChargingPluginInterface : public MUsbDeviceNotify,
-    public MUsbChargingRepositoryObserver,
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+    public MUsbChargingNotify,
+#endif
     public MUsbChargingDeviceStateTimerObserver, public MOtgPropertiesObserver
     {
 public:  // from MUsbDeviceNotify
@@ -71,10 +88,7 @@ public:  // from MUsbDeviceNotify
         TUsbServiceState aOldState, TUsbServiceState aNewState) = 0;
     virtual void UsbDeviceStateChange (TInt aLastError,
         TUsbDeviceState aOldState, TUsbDeviceState aNewState) = 0;
-
-public: // from MUsbChargingRepositoryObserver
-    virtual void HandleRepositoryValueChangedL(const TUid& aRepository, TUint aId, TInt aVal) = 0;
-    
+  
 public: // from MUsbChargingDeviceStateTimerObserver
     virtual void DeviceStateTimeout() = 0;
 
@@ -85,16 +99,20 @@ public: // from MOtgPropertiesObserver
     virtual void MpsoOtgStateChangedL(TUsbOtgState aNewState) = 0;
 #endif    
     virtual void MpsoVBusStateChanged(TInt aNewState) = 0;
+// From MUsbChargingNotify
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+    virtual void UsbChargingPortType(TUint aChargingPortType) = 0;
+	virtual void PeerDeviceMaxPower(TUint aCurrent) = 0;
+#endif
     };
 
 class TUsbBatteryChargingPluginStateBase;
 class TUsbBatteryChargingPluginStateIdle;
-class TUsbBatteryChargingPluginStateIdleUserDisabled;
-class TUsbBatteryChargingPluginStateNoValidcurrent;
+class TUsbBatteryChargingPluginStateNoValidCurrent;
 class TUsbBatteryChargingPluginStateCurrentNegotiating;
-class TUsbBatteryChargingPluginStateCharging;
-class TUsbBatteryChargingPluginStateIdelNegotiated;
+class TUsbBatteryChargingPluginStateIdleNegotiated;
 class TUsbBatteryChargingPluginStateBEndedCableNotPresent;
+
 
 enum TUsbChargingPluginState
     {
@@ -107,16 +125,10 @@ enum TUsbChargingPluginState
     
     // Negotiation failed
     EPluginStateNoValidCurrent,
-    
-    // The only that indicate charging is going on 
-    EPluginStateCharging,
-    
+      
     // charging is stopped for some reason, but negotiation is done already
     EPluginStateIdleNegotiated,
     
-    // User Disabled "charging from usb" functionality
-    EPluginStateUserDisabled,
-
     // Deivce is connect with A end cable, so, no way to do a charging to itself 
     EPluginStateBEndedCableNotPresent,
         
@@ -130,10 +142,8 @@ class CUsbBatteryChargingPlugin : public CUsbmanExtensionPlugin,
     {
     friend class TUsbBatteryChargingPluginStateBase;
     friend class TUsbBatteryChargingPluginStateIdle;
-    friend class TUsbBatteryChargingPluginStateUserDisabled;
     friend class TUsbBatteryChargingPluginStateNoValidCurrent;
     friend class TUsbBatteryChargingPluginStateCurrentNegotiating;
-    friend class TUsbBatteryChargingPluginStateCharging;
     friend class TUsbBatteryChargingPluginStateIdleNegotiated;
     friend class TUsbBatteryChargingPluginStateBEndedCableNotPresent;
     
@@ -150,10 +160,7 @@ private:  // from MUsbBatteryChargingPluginInterface
         TUsbServiceState aOldState, TUsbServiceState aNewState);
     void UsbDeviceStateChange (TInt aLastError,
         TUsbDeviceState aOldState, TUsbDeviceState aNewState);
-
-    // from MUsbChargingRepositoryObserver
-    void HandleRepositoryValueChangedL(const TUid& aRepository, TUint aId, TInt aVal);
-    
+  
     // from MUsbChargingDeviceStateTimerObserver
     void DeviceStateTimeout();
 
@@ -165,18 +172,23 @@ private:  // from MUsbBatteryChargingPluginInterface
 #endif
     
     void MpsoVBusStateChanged(TInt aNewState);
+
+    // from MUsbChargingNotify
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1    
+    void UsbChargingPortType(TUint aChargingPortType);
+	void PeerDeviceMaxPower(TUint aCurrent);
+#endif
+
+    void ResetFromChargingPossible();
+    const TDesC8* ChargingTypeToString(TUint aChargingType);
 private:
     CUsbBatteryChargingPlugin(MUsbmanExtensionPluginObserver& aObserver);
     void ConstructL();
     void Panic(TUsbBatteryChargingPanic aPanic);
 
 private:
-    void StartCharging(TUint aMilliAmps);
-    void StopCharging();
-    
-    void SetNegotiatedCurrent(TUint aMilliAmps);
+   
     void ReadCurrentRequestValuesL();
-    
     void NegotiateChargingCurrent();
     void NegotiateNextCurrentValueL();
     void RequestCurrentL(TUint aMilliAmps);
@@ -188,17 +200,15 @@ private:
     TBool IsUsbChargingPossible();
     
     void LogStateText(TUsbDeviceState aState);
-    void PushRecoverState(TUsbChargingPluginState aRecoverState);
-    TUsbChargingPluginState PopRecoverState();
-    
+   
     TUsbChargingPluginState SetState(TUsbChargingPluginState aState);
+	void PublishChargingInfo();
+	void UpdateChargingInfo();
+	void QueryCurrentSpeed();
     
 private: // owned
     RDevUsbcClient& iLdd;
-       
-    // user allow usb charging function already?
-    TUsbBatteryChargingUserSetting iUserSetting;
-    
+         
     // More than one value will be tried by the negotiation process to 
     // aquire a as larger current value as possible for charging
     RArray<TInt> iCurrentValues;
@@ -210,13 +220,13 @@ private: // owned
     TInt iCurrentIndexRequested;
     
     //value of negotiated current
-    TInt iAvailableMilliAmps;   
+    TInt iAvailableMilliAmps; 
+
+	//when ACARIDA, max power in B device's configuration
+	TInt iBDevMaxPower;
 
     CUsbChargingDeviceStateTimer*   iDeviceStateTimer;
-    CUsbChargingRepositoryNotifier* iRepositoryNotifier;
     CUsbChargingReEnumerator*       iDeviceReEnumerator;
-
-    CUsbBatteryChargingLicenseeHooks* iLicenseeHooks;
 
 // For host OTG enabled charging plug-in
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV     
@@ -234,9 +244,15 @@ private: // owned
     
     // Plug-in States
     TUsbChargingPluginState iPluginState; // Current state machine status
-    TUsbChargingPluginState iPluginStateToRecovery; // The recover state when user enable USB Charging
     TUsbBatteryChargingPluginStateBase* iCurrentState; // Owned
     TUsbBatteryChargingPluginStateBase* iPluginStates[EPluginStateCount]; // State implementations
+
+    TUsbSpeedType iUsbSpeedType;
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1		
+    TUsbcChargerDetectorProperties iChargerDetectotCaps;
+#endif
+    TPckgBuf<TPublishedUsbChargingInfo> iChargingInfo;
+    TPublishedUsbChargingInfo iLastPublishedInfo;
     };
 
 #endif // USBBATTERYCHARGINGPLUGIN_H

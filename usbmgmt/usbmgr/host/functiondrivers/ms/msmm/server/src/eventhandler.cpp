@@ -376,27 +376,12 @@ void CDeviceEventHandler::CreateSubCmdForRemovingUsbMsDeviceL()
         {
         User::Leave(KErrNotFound);
         }
-    TUsbMsInterface* interface = device->FirstChild();
+
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
-    while (interface)
-        {
-        TUsbMsLogicalUnit* logicalUnit = interface->FirstChild();
-        while (logicalUnit)
-            {
-            TDismountLogicalUnit* dismount = 
-                new (ELeave) TDismountLogicalUnit(parameter, *logicalUnit);
-            iSubCommandQueue.PushL(dismount);
-            logicalUnit = logicalUnit->NextPeer();
-            }
-        TDeregisterInterface* deregister = new (ELeave) TDeregisterInterface(
-                parameter, 
-                interface->iInterfaceNumber, interface->iInterfaceToken);
-        iSubCommandQueue.PushL(deregister);
-        interface = interface->NextPeer();
-        };
-    TRemoveUsbMsDeviceNode* removeNode = 
-        new (ELeave) TRemoveUsbMsDeviceNode(parameter, device);
-    iSubCommandQueue.PushL(removeNode);
+    TRemoveUsbMsDevice* removeMsDevice = new (ELeave) TRemoveUsbMsDevice(
+            parameter);
+    iSubCommandQueue.PushL(removeMsDevice);
+    
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORREMOVINGUSBMSDEVICEL_EXIT );
     }
 

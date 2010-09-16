@@ -70,6 +70,7 @@ public:
 	IMPORT_C TInt GetProductStringDescriptor(TUint aDeviceId, TUint aLangId, TName& aString);
 	
 	IMPORT_C TInt GetOtgDescriptor(TUint aDeviceId, TOtgDescriptor& aDescriptor);
+	IMPORT_C TInt GetConfigurationDescriptor(TUint aDeviceId, TConfigurationDescriptor& aDescriptor);
 
 	// Support for server-side out-of-memory testing. In release, these just
 	// return KErrNone.

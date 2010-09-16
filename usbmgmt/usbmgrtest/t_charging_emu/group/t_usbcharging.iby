@@ -18,20 +18,14 @@
 #ifndef __T_USBCHARGING_IBY__
 #define __T_USBCHARGING_IBY__
 
-// *** Manual Test executable
-file=ABI_DIR\USB_DIR\tbatterycharging.exe    System\Programs\tbatterycharging.exe
-file=ABI_DIR\USB_DIR\tbatterychargingrepositorywriter.exe    System\Programs\tbatterychargingrepositorywriter.exe
-
-// *** file needed for the manual test when built in ROM
-data=EPOCROOT##Epoc32\data\z\system\data\t_charging.txt	"system\data\t_charging.txt"
-
 
 // *** Test plug-in
 #if defined(SYMBIAN_ENABLE_USB_OTG_HOST) && defined (SYMBIAN_INCLUDE_USB_OTG_HOST)
-USB_PLUGIN(usbbatterychargingtestpluginotg.dll,usbbatterychargingtestpluginotg.rsc)
+	USB_PLUGIN(usbbatterychargingtestpluginotg.dll,usbbatterychargingtestpluginotg.rsc)
 #else
-USB_PLUGIN(usbbatterychargingtestplugin.dll,usbbatterychargingtestplugin.rsc)
+	USB_PLUGIN(usbbatterychargingtestplugin.dll,usbbatterychargingtestplugin.rsc)
 #endif
+
 data=EPOCROOT##epoc32\data\z\private\10202be9\10208DD7.txt private\10202be9\10208DD7.txt
 
 #endif

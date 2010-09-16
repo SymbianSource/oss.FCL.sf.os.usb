@@ -41,6 +41,10 @@ source			UsbUtils.cpp
 source			CPersonality.cpp
 source          	usbmancenrepmanager.cpp
 
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+source			cusbchargingporttypewatcher.cpp
+#endif
+
 userinclude		../INC
 userinclude		../public
 userinclude		../../../host/fdf/production/client/public 

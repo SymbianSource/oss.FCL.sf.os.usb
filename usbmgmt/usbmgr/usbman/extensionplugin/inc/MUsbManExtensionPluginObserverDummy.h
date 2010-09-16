@@ -29,6 +29,9 @@
 #include "dummyusblddapi.h"
 
 class MUsbDeviceNotify;
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+class MUsbChargingNotify;
+#endif
 
 class MUsbmanExtensionPluginObserver
 	{
@@ -45,6 +48,9 @@ public:
 	@param aObserver The observer to register for state changes
 	*/
 	IMPORT_C void RegisterStateObserverL(MUsbDeviceNotify& aObserver);
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1		
+	IMPORT_C void RegisterChargingObserverL(MUsbChargingNotify& aObserver);
+#endif	
 
 private:
 	/**
@@ -56,6 +62,9 @@ private:
 	@see RegisterStateObserverL.
 	*/
 	virtual void MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver) = 0;
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	virtual void MuepoDoRegisterChargingObserverL(MUsbChargingNotify& aObserver) = 0;	
+#endif	
 	};
 
 #endif // USBMANEXTENSIONPLUGINOBSERVERDUMMY_H

@@ -22,7 +22,7 @@
 #ifndef __CDUMMYUSBDEVICE_H__
 #define __CDUMMYUSBDEVICE_H__
 
-#include <usb/chargingtest/cusbbatterychargingtestplugin.h>
+#include <usb/chargingtest/CUsbBatteryChargingTestPlugin.h>
 #include <usbstates.h>
 #include <ecom/ecom.h>
 #include <e32std.h>

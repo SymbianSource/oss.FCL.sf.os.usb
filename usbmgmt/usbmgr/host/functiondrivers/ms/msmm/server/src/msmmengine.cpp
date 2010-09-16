@@ -101,7 +101,7 @@ TUsbMsInterface* CMsmmEngine::AddUsbMsInterfaceL(TInt aDeviceId, TUint8 aInterfa
     return interface;
     }
 
-void CMsmmEngine::AddUsbMsLogicalUnitL(TInt aDeviceId,
+TUsbMsLogicalUnit* CMsmmEngine::AddUsbMsLogicalUnitL(TInt aDeviceId,
         TInt aInterfaceNumber, TInt aLogicalUnitNumber, TText aDrive)
     {
     OstTraceFunctionEntry0( CMSMMENGINE_ADDUSBMSLOGICALUNITL_ENTRY );
@@ -113,15 +113,17 @@ void CMsmmEngine::AddUsbMsLogicalUnitL(TInt aDeviceId,
         }
     
     TUsbMsInterface* interface = SearchInterface(device, aInterfaceNumber);
+    TUsbMsLogicalUnit* logicalUnit = NULL;
     if (interface)
         {
-        AddUsbMsLogicalUnitNodeL(interface, aLogicalUnitNumber, aDrive);
+        logicalUnit = AddUsbMsLogicalUnitNodeL(interface, aLogicalUnitNumber, aDrive);
         }
     else
         {
         User::Leave(KErrArgument); // A proper interface node can't be found
         }
     OstTraceFunctionExit0( CMSMMENGINE_ADDUSBMSLOGICALUNITL_EXIT );
+    return logicalUnit;
     }
 
 void CMsmmEngine::RemoveUsbMsNode(TMsmmNodeBase* aNodeToBeRemoved)

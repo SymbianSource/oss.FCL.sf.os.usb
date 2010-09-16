@@ -63,6 +63,7 @@ private: // utility- IPC command handlers
 	void GetProductStringDescriptor(const RMessage2& aMessage);
 	
 	void GetOtgDeviceDescriptor(const RMessage2& aMessage);
+	void GetConfigurationDescriptor(const RMessage2& aMessage);
 
 private:
 	enum TStringType

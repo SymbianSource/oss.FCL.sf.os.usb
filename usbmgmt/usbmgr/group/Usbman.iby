@@ -117,13 +117,12 @@ file=ABI_DIR\USB_DIR\t_usbman_dummycc.exe		usbsvr.exe
 file=ABI_DIR\USB_DIR\usbclasscontroller.dll		usbclasscontroller.dll
 file=ABI_DIR\USB_DIR\usbmanextensionplugin.dll		usbmanextensionplugin.dll
 
-#ifdef WITH_REFERENCE_USB_CHARGING_PLUGIN
-// *** Reference battery charging plug-in
-#if defined(SYMBIAN_ENABLE_USB_OTG_HOST) && defined (SYMBIAN_INCLUDE_USB_OTG_HOST)
-USB_PLUGIN(usbbatterychargingpluginotg.dll,usbbatterychargingpluginotg.rsc)
-#else
-USB_PLUGIN(usbbatterychargingplugin.dll,usbbatterychargingplugin.rsc)
-#endif
+#if defined(SYMBIAN_USB_BATTERYCHARGING_V1_1) || defined (WITH_REFERENCE_USB_CHARGING_PLUGIN)
+	#if defined(SYMBIAN_ENABLE_USB_OTG_HOST) && defined (SYMBIAN_INCLUDE_USB_OTG_HOST)
+		USB_PLUGIN(usbbatterychargingpluginotg.dll,usbbatterychargingpluginotg.rsc)
+	#else
+		USB_PLUGIN(usbbatterychargingplugin.dll,usbbatterychargingplugin.rsc)
+	#endif
 #endif
 
 // *** WHCM Class Controller - used for OBEX over USB.

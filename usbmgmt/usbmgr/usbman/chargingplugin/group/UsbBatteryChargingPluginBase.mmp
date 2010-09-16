@@ -22,7 +22,6 @@
 @SYMPurpose base mmp of UsbMan extension plugin for battery charging.
 @SYMPurpose Resource file for charging plugin.
 */
-
 TARGETTYPE		PLUGIN
 // UID2 = 0x10009d8d for ECOM plugins.
 // UID3 = the 'DLL UID' (see resource file)
@@ -36,15 +35,12 @@ SOURCE          CUsbBatteryChargingPlugin.cpp
 SOURCE          chargingstates.cpp
 SOURCE          devicestatetimer.cpp
 SOURCE          reenumerator.cpp
-SOURCE          repositorynotifier.cpp
 
 
 USERINCLUDE		../inc
 USERINCLUDE		../public
 OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 
-// use this line for default implementation
-USERINCLUDE	../inc/default 
 USERINCLUDE	../traces	
 
 LIBRARY 		euser.lib 

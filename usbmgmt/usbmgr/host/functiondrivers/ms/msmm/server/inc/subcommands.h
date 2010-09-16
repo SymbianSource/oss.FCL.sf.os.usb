@@ -95,7 +95,8 @@ private:
     // From TSubCommandBase
     void DoExecuteL();
     void DoAsyncCmdCompleteL();
-
+	
+    TBool IsDriveMountedL(TInt aDriveNum);
 private:
     TText iDrive;
     TInt iLuNumber;
@@ -125,13 +126,12 @@ private:
     };
 
 
-// TDeregisterInterface class
-// Sub-command to deregister a USB MS function from RUsbHostMsDevice
-NONSHARABLE_CLASS(TDeregisterInterface) : public TSubCommandBase
+// TRemoveUsbMsDevice class
+// Sub-command to remove a USB MS Device
+NONSHARABLE_CLASS(TRemoveUsbMsDevice) : public TSubCommandBase
     {
 public:
-    TDeregisterInterface(THostMsSubCommandParam& aParameter,
-            TUint8 aInterfaceNumber, TUint32 aInterfaceToken);
+    TRemoveUsbMsDevice(THostMsSubCommandParam& aParameter);
 
     // From TSubCommandBase
     void HandleError(THostMsErrData& aData, TInt aError);
@@ -140,52 +140,12 @@ private:
     // From TSubCommandBase
     void DoExecuteL();
     
-private:
-    TUint8 iInterfaceNumber;
-    TUint32 iInterfaceToken;
-    THostMassStorageConfig iMsConfig;
-    TUsbMsDevice* iDeviceNode; // Not owned
-    TUsbMsInterface* iInterfaceNode; // Not owned
-    };
-
-
-// TDismountLogicalUnit class
-// Sub-command to dismount a logical unit
-class TUsbMsLogicalUnit;
-NONSHARABLE_CLASS (TDismountLogicalUnit) : public TSubCommandBase
-    {
-public:
-    TDismountLogicalUnit(THostMsSubCommandParam& aParameter,
+    void DismountLogicalUnitL(TUsbMsInterface& aInterfaceNode,
             const TUsbMsLogicalUnit& aLogicalUnit);
-
-    // From TSubCommandBase
-    void HandleError(THostMsErrData& aData, TInt aError);
     
 private:
-    // From TSubCommandBase
-    void DoExecuteL();
-
-private:
-    const TUsbMsLogicalUnit& iLogicalUnit;
-    };
-
-
-// TRemoveUsbMsDeviceNode class
-// Sub-command to dismount a logical unit
-class TMsmmNodeBase;
-NONSHARABLE_CLASS(TRemoveUsbMsDeviceNode) : public TSubCommandBase
-    {
-public:
-    TRemoveUsbMsDeviceNode(THostMsSubCommandParam& aParameter,
-            TMsmmNodeBase* aNodeToBeRemoved);
-
-    // From TSubCommandBase
-    void HandleError(THostMsErrData& aData, TInt aError);
-    
-private:
-    // From TSubCommandBase
-    void DoExecuteL();
-    TMsmmNodeBase* iNodeToBeRemoved; // No ownership
+    TText iDismountingDrive;
+    TUsbMsDevice* iDeviceNode; // Not owned
     };
 
 #endif /*SUBCOMMANDS_H*/

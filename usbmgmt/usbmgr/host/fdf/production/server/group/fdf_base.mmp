@@ -52,3 +52,4 @@ LIBRARY 		euser.lib
 LIBRARY			ecom.lib
 LIBRARY			fdcbase.lib
 LIBRARY			efsrv.lib
+LIBRARY			usbdescriptors.lib

@@ -24,7 +24,6 @@
 #include <cusbclasscontrollerbase.h>
 #include <cusbclasscontrollerplugin.h>
 #include <bafl/sysutil.h>
-#include <usb/usblogger.h>
 #include <e32svr.h>
 #include <e32base.h>
 #include <e32std.h>
@@ -47,6 +46,7 @@
 #include "UsbUtils.h"
 #include "CUsbDevice.h"
 #include "CUsbDeviceStateWatcher.h"
+#include "cusbchargingporttypewatcher.h"
 #include "CPersonality.h"
 #include "usbmancenrepmanager.h"
 #include "usbmanprivatecrkeys.h"
@@ -128,6 +128,10 @@ CUsbDevice::~CUsbDevice()
 	// we don't want to call ResetAndDestroy, because we don't own
 	// the observers themselves.
 	iObservers.Reset();
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	iChargingObservers.Reset();
+	delete iChargerTypeWatcher;
+#endif
 
 #ifndef __OVER_DUMMYUSBDI__
 #ifndef __WINS__
@@ -246,6 +250,11 @@ void CUsbDevice::ConstructL()
 
 	iDeviceStateWatcher = CUsbDeviceStateWatcher::NewL(*this, iLdd);
 	iDeviceStateWatcher->Start();
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+	iChargerTypeWatcher = CUsbChargingPortTypeWatcher::NewL(*this, iLdd);
+	iChargerTypeWatcher->Start();
+#endif	
 
 	// Get hold of the default serial number in the driver
 	// This is so it can be put back in place when a device that sets a
@@ -1153,13 +1162,13 @@ void CUsbDevice::SetCurrentPersonalityL(TInt aPersonalityId)
  	OstTraceFunctionExit0( CUSBDEVICE_SETCURRENTPERSONALITYL_EXIT );
  	}
 	
-void CUsbDevice::ValidatePersonalitiesL()
+void CUsbDevice::ValidatePersonalities()
 /**
  * Verifies all class controllers associated with each personality are loaded.
  * Leave if validation fails.
  */
 	{
-	OstTraceFunctionEntry0( CUSBDEVICE_VALIDATEPERSONALITIESL_ENTRY );
+	OstTraceFunctionEntry0( CUSBDEVICE_VALIDATEPERSONALITIES_ENTRY );
 
 	TInt personalityCount = iSupportedPersonalities.Count();
 	for (TInt i = 0; i < personalityCount; i++)
@@ -1170,10 +1179,10 @@ void CUsbDevice::ValidatePersonalitiesL()
 			{
 			TInt ccCount = iSupportedClassUids.Count();
 			TInt k;
-		    OstTrace1( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL_DUP1, "CUsbDevice::ValidatePersonalitiesL;iSupportedClassUids Count = %d", ccCount );
+		    OstTrace1( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIES_DUP1, "CUsbDevice::ValidatePersonalities;iSupportedClassUids Count = %d", ccCount );
 			for (k = 0; k < ccCount; k++)
 				{
-                OstTraceExt4( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL_DUP2, "CUsbDevice::ValidatePersonalitiesL;iSupportedClassUids %d %x classes %d %x", k, iSupportedClassUids[k].iUid, j, classes[j].iClassUid.iUid );
+                OstTraceExt4( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIES_DUP2, "CUsbDevice::ValidatePersonalities;iSupportedClassUids %d %x classes %d %x", k, iSupportedClassUids[k].iUid, j, classes[j].iClassUid.iUid );
 				if (iSupportedClassUids[k] == classes[j].iClassUid)
 					{
 					break;
@@ -1181,12 +1190,15 @@ void CUsbDevice::ValidatePersonalitiesL()
 				}
 			if (k == ccCount)
 				{
-				OstTrace0( TRACE_NORMAL, CUSBDEVICE_VALIDATEPERSONALITIESL, "CUsbDevice::ValidatePersonalitiesL;personality validation failed" );
-				User::Leave(KErrAbort);
+				OstTrace1( TRACE_FATAL, CUSBDEVICE_VALIDATEPERSONALITIES, "CUsbDevice::ValidatePersonalities; Validation failed, class %x not supported", classes[j].iClassUid.iUid );
+				// Previously leaves here. But this causes that USB doesn't work.
+				// Now this function will only be called in debug version and only shows some information.
+				// The behaviour is a little different with before but should be ok.
+				// After the device image is verified, this error will never happen at run time.
 				}					
 			}	
 		}
-	OstTraceFunctionExit0( CUSBDEVICE_VALIDATEPERSONALITIESL_EXIT );
+	OstTraceFunctionExit0( CUSBDEVICE_VALIDATEPERSONALITIES_EXIT );
 	}
 /**
 Converts text string with UIDs to array of Uint
@@ -1387,3 +1399,82 @@ void CUsbDevice::MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver)
 	OstTrace1( TRACE_NORMAL, CUSBDEVICE_MUEPODOREGISTERSTATEOBSERVERL, "CUsbDevice::MuepoDoRegisterStateObserverL;aObserver = 0x%08x", &aObserver );
 	RegisterObserverL(aObserver);
 	}
+
+
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1
+void CUsbDevice::MuepoDoRegisterChargingObserverL(MUsbChargingNotify& aObserver)
+/**
+ * Inherited from MUsbmanExtensionPluginObserver - Function used by plugins to
+ * register themselves for notifications of charging changes.
+ *
+ * @param aObserver New Observer of the device
+ */
+	{
+	OstTrace1( TRACE_NORMAL, CUSBDEVICE_MUEPODOREGISTERCHARGINGOBSERVERL, "CUsbDevice::MuepoDoRegisterChargingObserverL;aObserver = 0x%08x", &aObserver );
+	RegisterChargingInfoObserverL(aObserver);
+	}
+
+
+void CUsbDevice::RegisterChargingInfoObserverL(MUsbChargingNotify& aObserver)
+/**
+ * Register an observer of charging.
+ * Presently, the device supports watching state.
+ *
+ * @param	aObserver	New Observer of the charging
+ */
+	{
+	OstTraceFunctionEntry0( CUSBDEVICE_REGISTERCHARGINGINFOOBSERVERL_ENTRY );
+	TInt err = iChargingObservers.Append(&aObserver);
+	if(err < 0)
+	    {
+        OstTrace1( TRACE_NORMAL, CUSBDEVICE_REGISTERCHARGINGINFOOBSERVERL, "CUsbDevice::RegisterObserverL;iObservers.Append(&aObserver) with err=%d", err );
+        User::Leave(err);
+	    }
+	OstTraceFunctionExit0( CUSBDEVICE_REGISTERCHARGINGINFOOBSERVERL_EXIT );
+	}
+
+
+void CUsbDevice::DeRegisterChargingInfoObserver(MUsbChargingNotify& aObserver)
+/**
+ * De-registers an existing charging observer.
+ *
+ * @param	aObserver	The existing device observer to be de-registered
+ */
+	{
+	OstTraceFunctionEntry0( CUSBDEVICE_DEREGISTERCHARGINGINFOOBSERVERL_ENTRY );
+
+	TInt index = iChargingObservers.Find(&aObserver);
+
+	if (index >= 0)
+		iObservers.Remove(index);
+	OstTraceFunctionExit0( CUSBDEVICE_DEREGISTERCHARGINGINFOOBSERVERL_EXIT );
+	}
+
+
+void CUsbDevice::SetChargingPortType(TUsbcChargingPortType aChargingPortType)
+	{
+	OstTraceFunctionEntry0( CUSBDEVICE_SETCHARGINGPORTTYPE_ENTRY );
+	TUint length = iChargingObservers.Count();
+
+	for (TUint i = 0; i < length; i++)
+		{
+		iChargingObservers[i]->UsbChargingPortType(aChargingPortType);
+		}
+	OstTraceFunctionExit0( CUSBDEVICE_SETCHARGINGPORTTYPE_EXIT );
+	}
+
+void CUsbDevice::PeerDeviceMaxPower(TUint aCurrent)
+	{
+	OstTraceFunctionEntry0( CUSBDEVICE_PEERDEVICEMAXPOWER_ENTRY );
+	OstTrace1( TRACE_NORMAL, CUSBDEVICE_PEERDEVICEMAXPOWER_DUP, "CUsbDevice::PeerDeviceMaxPower with aCurrent=%d", aCurrent);
+	TUint length = iChargingObservers.Count();
+
+	for (TUint i = 0; i < length; i++)
+		{
+		iChargingObservers[i]->PeerDeviceMaxPower(aCurrent);
+		}		
+	OstTraceFunctionExit0( CUSBDEVICE_PEERDEVICEMAXPOWER_EXIT );
+	}
+
+#endif
+

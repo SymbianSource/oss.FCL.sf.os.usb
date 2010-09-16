@@ -56,8 +56,9 @@ enum
 	EUsbFdfSrvGetManufacturerStringDescriptor							= 8,
 	EUsbFdfSrvGetProductStringDescriptor								= 9,
 	EUsbFdfSrvGetOtgDescriptor                                          = 10,
-	EUsbFdfSrvDbgFailNext												= 11,
-	EUsbFdfSrvDbgAlloc													= 12,
+	EUsbFdfSrvGetConfigurationDescriptor								= 11,
+	EUsbFdfSrvDbgFailNext												= 12,
+	EUsbFdfSrvDbgAlloc													= 13,
 	};
 
 /** Panic codes which which the server panics an offending client. */

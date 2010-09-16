@@ -8,5 +8,4 @@ EXPORTS
 	_ZN30MUsbmanExtensionPluginObserver13DevUsbcClientEv @ 7 NONAME
 	_ZN30MUsbmanExtensionPluginObserver22RegisterStateObserverLER16MUsbDeviceNotify @ 8 NONAME
 	_ZTI22CUsbmanExtensionPlugin @ 9 NONAME ; #<TI>#
-	_ZTV22CUsbmanExtensionPlugin @ 10 NONAME ; #<VT>#
-
+	_ZTV22CUsbmanExtensionPlugin @ 10 NONAME ; #<VT#

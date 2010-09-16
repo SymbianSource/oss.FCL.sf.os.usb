@@ -20,7 +20,6 @@
 @internalComponent
 */
 
-#include <usb/usblogger.h>
 #include "chargingstates.h"
 #include "reenumerator.h"
 #include "OstTraceDefinitions.h"
@@ -47,55 +46,44 @@ void TUsbBatteryChargingPluginStateBase::UsbServiceStateChange(TInt aLastError,
     OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_USBSERVICESTATECHANGE_EXIT );
     }
 
+#ifdef SYMBIAN_USB_BATTERYCHARGING_V1_1	
+void TUsbBatteryChargingPluginStateBase::PeerDeviceMaxPower(TUint aCurrent)
+	{
+	(void)aCurrent;
+	}
+
+void TUsbBatteryChargingPluginStateBase::UsbChargingPortType(TUint aPortType)
+    {
+    switch (aPortType)
+    	{
+    	case EUsbChargingPortTypeDedicatedChargingPort:
+		case EUsbChargingPortTypeAcaRidA:
+		case EUsbChargingPortTypeAcaRidB:
+		case EUsbChargingPortTypeNone:
+		case EUsbChargingPortTypeUnsupported:
+		    iParent.SetState(EPluginStateIdle);
+			break;
+		case EUsbChargingPortTypeAcaRidC:
+		case EUsbChargingPortTypeStandardDownstreamPort:
+		case EUsbChargingPortTypeChargingDownstreamPort:
+		case EUsbChargingPortTypeChargingPort:
+		default:
+			break;
+    	}
+    }
+#endif
+
 void TUsbBatteryChargingPluginStateBase::UsbDeviceStateChange(TInt aLastError,
     TUsbDeviceState aOldState, TUsbDeviceState aNewState)
     {
     OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_USBDEVICESTATECHANGE_ENTRY );
-    
-    (void)aLastError;
-    (void)aOldState;
-    (void)aNewState;
+	(void)aLastError;
+	(void)aOldState;
+    iParent.iDeviceState = aNewState; 
     OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_USBDEVICESTATECHANGE_EXIT );
     }
 
-void TUsbBatteryChargingPluginStateBase::HandleRepositoryValueChangedL(
-    const TUid& aRepository, TUint aId, TInt aVal)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_HANDLEREPOSITORYVALUECHANGEDL_ENTRY );
-    
-    OstTraceExt3( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_HANDLEREPOSITORYVALUECHANGEDL, 
-            "TUsbBatteryChargingPluginStateBase::HandleRepositoryValueChangedL;aRepository = 0x%08x;aId=%d;aVal=%d", 
-            aRepository.iUid, aId, (TInt32)aVal );
-    OstTraceExt2( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_HANDLEREPOSITORYVALUECHANGEDL_DUP1, 
-            "TUsbBatteryChargingPluginStateBase::HandleRepositoryValueChangedL;Plugin State = %d, Device State = %d",
-            iParent.iPluginState, iParent.iDeviceState );
-    
-    if ((aRepository == KUsbBatteryChargingCentralRepositoryUid) &&
-            (aId == KUsbBatteryChargingKeyEnabledUserSetting))
-        {
-        iParent.iUserSetting = (TUsbBatteryChargingUserSetting)aVal;
-
-        if (iParent.iUserSetting == EUsbBatteryChargingUserSettingDisabled)
-            {
-            if(iParent.iPluginState == EPluginStateCharging)
-                {
-                iParent.StopCharging();
-                
-                // Push EPluginStateIdleNegotiated state to recover state
-                iParent.PushRecoverState(EPluginStateIdleNegotiated);
-                }
-            else
-                {
-                // Push current state to recover state
-                iParent.PushRecoverState(iParent.iPluginState);
-                }
-            
-            iParent.SetState(EPluginStateUserDisabled);
-            }
-        }
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_HANDLEREPOSITORYVALUECHANGEDL_EXIT );
-    }
-    
+  
 void TUsbBatteryChargingPluginStateBase::DeviceStateTimeout()
     {
     OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_DEVICESTATETIMEOUT_ENTRY );
@@ -103,11 +91,7 @@ void TUsbBatteryChargingPluginStateBase::DeviceStateTimeout()
     
     iParent.iDeviceReEnumerator->Cancel(); // cancel re-enumeration AO
     
-    if(iParent.iUserSetting) // User allow charging already and not in negotiating process...
-        {
-        // Should not happen !!! Otherwise, something wrong!!!
-        iParent.SetState(EPluginStateIdle);
-        }
+    iParent.SetState(EPluginStateIdle);
     OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_DEVICESTATETIMEOUT_EXIT );
     }
 
@@ -129,26 +113,16 @@ void TUsbBatteryChargingPluginStateBase::MpsoIdPinStateChanged(TInt aValue)
     switch(aValue)
         {
         case EUsbBatteryChargingIdPinARole:
-            if (iParent.iPluginState == EPluginStateCharging)
-                {
-                iParent.StopCharging();
-                }
-
             TRAP_IGNORE(iParent.SetInitialConfigurationL());
             iParent.SetState(EPluginStateBEndedCableNotPresent);
-            
-            OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_MPSOIDPINSTATECHANGED_EXIT );
+			iParent.iAvailableMilliAmps = 0;
+			OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_MPSOIDPINSTATECHANGED_EXIT );
             return;
 
         case EUsbBatteryChargingIdPinBRole:
-            iParent.SetState(EPluginStateIdle);
             break;
 
-        default:
-            if (iParent.iPluginState == EPluginStateCharging)
-                {
-                iParent.StopCharging();
-                }     
+        default:			
             iParent.SetState(EPluginStateIdle);
             break;
         }
@@ -182,13 +156,9 @@ void TUsbBatteryChargingPluginStateBase::MpsoVBusStateChanged(TInt aNewState)
     iParent.iVBusState = aNewState;
     if (aNewState == 0) // VBus drop down - we have disconnected from host
         {
-        if (iParent.iPluginState == EPluginStateCharging)
-            {
-            iParent.StopCharging();
-            }
+		iParent.iAvailableMilliAmps = 0;
         iParent.SetState(EPluginStateIdle);
         }
-    
     // The handling of VBus on will be down in DeviceStateChanged implicitly
     OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEBASE_MPSOVBUSSTATECHANGED_EXIT_DUP1 );
     }
@@ -223,21 +193,14 @@ void TUsbBatteryChargingPluginStateIdle::UsbDeviceStateChange(
     (void)aOldState;
     iParent.iDeviceState = aNewState;
     iParent.LogStateText(aNewState);
-    
+
     switch (iParent.iDeviceState)
         {
         case EUsbDeviceStateAddress:
             {
-            if (iParent.iUserSetting)
+            if (iParent.IsUsbChargingPossible())
                 {
-                if (iParent.IsUsbChargingPossible())
-                    {
-                    iParent.NegotiateChargingCurrent();
-                    }
-                }
-            else
-                {
-                iParent.SetState(EPluginStateUserDisabled);
+                iParent.NegotiateChargingCurrent();
                 }
             }
             break;
@@ -272,18 +235,14 @@ void TUsbBatteryChargingPluginStateCurrentNegotiating::UsbDeviceStateChange(
         case EUsbDeviceStateConfigured:
             if (iParent.IsUsbChargingPossible())
                 {
-                iParent.iDeviceStateTimer->Cancel();
-                
+				iParent.iAvailableMilliAmps = iParent.iRequestedCurrentValue;			 
+                iParent.iDeviceStateTimer->Cancel();                
                 OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATECURRENTNEGOTIATING_USBDEVICESTATECHANGE_DUP1, "TUsbBatteryChargingPluginStateCurrentNegotiating::UsbDeviceStateChange;iParent.iAvailableMilliAmps=%d", iParent.iAvailableMilliAmps );
-                iParent.iAvailableMilliAmps = iParent.iRequestedCurrentValue;
                 
                 if(0 != iParent.iRequestedCurrentValue)
                     {
-                    // A non-zero value was accepted by host, charging 
-                    // can be performed now.
-                    iParent.StartCharging(iParent.iAvailableMilliAmps);                     
+                    iParent.SetState(EPluginStateIdleNegotiated);
                     OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATECURRENTNEGOTIATING_USBDEVICESTATECHANGE_DUP2, "TUsbBatteryChargingPluginStateCurrentNegotiating::UsbDeviceStateChange;PluginState => EPluginStateCharging(%d)", iParent.iPluginState );
-                    iParent.SetNegotiatedCurrent(iParent.iAvailableMilliAmps);
                     }
                 else
                     {
@@ -293,7 +252,6 @@ void TUsbBatteryChargingPluginStateCurrentNegotiating::UsbDeviceStateChange(
                     OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATECURRENTNEGOTIATING_USBDEVICESTATECHANGE_DUP3, "TUsbBatteryChargingPluginStateCurrentNegotiating::UsbDeviceStateChange;No more current value to try, iPluginState turned to %d", iParent.iPluginState );
                     }
                 }
-            
             break;
         
         // If no configured received, there must be a timeout
@@ -329,51 +287,6 @@ void TUsbBatteryChargingPluginStateCurrentNegotiating::DeviceStateTimeout()
     }
 
 
-// Charging plugin charing state
-
-    
-TUsbBatteryChargingPluginStateCharging::TUsbBatteryChargingPluginStateCharging (
-        CUsbBatteryChargingPlugin& aParentStateMachine ) :
-    TUsbBatteryChargingPluginStateBase(aParentStateMachine)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_CONS_ENTRY );
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_CONS_EXIT );
-    }
-
-void TUsbBatteryChargingPluginStateCharging::UsbDeviceStateChange(
-        TInt aLastError, TUsbDeviceState aOldState, TUsbDeviceState aNewState)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_USBDEVICESTATECHANGE_ENTRY );
-
-    OstTraceExt3( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_USBDEVICESTATECHANGE, "TUsbBatteryChargingPluginStateCharging::UsbDeviceStateChange;aLastError=%d;aOldState=%d;aNewState=%d", aLastError, aOldState, aNewState );
-    (void)aLastError;
-    (void)aOldState;
-    iParent.iDeviceState = aNewState;
-    iParent.LogStateText(aNewState);
-
-    switch(iParent.iDeviceState)
-        {
-        case EUsbDeviceStateConfigured:
-            break; // I think this can not happen at all but in case ...
-            
-        case EUsbDeviceStateAttached:
-        case EUsbDeviceStatePowered:
-        case EUsbDeviceStateDefault:
-        case EUsbDeviceStateAddress:
-        case EUsbDeviceStateSuspended:
-            {
-            // wait until configured
-            iParent.StopCharging();
-            iParent.SetState(EPluginStateIdleNegotiated);
-            }
-            break;
-                            
-        default:
-            break;
-        }
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATECHARGING_USBDEVICESTATECHANGE_EXIT );
-    }
-
 // Charging plugin negotiated fail state
     
     
@@ -406,142 +319,14 @@ void TUsbBatteryChargingPluginStateIdleNegotiated::UsbDeviceStateChange(
     (void)aOldState;
     iParent.iDeviceState = aNewState;
     iParent.LogStateText(aNewState);
-
-    switch(iParent.iDeviceState)
-        {
-        case EUsbDeviceStateConfigured:
-            {
-            // wait until configured
-            if (iParent.IsUsbChargingPossible())
-            	{
-                iParent.StartCharging(iParent.iAvailableMilliAmps);
-                }
-            }
-            break;
-
-        default:
-            break;
-        }
+	if (aNewState != EUsbDeviceStateConfigured && aNewState != EUsbDeviceStateSuspended)
+		{
+		iParent.iAvailableMilliAmps = 0;
+		iParent.SetState(EPluginStateIdle);
+		}
     OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEIDLENEGOTIATED_USBDEVICESTATECHANGE_EXIT );
     }
  
-// Charging plugin user disabled state
-    
-TUsbBatteryChargingPluginStateUserDisabled::TUsbBatteryChargingPluginStateUserDisabled (
-        CUsbBatteryChargingPlugin& aParentStateMachine ) :
-    TUsbBatteryChargingPluginStateBase(aParentStateMachine)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_CONS_ENTRY );
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_CONS_EXIT );
-    };
-
-
-void TUsbBatteryChargingPluginStateUserDisabled::UsbDeviceStateChange(
-        TInt aLastError, TUsbDeviceState aOldState, TUsbDeviceState aNewState)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_USBDEVICESTATECHANGE_ENTRY );
-
-    OstTraceExt3( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_USBDEVICESTATECHANGE, "TUsbBatteryChargingPluginStateUserDisabled::UsbDeviceStateChange;aLastError=%d;aOldState=%d;aNewState=%d", aLastError, aOldState, aNewState );
-    (void)aLastError;
-    (void)aOldState;
-    iParent.iDeviceState = aNewState;
-    iParent.LogStateText(aNewState);
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_USBDEVICESTATECHANGE_EXIT );
-    }
-
-void TUsbBatteryChargingPluginStateUserDisabled::HandleRepositoryValueChangedL(
-    const TUid& aRepository, TUint aId, TInt aVal)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL_ENTRY );
-    
-    OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL, "TUsbBatteryChargingPluginStateUserDisabled::HandleRepositoryValueChangedL;aRepository = 0x%08x", aRepository.iUid );
-    OstTraceExt2( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL_DUP1, "TUsbBatteryChargingPluginStateUserDisabled::HandleRepositoryValueChangedL;aId=%d;aVal=%d", aId, aVal );
-    OstTraceExt2( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL_DUP2, "TUsbBatteryChargingPluginStateUserDisabled::HandleRepositoryValueChangedL;iParent.iPluginState=%d;iParent.iDeviceState=%d", iParent.iPluginState, iParent.iDeviceState );
-    
-    if ((aRepository == KUsbBatteryChargingCentralRepositoryUid) &&
-            (aId == KUsbBatteryChargingKeyEnabledUserSetting))
-        {
-        iParent.iUserSetting = (TUsbBatteryChargingUserSetting)aVal;
-
-        if (iParent.iUserSetting == EUsbBatteryChargingUserSettingEnabled)
-            {
-            // EPluginStateUserDisabled must be the current state
-            iParent.PopRecoverState();
-            if ((iParent.iPluginState == EPluginStateIdleNegotiated)
-                    && (iParent.iDeviceState == EUsbDeviceStateConfigured))
-                {
-                iParent.StartCharging(iParent.iAvailableMilliAmps); // Go to charing state implicitly
-                }
-            OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL_DUP3, "TUsbBatteryChargingPluginStateUserDisabled::HandleRepositoryValueChangedL;PluginState => %d", iParent.iPluginState );
-            }
-        }
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_HANDLEREPOSITORYVALUECHANGEDL_EXIT );
-    }
-
-// For host OTG enabled charging plug-in
-#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
-void TUsbBatteryChargingPluginStateUserDisabled::MpsoIdPinStateChanged(TInt aValue)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOIDPINSTATECHANGED_ENTRY );
-    
-    OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOIDPINSTATECHANGED, "TUsbBatteryChargingPluginStateUserDisabled::MpsoIdPinStateChanged;IdPinState changed => %d", aValue );
-    
-    // Disable charging here when IdPin is present
-    // When IdPin disappears (i.e. the phone becomes B-Device), all necessary step are performed 
-    // in UsbDeviceStateChange() method
-
-    iParent.iIdPinState = aValue;
-    
-    switch(aValue)
-        {
-        case EUsbBatteryChargingIdPinARole:
-            TRAP_IGNORE(iParent.SetInitialConfigurationL());
-            iParent.PushRecoverState(EPluginStateBEndedCableNotPresent);
-            
-            OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOIDPINSTATECHANGED_EXIT );
-            return;
-
-        case EUsbBatteryChargingIdPinBRole:
-            iParent.PushRecoverState(EPluginStateIdle);
-            break;
-
-        default:     
-            iParent.SetState(EPluginStateIdle);
-            break;
-        }
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOIDPINSTATECHANGED_EXIT_DUP1 );
-    }
-
-#endif     
- 
-void TUsbBatteryChargingPluginStateUserDisabled::MpsoVBusStateChanged(TInt aNewState)
-    {
-    OstTraceFunctionEntry0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOVBUSSTATECHANGED_ENTRY );
-    
-    if (aNewState == iParent.iVBusState)
-        {
-        OstTrace1( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOVBUSSTATECHANGED, "TUsbBatteryChargingPluginStateUserDisabled::MpsoVBusStateChanged;Receive VBus State Change notification without any state change: aNewState = %d", aNewState );
-        OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOVBUSSTATECHANGED_EXIT );
-        return;
-        }
-
-    OstTraceExt2( TRACE_NORMAL, REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOVBUSSTATECHANGED_DUP1, "TUsbBatteryChargingPluginStateUserDisabled::MpsoVBusStateChanged;VBusState changed from %d to %d", iParent.iVBusState, aNewState );
-    
-    iParent.iVBusState = aNewState;
-    if (aNewState == 0) // VBus drop down - we have disconnected from host
-        {
-        iParent.iRequestedCurrentValue = 0;
-        iParent.iCurrentIndexRequested = 0;
-        iParent.iAvailableMilliAmps = 0;
-        
-        iParent.iPluginStateToRecovery = EPluginStateIdle;
-        }
-    
-    // The handling of VBus on will be down in DeviceStateChanged implicitly
-    OstTraceFunctionExit0( REF_TUSBBATTERYCHARGINGPLUGINSTATEUSERDISABLED_MPSOVBUSSTATECHANGED_EXIT_DUP1 );
-    }
-
-
 // Charging plugin A-role state
     
 TUsbBatteryChargingPluginStateBEndedCableNotPresent::TUsbBatteryChargingPluginStateBEndedCableNotPresent (
@@ -550,7 +335,26 @@ TUsbBatteryChargingPluginStateBEndedCableNotPresent::TUsbBatteryChargingPluginSt
     {
     OstTraceFunctionEntry0( RES_TUSBBATTERYCHARGINGPLUGINSTATEBENDEDCABLENOTPRESENT_TUSBBATTERYCHARGINGPLUGINSTATEBENDEDCABLENOTPRESENT_CONS_ENTRY );
     OstTraceFunctionExit0( RES_TUSBBATTERYCHARGINGPLUGINSTATEBENDEDCABLENOTPRESENT_TUSBBATTERYCHARGINGPLUGINSTATEBENDEDCABLENOTPRESENT_CONS_EXIT );
-    };
+    }
+
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
+void TUsbBatteryChargingPluginStateBEndedCableNotPresent::MpsoIdPinStateChanged(TInt aValue)
+    {
+    iParent.iIdPinState = aValue;
     
+    switch(aValue)
+        {
+        case EUsbBatteryChargingIdPinARole:
+            break;
+        case EUsbBatteryChargingIdPinBRole:
+            iParent.SetState(EPluginStateIdle);
+            break;
+        default:			
+            iParent.SetState(EPluginStateIdle);
+            break;
+        }
+    }
+#endif
     
+
 

@@ -62,7 +62,7 @@ public:
     @param aLogicalUnitNumber Current LU number value
     @param aDrive The drive on which current LU mounted
     */
-    void AddUsbMsLogicalUnitL(TInt aDeviceId, TInt aInterfaceNumber, 
+    TUsbMsLogicalUnit* AddUsbMsLogicalUnitL(TInt aDeviceId, TInt aInterfaceNumber, 
             TInt aLogicalUnitNumber, TText aDrive);
     
     /**
