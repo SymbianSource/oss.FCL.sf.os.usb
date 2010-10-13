@@ -335,6 +335,10 @@ void CDeviceProxy::SetOtgDescriptorL(const TUsbOTGDescriptor& aDescriptor)
 
 	iOtgDescriptor->iDeviceId = iId;
 	iOtgDescriptor->iAttributes = aDescriptor.Attributes();
+	
+	OstTrace0( TRACE_NORMAL, CDEVICEPROXY_SETOTGDESCRIPTORL0, "\t>SetOtgDescriptorL");
+	iOtgDescriptor->iBcdOTG = aDescriptor.BcdOTG();
+	OstTrace0( TRACE_NORMAL, CDEVICEPROXY_SETOTGDESCRIPTORL1, "\t<SetOtgDescriptorL");
 	}
 
 // Used during instantiation to read supported strings.

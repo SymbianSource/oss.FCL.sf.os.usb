@@ -1,4 +1,4 @@
-// Copyright (c) 2000-2009 Nokia Corporation and/or its subsidiary(-ies).
+// Copyright (c) 2000-2010 Nokia Corporation and/or its subsidiary(-ies).
 // All rights reserved.
 // This component and the accompanying materials are made available
 // under the terms of the License "Eclipse Public License v1.0"
@@ -556,15 +556,18 @@ TUsbcOtgDescriptor::TUsbcOtgDescriptor()
 
 
 TInt TUsbcOtgDescriptor::Construct(TBool aHnpSupport, TBool aSrpSupport)
-    {
-    __KTRACE_OPT(KUSB, Kern::Printf("TUsbcOtgDescriptor::Construct()"));
-    iBuf.SetMax();
-    SetBufferPointer(iBuf);
-    iBuf[0] = iBuf.Size();                                    // bLength
-    iBuf[1] = KUsbDescType_Otg;                                // bDescriptorType
-    iBuf[2] = (aHnpSupport ? KUsbOtgAttr_HnpSupp : 0) |
-        (aSrpSupport ? KUsbOtgAttr_SrpSupp : 0);            // bmAttributes
-    return KErrNone;
+	{
+	__KTRACE_OPT(KUSB, Kern::Printf("TUsbcOtgDescriptor::Construct()"));
+	iBuf.SetMax();
+	SetBufferPointer(iBuf);
+	iBuf[0] = iBuf.Size();									// bLength
+	iBuf[1] = KUsbDescType_Otg;								// bDescriptorType
+  // B HNP not supported which is temporarily hard coded here. 
+	iBuf[2] = ( aHnpSupport ? 0 : 0 ) | ( aSrpSupport ? KUsbOtgAttr_SrpSupp : 0 );			// bmAttributes			
+	iBuf[3] = KUsbOtgDesc_bcdOTG & 0x00ff;
+  iBuf[4] = ( KUsbOtgDesc_bcdOTG >> 8 ) & 0x00ff;
+		
+	return KErrNone;
     }
 
 

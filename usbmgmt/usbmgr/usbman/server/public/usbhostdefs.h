@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2008-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2008-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -118,6 +118,7 @@ public:
 	inline TOtgDescriptor()
 		:	iDeviceId(0),
 		    iAttributes(0),
+		    iBcdOTG(0),
 		    iReserved1(0),
 		    iReserved2(0),
 		    iReserved3(0)
@@ -129,8 +130,9 @@ public:
 	// The OTG attributes - currently only D0 and D1 are used for SRP and HNP.
 	TUint8 iAttributes;
 	
+	TUint16 iBcdOTG;
 	// Reserved
-	TInt iReserved1;
+	TUint16 iReserved1;
 	
 	// Reserved
 	TInt iReserved2;
