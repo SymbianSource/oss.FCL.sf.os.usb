@@ -23,7 +23,7 @@
 #ifndef REFPPNOTIFIER_H
 #define REFPPNOTIFIER_H
 
-#include <eikdialg.h>
+#include <techview/eikdialg.h>
 #include <eiknotapi.h>
 #include "refppdialog.h"
 

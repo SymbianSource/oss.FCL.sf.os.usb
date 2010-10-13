@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -15,22 +15,16 @@
 *
 */
 
+#ifndef MUSBDEVICENOTIFYINTERNAL_H
+#define MUSBDEVICENOTIFYINTERNAL_H
 
-#ifndef MUSBDEVICENOTIFY_H
-#define MUSBDEVICENOTIFY_H
-
-#include <usbstates.h>
-
+#include <MUsbDeviceNotify.h>
+#include <musbthermalnotify.h>
 /**
- * The MUsbDeviceNotify class
- *
- * The mixin used by the USB Device object to notify all of
- * it's observers of any state changes that occur
-
-  @publishedPartner
-  @released
+ * The MUsbDeviceNotifyInternal class
+ * This is an internal class which is used for usb package only.
  */
-class MUsbDeviceNotify
+class MUsbDeviceNotifyInternal : public MUsbDeviceNotify, public MUsbThermalNotify
 	{
 public:
 	/**
@@ -50,7 +44,15 @@ public:
 	 * @param aNewState The new device state
 	 */
 	virtual void UsbDeviceStateChange(TInt aLastError, TUsbDeviceState aOldState, TUsbDeviceState aNewState) = 0;
+
+    /**
+     * Called when the thermal infomation had changed
+     *
+     * @param aLastError The last error code detected
+     * @param aNewValue The new value of thermal
+     */	
+	virtual void UsbThermalStateChange(TInt aLastError, TInt aNewValue) = 0;
 	};
 
-#endif //MUSBDEVICENOTIFY_H
-
+#endif	// MUSBDEVICENOTIFYINTERNAL_H
+	

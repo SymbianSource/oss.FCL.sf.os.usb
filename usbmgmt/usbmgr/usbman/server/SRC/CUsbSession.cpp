@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -78,6 +78,9 @@ CUsbSession::CUsbSession(CUsbServer* aServer)
 	LOG_FUNC
 
 	iUsbServer->IncrementSessionCount();
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
+	iThernalLevelMsgPending = EFalse;
+#endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	}
 
 
@@ -413,7 +416,30 @@ void CUsbSession::UsbDeviceStateChange(TInt /*aLastError*/, TUsbDeviceState /*aO
 		// is next called.
 		}
 	}
-
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
+void CUsbSession::UsbThermalStateChange(TInt /*aLastError*/, TInt aNewValue)
+#else
+void CUsbSession::UsbThermalStateChange(TInt /*aLastError*/, TInt /*aNewValue*/)
+#endif
+	{
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV	
+	LOG_FUNC
+	
+	// Update local copy with the latest value from P&S key
+	iUsbThermalLevel = aNewValue;
+	
+	// Forward it to upper layer if there is a client pending there
+ 	if (iMsgObserverOutstanding)
+		{
+		ForwardThermalMessage();
+		}
+	else
+		{
+		iThernalLevelMsgPending = ETrue;
+		}
+#endif //SYMBIAN_ENABLE_USB_OTG_HOST_PRIV 		
+	}
+	
 /**
  * Dequeues an event and completes the observer's request with it.
  */
@@ -450,6 +476,25 @@ void CUsbSession::UsbDeviceDequeueEvent()
    		}
    	}
 
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV	
+
+void CUsbSession::ForwardThermalMessage()
+	{
+	LOG_FUNC
+		
+	TPckg<TUint32> pckg(iUsbThermalLevel);
+	
+	// Mark no pending since we're going to complete client request.
+	iMsgObserverOutstanding = EFalse;
+	
+	// Mark no new thermal message need to be forward
+	iThernalLevelMsgPending = EFalse;
+	
+	const TInt err = iMsgObserverMessage.Write(0, pckg);
+	iMsgObserverMessage.Complete(err);
+	}
+#endif //SYMBIAN_ENABLE_USB_OTG_HOST_PRIV 
+	
 /**
  * Handles the request (in the form of a the message) received from the client
  *
@@ -883,14 +928,14 @@ TInt CUsbSession::RegisterDeviceObserver(const RMessage2& aMessage, TBool& aComp
  		LOGTEXT(_L8("    Reset Device Event Queue"));
  		iDevStateQueueHead = 0;
  		iDevStateQueueTail = 0;
- 		iObserverQueueEvents = ETrue;
+		iObserverQueueEvents = ETrue;
 	 	}
  	else if (iDevStateQueueHead != iDevStateQueueTail)
 	 	{
  		// event(s) queued, we can de-queue one now
  		UsbDeviceDequeueEvent();
 	 	}
-
+		
 	return KErrNone;
 	}
 
@@ -915,7 +960,9 @@ TInt CUsbSession::RegisterServiceObserver(const RMessage2& aMessage, TBool& aCom
 
 	iServiceObserverMessage = aMessage;
 	iServiceObserverOutstanding = ETrue;
+	
 	aComplete = EFalse;
+		
 	return KErrNone;
 	}
 
@@ -1924,7 +1971,15 @@ TInt CUsbSession::RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplet
  		// event(s) queued, we can de-queue one now
  		UsbMsgDequeue();
 	 	}
-
+		
+#ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
+	if (iThernalLevelMsgPending)
+		{
+		ForwardThermalMessage();
+		aComplete = ETrue;
+		}
+#endif
+		
 	return KErrNone;
 	}
 

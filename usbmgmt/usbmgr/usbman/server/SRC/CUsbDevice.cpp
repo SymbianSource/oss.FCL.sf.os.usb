@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -31,6 +31,7 @@
 #include <cusbclasscontrollerplugin.h>
 #include "UsbUtils.h"
 #include <cusbmanextensionplugin.h>
+#include "musbdevicenotifyinternal.h"
 
 #ifdef USE_DUMMY_CLASS_CONTROLLER
 #include "CUsbDummyClassController.h"
@@ -74,6 +75,7 @@ enum TUsbDevicePanic
 	EUidArrayNotEmpty,
 	};
 
+const TInt KUsbThermalInterfaceImplementationID = 0x10286a9c;
 
 CUsbDevice* CUsbDevice::NewL(CUsbServer& aUsbServer)
 /**
@@ -117,6 +119,7 @@ CUsbDevice::~CUsbDevice()
 	// we don't want to call ResetAndDestroy, because we don't own
 	// the observers themselves.
 	iObservers.Reset();
+	iThermalObservers.Reset();
 
 #ifndef __WINS__
 	LOGTEXT2(_L8("about to delete device state watcher @ %08x"), (TUint32) iDeviceStateWatcher);
@@ -260,9 +263,29 @@ void CUsbDevice::InstantiateExtensionPluginsL()
 	LOGTEXT(_L8("<<CUsbDevice::InstantiateExtensionPluginsL"));
 	}
 
-
+void CUsbDevice::StartThermalMonitoring()
+	{
+	LOG_FUNC
 	
-   	
+	// Perform checking for usb thermal plugin to see
+	// whether there is a implemetation that match the thermal plug-in req.
+	for (TInt i=0; i<iExtensionPlugins.Count(); i++)
+		{
+		CUsbmanExtensionPlugin* plugin = iExtensionPlugins[i];
+		
+		TAny* res = plugin->GetInterface(TUid::Uid(KUsbThermalInterfaceImplementationID));
+		if(res != NULL)
+			{
+			LOGTEXT(_L8("<< UsbThermal Monitor plugin Found"));
+			MUsbThermalPluginInterface* tif = static_cast<MUsbThermalPluginInterface*>(res);
+			
+			// register ourself as an observer of thermal infor.
+			tif->RegisterThermalObserver(*this);
+			break;
+			}
+		}
+	}
+	
 void CUsbDevice::EnumerateClassControllersL()
 /**
  * Loads all USB class controllers at startup.
@@ -353,7 +376,7 @@ void CUsbDevice::AddClassControllerL(CUsbClassControllerBase* aClassController,
 		}
 	}
 
-void CUsbDevice::RegisterObserverL(MUsbDeviceNotify& aObserver)
+void CUsbDevice::RegisterObserverL(MUsbDeviceNotifyInternal& aObserver)
 /**
  * Register an observer of the device.
  * Presently, the device supports watching state.
@@ -363,11 +386,11 @@ void CUsbDevice::RegisterObserverL(MUsbDeviceNotify& aObserver)
 	{
 	LOG_FUNC
 
-	LEAVEIFERRORL(iObservers.Append(&aObserver));
+	LEAVEIFERRORL(iThermalObservers.Append(&aObserver));
 	}
 
 
-void CUsbDevice::DeRegisterObserver(MUsbDeviceNotify& aObserver)
+void CUsbDevice::DeRegisterObserver(MUsbDeviceNotifyInternal& aObserver)
 /**
  * De-registers an existing device observer.
  *
@@ -376,10 +399,10 @@ void CUsbDevice::DeRegisterObserver(MUsbDeviceNotify& aObserver)
 	{
 	LOG_FUNC
 
-	TInt index = iObservers.Find(&aObserver);
+	TInt index = iThermalObservers.Find(&aObserver);
 
 	if (index >= 0)
-		iObservers.Remove(index);
+		iThermalObservers.Remove(index);
 	}
 
 
@@ -403,6 +426,9 @@ void CUsbDevice::StartL()
 
 	iLastError = KErrNone;
 	StartCurrentClassController();
+	
+	StartThermalMonitoring();
+
 	}
 
 void CUsbDevice::Stop()
@@ -434,11 +460,18 @@ void CUsbDevice::SetServiceState(TUsbServiceState aState)
 		// Change state straight away in case any of the clients check it
 		TUsbServiceState oldState = iServiceState;
 		iServiceState = aState;
-		TUint length = iObservers.Count();
 
+		TUint length = iThermalObservers.Count();
 		for (TUint i = 0; i < length; i++)
 			{
-			iObservers[i]->UsbServiceStateChange(LastError(), oldState,
+			iThermalObservers[i]->UsbServiceStateChange(LastError(), oldState,
+				iServiceState);
+			}		
+		
+		length = iObservers.Count();
+		for (TUint j = 0; j < length; j++)
+			{
+			iObservers[j]->UsbServiceStateChange(LastError(), oldState,
 				iServiceState);
 			}
 
@@ -506,11 +539,17 @@ void CUsbDevice::SetDeviceState(TUsbcDeviceState aState)
 		// Change state straight away in case any of the clients check it
 		TUsbDeviceState oldState = iDeviceState;
 		iDeviceState = state;
-		TUint length = iObservers.Count();
-
+		
+		TUint length = iThermalObservers.Count();
 		for (TUint i = 0; i < length; i++)
 			{
-			iObservers[i]->UsbDeviceStateChange(LastError(), oldState, iDeviceState);
+			iThermalObservers[i]->UsbDeviceStateChange(LastError(), oldState, iDeviceState);
+			}
+		
+		length = iObservers.Count();
+		for (TUint j = 0; j < length; j++)
+			{
+			iObservers[j]->UsbDeviceStateChange(LastError(), oldState, iDeviceState);
 			}
 		}
 	}
@@ -1078,7 +1117,10 @@ void CUsbDevice::TryStartL(TInt aPersonalityId)
 
 	iLastError = KErrNone;
 	StartCurrentClassController();
- 	}
+	
+	StartThermalMonitoring();
+	
+	}
  	
 TInt CUsbDevice::CurrentPersonalityId() const
 /**
@@ -1551,5 +1593,25 @@ void CUsbDevice::MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver)
  */
 	{
 	LOGTEXT2(_L8("CUsbDevice::MuepoDoRegisterStateObserverL aObserver = 0x%08x"),&aObserver);
-	RegisterObserverL(aObserver);
+	
+	// Don't use RegisterObserverL() interface anymore, because
+	// aObserver is MUsbDeviceNotify
+	LEAVEIFERRORL(iObservers.Append(&aObserver));
 	}
+	
+void CUsbDevice::UsbThermalStateChange(TInt aLastError, TInt aValue)
+    {
+	LOG_FUNC
+	
+	TUint length = iThermalObservers.Count();
+	LOGTEXT2(_L8("CUsbDevice::UsbThermalStateChange found %d observers"),length);
+	if( length == 0)
+		{
+		return;
+		}
+	
+	for (TUint i = 0; i < length; i++)
+		{
+		iThermalObservers[i]->UsbThermalStateChange(aLastError, aValue);
+		}
+    }

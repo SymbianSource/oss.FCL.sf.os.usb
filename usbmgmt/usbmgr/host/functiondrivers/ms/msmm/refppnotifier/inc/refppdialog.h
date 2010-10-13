@@ -24,7 +24,7 @@
 #define CREFPPDIALOG_H
 
 // INCLUDES
-#include <eikdialg.h>
+#include <techview/eikdialg.h>
 // CLASS DECLARATION
 
 /**

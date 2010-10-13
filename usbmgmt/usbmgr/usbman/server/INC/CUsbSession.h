@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -30,6 +30,8 @@
 #include "MUsbDeviceNotify.h"
 #include <usb/usbshared.h>
 
+#include "musbdevicenotifyinternal.h"
+
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 #include "musbotghostnotifyobserver.h"
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
@@ -39,7 +41,7 @@
 // (any state can only appear in the queue once)
 const TInt KDeviceStatesQueueSize = KUsbDeviceStates + 1;
 const TInt KOtgHostMessageQueueSize = KDeviceStatesQueueSize * 2;
-
+const TInt KUsbThermalStateSize = 5;
 //
 // Forward declarations
 //
@@ -51,7 +53,7 @@ class CUsbServer;
  * Implements a Session of a Symbian OS server for the RUsb API
  */
 NONSHARABLE_CLASS(CUsbSession) : public CSession2
-							   , public MUsbDeviceNotify
+							   , public MUsbDeviceNotifyInternal
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 							   , public MUsbOtgHostNotifyObserver
 #endif // SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
@@ -64,10 +66,11 @@ public:
 	virtual void ServiceL(const RMessage2& aMessage);
 	virtual void CreateL();
 
-	// MUsbDeviceNotify
+	// MUsbDeviceNotifyInternal
 	virtual void UsbDeviceStateChange(TInt aLastError, TUsbDeviceState aOldState, TUsbDeviceState aNewState);
 	virtual void UsbServiceStateChange(TInt aLastError, TUsbServiceState aOldState, TUsbServiceState aNewState);
-
+	virtual void UsbThermalStateChange(TInt aLastError, TInt aNewValue);
+	
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
 	// MUsbOtgHostNotifyObserver
 	virtual void UsbOtgHostMessage(TInt aMessage);
@@ -108,7 +111,10 @@ protected:
 	TInt SetCtlSessionMode(const RMessage2& aMessage);
 	TInt RegisterMsgObserver(const RMessage2& aMessage, TBool& aComplete);
 	TInt DeRegisterMsgObserver();
-
+	
+	// Thermal info
+	void ForwardThermalMessage();
+	
 	// OTG
 	TInt BusRequest();
 	TInt BusRespondSrp();
@@ -161,6 +167,7 @@ private:
 	TBool iPersonalityCfged;
 
  	TFixedArray<TUsbDeviceState, KDeviceStatesQueueSize> iDeviceStateQueue;
+
  	TUsbDeviceState iNotifiedDevState;
  	TBool iObserverQueueEvents;
  	TInt iDevStateQueueHead;
@@ -169,7 +176,9 @@ private:
 #ifdef SYMBIAN_ENABLE_USB_OTG_HOST_PRIV
  	static CUsbSession* iCtlSession;
  	TBool iSessionCtlMode;
-
+	TInt iUsbThermalLevel;
+	TBool iThernalLevelMsgPending;
+	
 	RMessage2 iMsgObserverMessage;
 	TBool iMsgObserverOutstanding;
 	TFixedArray<TInt, KOtgHostMessageQueueSize> iMsgQueue;

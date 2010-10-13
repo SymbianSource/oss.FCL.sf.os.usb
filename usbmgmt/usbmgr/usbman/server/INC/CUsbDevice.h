@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 1997-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 1997-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -34,11 +34,12 @@
 #include <e32std.h>
 #include <usb/usblogger.h>
 #include <musbmanextensionpluginobserver.h>
+#include <musbthermalnotify.h>
 
 class CUsbDeviceStateWatcher;
 class CUsbClassControllerBase;
 class CUsbServer;
-class MUsbDeviceNotify;
+class MUsbDeviceNotifyInternal;
 class CPersonality;
 class CUsbmanExtensionPlugin;
 
@@ -60,7 +61,7 @@ const TUid KUidUsbPlugIns = {0x101fbf21};
  * asynchronously, one by one. Its RunL function will be called after each
  * start/stop.
  */
-NONSHARABLE_CLASS(CUsbDevice) : public CActive, public MUsbClassControllerNotify, public MUsbmanExtensionPluginObserver
+NONSHARABLE_CLASS(CUsbDevice) : public CActive, public MUsbClassControllerNotify, public MUsbmanExtensionPluginObserver, public MUsbThermalNotify
 	{
 public:
 	class TUsbDeviceDescriptor
@@ -89,8 +90,8 @@ public:
  	void EnumerateClassControllersL();
 	void AddClassControllerL(CUsbClassControllerBase* aClassController, TLinearOrder<CUsbClassControllerBase> order);
 
-	void RegisterObserverL(MUsbDeviceNotify& aObserver);
-	void DeRegisterObserver(MUsbDeviceNotify& aObserver);
+	void RegisterObserverL(MUsbDeviceNotifyInternal& aObserver);
+	void DeRegisterObserver(MUsbDeviceNotifyInternal& aObserver);
 
 	void StartL();
 	void Stop();
@@ -112,6 +113,7 @@ public:
 	const RPointerArray<CPersonality>& Personalities() const;
 	const CPersonality* GetPersonality(TInt aPersonalityId) const;
 	void ValidatePersonalitiesL();
+	void StartThermalMonitoring();
 	void ReadPersonalitiesL();
 	void SetDefaultPersonalityL();
 	void LoadFallbackClassControllersL();
@@ -128,7 +130,10 @@ public: // Inherited from MUsbClassControllerNotify
 public: // from MUsbmanExtensionPluginObserver
 	RDevUsbcClient& MuepoDoDevUsbcClient();
 	void MuepoDoRegisterStateObserverL(MUsbDeviceNotify& aObserver);
-
+	
+public: // from  MUsbThermalNotify
+	void UsbThermalStateChange(TInt aLastError, TInt aValue);
+	
 protected:
 	CUsbDevice(CUsbServer& aUsbServer);
 	void ConstructL();
@@ -153,7 +158,9 @@ private:
 private:
 	RPointerArray<CUsbClassControllerBase> iSupportedClasses;
 	RPointerArray<MUsbDeviceNotify> iObservers;
+	RPointerArray<MUsbDeviceNotifyInternal> iThermalObservers;
 	RPointerArray<CUsbmanExtensionPlugin> iExtensionPlugins;
+	
 	TUsbDeviceState  iDeviceState;
 	TUsbServiceState iServiceState;
 	TInt iLastError;
