@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2007-2009 Nokia Corporation and/or its subsidiary(-ies).
+* Copyright (c) 2007-2010 Nokia Corporation and/or its subsidiary(-ies).
 * All rights reserved.
 * This component and the accompanying materials are made available
 * under the terms of "Eclipse Public License v1.0"
@@ -21,14 +21,14 @@ CAPABILITY 	NetworkControl LocalServices NetworkServices CommDD ProtServ ReadDev
 TARGETTYPE    exe
 UID           0
 
-SOURCEPATH    ..\src
+SOURCEPATH    ../src
 SOURCE        t_acm_pub_sub.cpp
 
-USERINCLUDE   ..\inc
-SYSTEMINCLUDE \Epoc32\include
-SYSTEMINCLUDE \Epoc32\include\usb
-SYSTEMINCLUDE \Epoc32\include\test
+USERINCLUDE   ../inc
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN 
+SYSTEMINCLUDE /epoc32/include/usb
+SYSTEMINCLUDE /epoc32/include/test
 
-LIBRARY       EUSER.LIB EFSRV.LIB c32.lib usbman.lib acmserver.lib
+LIBRARY       euser.lib efsrv.lib c32.lib usbman.lib acmserver.lib
 
 

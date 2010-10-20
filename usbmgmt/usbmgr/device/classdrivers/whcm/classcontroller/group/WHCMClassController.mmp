@@ -45,3 +45,4 @@ END
 
 LIBRARY			euser.lib 
 LIBRARY			usbclasscontroller.lib
+SMPSAFE

@@ -17,9 +17,9 @@
 
 component	usb_test
 
-source	\sf\os\usb\usbmgmt\usbmgrtest
+source	/sf/os/usb/usbmgmt/usbmgrtest
 
-notes_source	\component_defs\release.src
+notes_source	/component_defs/release.src
 
 
 

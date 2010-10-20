@@ -1,0 +1,27 @@
+/*
+* Copyright (c) 2010 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+*
+*/
+
+#ifndef USBPERIPHERAL_SHAI_IBY
+#define USBPERIPHERAL_SHAI_IBY
+
+#ifdef BSW_USB_DEVICE
+extension[VARID]=KERNEL_DIR\BUILD_DIR\usbperipheralpil.dll  \Sys\Bin\usbperipheralpil.dll
+device[VARID]=KERNEL_DIR\BUILD_DIR\usbcshai.ldd  \sys\bin\eusbc.ldd
+device[VARID]=KERNEL_DIR\BUILD_DIR\usbcscshai.ldd  \sys\bin\eusbcsc.ldd
+#endif // BSW_USB_DEVICE
+
+#endif // USBPERIPHERAL_SHAI_IBY

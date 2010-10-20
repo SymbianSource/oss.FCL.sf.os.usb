@@ -148,7 +148,11 @@ void CDeviceEventHandler::CreateSubCmdForRetrieveDriveLetterL(
     for (TInt index = 0; index < aLogicalUnitCount; index++)
         {
         command = new (ELeave) TRetrieveDriveLetter(parameter, index);
-        iSubCommandQueue.PushL(command);
+
+		CleanupStack::PushL(command);        
+		iSubCommandQueue.PushL(command);
+		CleanupStack::Pop(command);
+
         }
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORRETRIEVEDRIVELETTERL_EXIT );
     }
@@ -161,7 +165,11 @@ void CDeviceEventHandler::CreateSubCmdForMountingLogicalUnitL(TText aDrive,
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TMountLogicalUnit* command = new (ELeave) TMountLogicalUnit(
             parameter, aDrive, aLuNumber);
+	
+	CleanupStack::PushL(command);
     iSubCommandQueue.InsertAfterHeadL(command);
+	CleanupStack::Pop(command);
+
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORMOUNTINGLOGICALUNITL_EXIT );
     }
 
@@ -173,7 +181,11 @@ void CDeviceEventHandler::CreateSubCmdForSaveLatestMountInfoL(TText aDrive,
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TSaveLatestMountInfo* command = 
         new (ELeave) TSaveLatestMountInfo(parameter, aDrive, aLuNumber);
+	
+	CleanupStack::PushL(command);
     iSubCommandQueue.InsertAfterHeadL(command);
+	CleanupStack::Pop(command);
+
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORSAVELATESTMOUNTINFOL_EXIT );
     }
 
@@ -362,7 +374,11 @@ void CDeviceEventHandler::CreateSubCmdForAddingUsbMsFunctionL()
     
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TRegisterInterface* command = new (ELeave) TRegisterInterface(parameter);
+
+	CleanupStack::PushL(command);
     iSubCommandQueue.PushL(command);
+	CleanupStack::Pop(command);
+
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORADDINGUSBMSFUNCTIONL_EXIT );
     }
 
@@ -380,7 +396,10 @@ void CDeviceEventHandler::CreateSubCmdForRemovingUsbMsDeviceL()
     THostMsSubCommandParam parameter(iServer, *this, *this, iIncomingEvent);
     TRemoveUsbMsDevice* removeMsDevice = new (ELeave) TRemoveUsbMsDevice(
             parameter);
+	
+	CleanupStack::PushL(removeMsDevice);
     iSubCommandQueue.PushL(removeMsDevice);
+	CleanupStack::Pop(removeMsDevice);
     
     OstTraceFunctionExit0( CDEVICEEVENTHANDLER_CREATESUBCMDFORREMOVINGUSBMSDEVICEL_EXIT );
     }

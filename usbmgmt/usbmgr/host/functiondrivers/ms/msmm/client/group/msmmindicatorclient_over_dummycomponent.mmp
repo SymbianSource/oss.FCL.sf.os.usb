@@ -29,5 +29,5 @@ UID 0x1000008d 0x0F15655A
 #include "msmmindicatorclient_base.mmp"
 
 CAPABILITY ProtServ WriteDeviceData CommDD DiskAdmin NetworkControl TrustedUI
-
+SMPSAFE
 MACRO	__OVER_DUMMYCOMPONENT__

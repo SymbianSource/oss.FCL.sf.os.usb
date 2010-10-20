@@ -14,7 +14,6 @@
 * Description: 
 *
 */
-
 /** @file
 
     @brief USB Peripheral SHAI header shared part.

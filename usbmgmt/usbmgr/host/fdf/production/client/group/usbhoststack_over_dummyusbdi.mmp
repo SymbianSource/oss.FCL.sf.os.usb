@@ -33,3 +33,4 @@ TARGET			usbhoststack_over_dummyusbdi.dll
 UID 			0x1000008d 0x10282B50
 
 MACRO	__OVER_DUMMYUSBDI__
+SMPSAFE

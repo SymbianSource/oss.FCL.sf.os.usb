@@ -24,7 +24,6 @@
     @publishedDeviceAbstraction
 */
 
-
 #ifndef USB_OTG_SHAI_H
 #define USB_OTG_SHAI_H
 

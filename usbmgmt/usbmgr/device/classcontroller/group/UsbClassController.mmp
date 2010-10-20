@@ -39,3 +39,5 @@ library			euser.lib
 library			ecom.lib
 
 USERINCLUDE		../traces
+
+SMPSAFE

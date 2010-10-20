@@ -31,9 +31,9 @@ SOURCE			activeconsole.cpp
 SOURCE			testbase.cpp
 SOURCE			FdfTest.cpp
 
-SYSTEMINCLUDE	\epoc32\include
+OS_LAYER_SYSTEMINCLUDE_SYMBIAN 
 
-LIBRARY			EUSER.LIB
+LIBRARY			euser.lib
 LIBRARY			usbhoststack.lib
 
 //MACRO	__TEST_FDF__

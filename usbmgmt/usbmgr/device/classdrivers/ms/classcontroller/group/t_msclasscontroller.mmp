@@ -52,5 +52,5 @@ library			euser.lib
 LIBRARY			usbclasscontroller.lib
 LIBRARY			efsrv.lib
 LIBRARY			bafl.lib
-
+SMPSAFE
 VENDORID 0x70000001

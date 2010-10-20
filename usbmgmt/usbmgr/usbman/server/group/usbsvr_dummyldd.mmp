@@ -65,5 +65,5 @@ library         featdiscovery.lib
 #endif
 library 		dummyusblddapi.lib
 library			usbman_over_dummyldd.lib
-
+SMPSAFE
 UNPAGED

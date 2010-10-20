@@ -47,5 +47,5 @@ LIBRARY 		euser.lib
 LIBRARY			fdcbase.lib msmmsession.lib usbdescriptors.lib usbdi_utils.lib
 
 NOEXPORTLIBRARY
-
+SMPSAFE
 #include <usbhost/internal/fdfcaps.mmh>

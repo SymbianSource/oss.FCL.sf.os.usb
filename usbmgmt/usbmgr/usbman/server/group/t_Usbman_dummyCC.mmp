@@ -65,6 +65,6 @@ library         featdiscovery.lib
 
 // This is the crucial difference between this and usbsvr.mmp.
 MACRO USE_DUMMY_CLASS_CONTROLLER
-
+SMPSAFE
 //
 // End of file

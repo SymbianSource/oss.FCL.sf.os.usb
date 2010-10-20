@@ -24,7 +24,6 @@
     @publishedDeviceAbstraction
 */
 
-
 #ifndef USB_HOST_SHAI_H
 #define USB_HOST_SHAI_H
 

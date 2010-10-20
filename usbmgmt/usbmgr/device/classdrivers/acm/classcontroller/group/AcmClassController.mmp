@@ -29,4 +29,5 @@ END
 
 LIBRARY acmserver.lib
 
+SMPSAFE
 #include "AcmClassControllerBase.mmp"

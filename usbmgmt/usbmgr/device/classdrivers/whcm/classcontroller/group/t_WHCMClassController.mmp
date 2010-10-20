@@ -48,3 +48,4 @@ END
 LIBRARY			euser.lib 
 LIBRARY			usbclasscontroller.lib
 LIBRARY	   dummyusblddapi.lib
+SMPSAFE

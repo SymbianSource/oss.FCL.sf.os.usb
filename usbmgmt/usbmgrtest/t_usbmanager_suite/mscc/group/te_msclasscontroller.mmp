@@ -51,4 +51,3 @@ LIBRARY		efsrv.lib
 LIBRARY		testexecutelogclient.lib
 LIBRARY		bafl.lib 
 LIBRARY		usbclasscontroller.lib
-

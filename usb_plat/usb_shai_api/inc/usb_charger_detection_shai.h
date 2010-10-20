@@ -24,7 +24,6 @@
     @publishedDeviceAbstraction
 */
 
-
 #ifndef USB_CHARGER_DETECTION_SHAI_H
 #define USB_CHARGER_DETECTION_SHAI_H
 

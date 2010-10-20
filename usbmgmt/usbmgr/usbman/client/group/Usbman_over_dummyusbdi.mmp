@@ -44,5 +44,5 @@ userinclude		../traces
 library			euser.lib
 
 VENDORID 0x70000001
-
+SMPSAFE
 UNPAGED

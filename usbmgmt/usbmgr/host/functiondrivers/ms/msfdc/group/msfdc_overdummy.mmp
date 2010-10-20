@@ -49,5 +49,5 @@ LIBRARY			usbmsmmclient_dummy.lib
 LIBRARY			usbdescriptors.lib 
 LIBRARY			usbdi_utils_dummy.lib
 NOEXPORTLIBRARY
-
+SMPSAFE
 #include <usbhost/internal/fdfcaps.mmh>

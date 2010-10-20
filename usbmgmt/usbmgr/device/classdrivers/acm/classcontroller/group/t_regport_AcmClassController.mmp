@@ -33,4 +33,6 @@ END
 
 LIBRARY c32.lib
 
+SMPSAFE
+
 #include "AcmClassControllerBase.mmp"

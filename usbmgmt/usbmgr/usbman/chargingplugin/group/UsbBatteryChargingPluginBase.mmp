@@ -47,5 +47,4 @@ LIBRARY 		euser.lib
 LIBRARY 		usbmanextensionplugin.lib 
 LIBRARY			centralrepository.lib
 
-
 NOEXPORTLIBRARY

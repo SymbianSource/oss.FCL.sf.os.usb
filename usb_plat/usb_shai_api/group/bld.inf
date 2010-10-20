@@ -23,7 +23,6 @@ ARMV5SMP
 
 PRJ_EXPORTS
 
-
 ../inc/usb_common_shai.h               SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
 ../inc/usb_host_shai.h                 SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
 ../inc/usb_otg_shai.h                  SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)

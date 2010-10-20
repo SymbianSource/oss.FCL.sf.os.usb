@@ -38,3 +38,4 @@ OS_LAYER_SYSTEMINCLUDE_SYMBIAN
 LIBRARY			euser.lib 
 LIBRARY			usbclasscontroller.lib
 LIBRARY			efsrv.lib
+

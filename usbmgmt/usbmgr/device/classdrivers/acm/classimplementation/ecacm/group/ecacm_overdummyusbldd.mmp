@@ -72,6 +72,6 @@ LIBRARY			efsrv.lib
 LIBRARY                 dummyusblddapi.lib
 
 VENDORID 0x70000001
-
+SMPSAFE
 UNPAGED
 

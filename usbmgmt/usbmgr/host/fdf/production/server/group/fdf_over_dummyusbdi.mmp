@@ -33,3 +33,4 @@ LIBRARY			dummyusbdi.lib
 LIBRARY			tfdf_usbdescriptors.lib
 
 MACRO	__OVER_DUMMYUSBDI__
+SMPSAFE

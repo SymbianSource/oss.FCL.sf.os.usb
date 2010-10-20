@@ -960,7 +960,8 @@ TInt CAcmReader::PartialFindTerminator(TUint8* aFrom,
 	{
 	OstTraceFunctionEntry0( CACMREADER_PARTIALFINDTERMINATOR_ENTRY );
 	
-	aPos = 1;
+	//change aPos from 1 to 0 since RComm::read will return part of the terminator string if aPos = 1
+	aPos = 0;
 	OstTraceExt2( TRACE_NORMAL, CACMREADER_PARTIALFINDTERMINATOR, 
 			"CAcmReader::PartialFindTerminator;\taFrom=%d, aTo=%d", (TInt)(aFrom-iBufStart), (TInt)(aTo-iBufStart) );
 	

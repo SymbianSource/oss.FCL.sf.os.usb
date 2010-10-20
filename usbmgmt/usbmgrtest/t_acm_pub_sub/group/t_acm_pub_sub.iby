@@ -19,8 +19,8 @@
 #ifndef __ACM_PUB_SUB_IBY__
 #define __ACM_PUB_SUB_IBY__
 
-file=ABI_DIR\BUILD_DIR\t_acm_pub_sub.exe	                     		Sys\Bin\t_acm_pub_sub.exe
+file=ABI_DIR/BUILD_DIR/t_acm_pub_sub.exe	                     		sys/bin/t_acm_pub_sub.exe
 
-data=EPOCROOT##epoc32\data\z\private\101fe1db\NumberOfAcmFunctions.ini		private\101fe1db\NumberOfAcmFunctions.ini
+data=EPOCROOT##epoc32/data/z/private/101fe1db/NumberOfAcmFunctions.ini		private/101fe1db/NumberOfAcmFunctions.ini
 
 #endif

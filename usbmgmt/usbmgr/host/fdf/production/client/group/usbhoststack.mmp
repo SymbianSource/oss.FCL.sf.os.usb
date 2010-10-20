@@ -32,3 +32,4 @@ TARGET			usbhoststack.dll
 // UID2 = 0x1000008d for static interface DLLs.
 // UID3 = unique for FDF system
 UID 			0x1000008d 0x10282B48
+SMPSAFE

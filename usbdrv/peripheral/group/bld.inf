@@ -1,0 +1,62 @@
+/*
+* Copyright (c) 2010 Nokia Corporation and/or its subsidiary(-ies).
+* All rights reserved.
+* This component and the accompanying materials are made available
+* under the terms of "Eclipse Public License v1.0"
+* which accompanies this distribution, and is available
+* at the URL "http://www.eclipse.org/legal/epl-v10.html".
+*
+* Initial Contributors:
+* Nokia Corporation - initial contribution.
+*
+* Contributors:
+*
+* Description:
+*
+*/
+
+#if !defined(WINS) && !defined(X86GCC) && !defined(WINSCW)
+
+#include <platform_paths.hrh>
+
+PRJ_PLATFORMS
+ARMV5
+ARMV5SMP
+
+PRJ_EXPORTS
+../public/usbc.h                 SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbc.inl               SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/d32usbc.h              SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbc.inl            SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbcshared.h        SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbcshared.inl      SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbtransfers.h      SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbdescriptors.h    SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+
+../public/usbcshared.h                       SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbcshared.inl                     SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbotgperipheralcontrolif.h        SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbcdesc.h                         SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbcque.h                          SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usb.h                              SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/usbcontrolxferif.h                 SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/usbcsc.h          SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/usbcsc.inl        SYMBIAN_OS_LAYER_PUBLIC_EXPORT_PATH(usb/)
+../public/d32usbcsc.h       SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../public/d32usbcsc.inl     SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+
+../../../usb_plat/usb_shai_api/inc/usb_common_shai.h               SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../../../usb_plat/usb_shai_api/inc/usb_peripheral_shai.h              SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../../../usb_plat/usb_shai_api/inc/usb_peripheral_shai.inl            SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../../../usb_plat/usb_shai_api/inc/usb_peripheral_shai_shared.h    SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../../../usb_plat/usb_shai_api/inc/usb_charger_detection_shai.h   SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+../../../usb_plat/usb_shai_api/inc/usb_charger_detection_shai_shared.h     SYMBIAN_OS_LAYER_PLATFORM_EXPORT_PATH(usb/)
+
+usbperipheral_shai.iby        /epoc32/rom/include/usbperipheral_shai.iby
+
+#include "../pdd/pil/group/bld.inf"
+#include "../ldd/perildd/group/bld.inf"
+#include "../ldd/perilddsc/group/bld.inf"
+#include "../ldd/perilddsc/appifwrapper/group/bld.inf"
+
+#endif

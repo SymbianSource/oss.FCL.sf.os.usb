@@ -38,5 +38,5 @@ LIBRARY 		euser.lib
 LIBRARY 		ecom.lib
 
 USERINCLUDE   ../traces
-
+SMPSAFE
 #include <usbhost/internal/fdfcaps.mmh>

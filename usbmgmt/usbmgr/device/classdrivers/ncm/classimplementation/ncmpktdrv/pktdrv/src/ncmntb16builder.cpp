@@ -62,7 +62,11 @@ CNcmNtbBuilder* CNcmNtb16Builder::NewL(MNcmNtbBuildObserver& aObserver)
     {
     OstTraceFunctionEntry1( CNCMNTB16BUILDER_NEWL_ENTRY, ( TUint )&( aObserver ) );
     CNcmNtb16Builder *self=new (ELeave) CNcmNtb16Builder(aObserver);
+
+	CleanupStack::PushL(self);	
     self->ConstructL();
+	CleanupStack::Pop(self);
+
     OstTraceFunctionExit0( CNCMNTB16BUILDER_NEWL_EXIT );
     return self;    
     }
@@ -74,7 +78,7 @@ CNcmNtb16Builder::CNcmNtb16Builder(MNcmNtbBuildObserver& aObserver)
 
 void CNcmNtb16Builder::ConstructL()
     {
-    iNtbInMaxSize = KNtb16InMaxSize;
+	iNtbInMaxSize = KNtb16InMaxSize;
     iNdpInDivisor = KNdp16InDivisor;
     iNdpInPayloadRemainder = KNdp16InRemainder;
     iNdpInAlignment = KNdp16InAlignment;  

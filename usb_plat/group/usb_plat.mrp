@@ -15,12 +15,12 @@
 #
 component	usb_plat
 
-source	\sf\os\usb\usb_plat\group
+source	/sf/os/usb/usb_plat/group
 
-binary	\sf\os\usb\usb_plat\group	all
+binary	/sf/os/usb/usb_plat/group	all
 
-exports	\sf\os\usb\usb_plat\group
+exports	/sf/os/usb/usb_plat/group
 
-notes_source	\component_defs\release.src
+notes_source	/component_defs/release.src
 
 ipr E
