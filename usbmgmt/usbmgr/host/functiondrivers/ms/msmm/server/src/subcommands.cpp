@@ -152,9 +152,6 @@ void TRegisterInterface::DoCancelAsyncCmd()
     {
     OstTraceFunctionEntry0( TREGISTERINTERFACE_DOCANCELASYNCCMD_ENTRY );
 
-	TRequestStatus* status = &iHandler.Status();
-    User::RequestComplete(status, KErrCancel);
-
     if(iInterfaceNode)
         {
         iInterfaceNode->iUsbMsDevice.Remove();
