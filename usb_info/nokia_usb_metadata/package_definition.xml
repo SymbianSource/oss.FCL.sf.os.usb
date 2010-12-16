@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SystemDefinition xmlns:sf="http://www.symbian.org/system-definition" schema="3.0.0" id-namespace="http://www.nokia.com/schema/drd/system-definition">
+ <package id="sf:usb" name="USB" levels="adaptation hw-if plugin framework server app-if">
+    <collection id="usbbsptemplate" name="USB BSP Template" level="adaptation" before="sf:usbldd">
+     <component id="usbhostcntrldrivertemplate" name="OMAP USB Host Controller Driver Template" introduced="^3" filter="gt" purpose="optional">
+      <unit bldFile="../../usbbsptemplate/usbhostcntrldrivertemplate" mrp="../../usbbsptemplate/usbhostcntrldrivertemplate/base_template_usbhostotg.mrp"/>
+     </component>
+    </collection>
+    <collection id="sf:usbldd" name="USB Logical Device Drivers" level="hw-if">
+     <component id="usbhotgdrivers" name="USB Host and OTG Drivers" introduced="^3" filter="gt" purpose="optional">
+      <unit bldFile="../../../kernelhwsrv/kernel/eka/drivers/usbho" mrp="../../../kernelhwsrv/kernel/eka/drivers/usbho/base_drivers_usbhostotg.mrp"/>
+     </component>
+     <component id="usbhostandotgstack" name="USB Host and OTG Stack" introduced="^3" filter="gt" purpose="optional">
+      <unit bldFile="../../../kernelhwsrv/kernel/eka/drivers/usbho/usbd" mrp="../../../kernelhwsrv/kernel/eka/drivers/usbho/usbd/base_drivers_usbhostotg_usbware.mrp"/>
+     </component>
+    </collection>
+    <collection id="sf:usbmgmt" name="USB Management" level="server">
+     <component id="usbrndis" name="USB RNDIS" introduced="^3" filter="gt" purpose="optional" class="plugin">
+      <unit bldFile="../../usbmgmt/usbrndis/group" mrp="../../usbmgmt/usbrndis/group/usb_rndis.mrp"/>
+     </component>
+    </collection>
+    <collection id="usbextension" name="USB Extensions" level="plugin" >
+     <component id="usbaudioclassdriver" name="USB Audio Class Driver" introduced="^3" filter="s60" purpose="optional" class="plugin">
+      <unit bldFile="../../usbextension/usbaudioclassdriver/group"/>
+     </component>
+     <component id="usbthermalplugin" name="USB Thermal Monitor Plugin" introduced="^3" filter="s60" purpose="optional" class="plugin">
+      <unit bldFile="../../usbextension/usbthermalplugin/group"/>
+     </component>
+    </collection>
+   <collection id="sf:usb_info" name="USB Info" level="app-if">
+   <component id="nokia_usb_metadata" name="Nokia USB Metadata" class="config" introduced="^2" purpose="development" target="desktop">
+    <unit mrp="nokia_usb_metadata.mrp"/>
+   </component>
+   <component id="usb_audio_stream_plugin_api" name="USB Audio Stream Plugin API" class="api" filter="s60">
+    <unit bldFile="../../usb_plat/usb_audio_stream_plugin_api/group"/>
+   </component>
+  </collection>
+ </package>
+</SystemDefinition>

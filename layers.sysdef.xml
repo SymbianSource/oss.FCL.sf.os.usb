@@ -10,7 +10,8 @@
         <unit unitID="lcdo.usb" mrp="" bldFile="&layer_real_source_path;/group" name="usb" />
       </module>
       <module name="">
-        <unit unitID="lcdo.usb.usbextension" mrp="" bldFile="&layer_real_source_path;/usbextension/group" filter="!sf_build" name="usb_usbextension" />
+        <unit unitID="lcdo.usb.usbextension.usbaudioclassdriver" mrp="" bldFile="&layer_real_source_path;/usbextension/usbaudioclassdriver/group" filter="!sf_build" name="usb_usbextension_usbaudioclassdriver" />
+        <unit unitID="lcdo.usb.usbextension.usbthermalplugin" mrp="" bldFile="&layer_real_source_path;/usbextension/usbthermalplugin/group" filter="dfs_build" name="usb_usbextension_usbthermalplugin" />
         <unit unitID="lcdo.usb.usb_plat.usb_audio_stream_plugin_api" mrp="" bldFile="&layer_real_source_path;/usb_plat/usb_audio_stream_plugin_api/group" filter="!sf_build" name="usb_usb_plat_usb_audio_stream_plugin_api" />
       </module>    
     </layer>
